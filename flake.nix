@@ -88,6 +88,7 @@
           # Layer 2: Yarn build derivation (mkYarnPackage)
           # Builds JS project with patched source, producing a complete node tree
           # This is arch-agnostic (if no native addons) and highly cache-friendly
+          # mkYarnModules includes ALL dependencies from yarn.lock (including devDependencies)
           nodeTree = pkgs.mkYarnPackage {
             pname = "percy-cli-node-tree";
             inherit version;
@@ -95,20 +96,8 @@
             yarnLock = ./yarn.lock;
             yarnOfflineCache = yarnOfflineCache;
             
-            # Use postConfigure to install devDependencies after mkYarnPackage sets up dependencies
-            # mkYarnPackage installs production dependencies, we need devDependencies for lerna
-            # mkYarnPackage sets up yarn's offline cache, so we can use --offline
-            postConfigure = ''
-              export HOME="$TMPDIR/home"
-              mkdir -p "$HOME"
-              
-              # mkYarnPackage has set up the offline cache and installed production dependencies
-              # Now install devDependencies using the offline cache
-              # The cache is already configured by mkYarnPackage's yarnConfigHook
-              yarn install --offline --frozen-lockfile --ignore-scripts
-            '';
-            
             # Build the project as part of mkYarnPackage
+            # mkYarnPackage with yarnOfflineCache should install all dependencies including devDependencies
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
@@ -120,9 +109,11 @@
               # Ensure local binaries are on PATH
               export PATH="$PWD/node_modules/.bin:$PATH"
               
-              # Assert lerna is available
+              # Assert lerna is available (mkYarnPackage should have installed it via yarnOfflineCache)
               if ! command -v lerna >/dev/null 2>&1; then
                 echo "Error: lerna not found in node_modules/.bin" >&2
+                echo "Checking node_modules structure..." >&2
+                ls -la "$PWD/node_modules/.bin" 2>/dev/null || echo "node_modules/.bin does not exist" >&2
                 exit 1
               fi
               

@@ -83,8 +83,9 @@
               fi
               
               # Check for lerna in yarn.lock (should always be present)
+              # In yarn.lock, lerna appears as "lerna@^6.0.1:" (without quotes in the pattern)
               if grep -q '"lerna"' package.json; then
-                if ! grep -q '"lerna@' yarn.lock; then
+                if ! grep -q '^lerna@' yarn.lock; then
                   echo "ERROR: lerna is in package.json but NOT in yarn.lock!" >&2
                   echo "Run 'yarn install' to update yarn.lock" >&2
                   exit 1

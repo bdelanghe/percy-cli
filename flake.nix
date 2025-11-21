@@ -78,11 +78,10 @@
 
           # Generate yarn offline cache first (required for mkYarnPackage)
           # This creates a fixed-output derivation with all packages from yarn.lock
-          # Use patchedSrc to ensure package.json has the name field
           yarnOfflineCache = pkgs.mkYarnModules {
             pname = "percy-cli-yarn-modules";
             inherit version;
-            packageJson = "${patchedSrc}/package.json";
+            packageJson = ./package.json;
             yarnLock = ./yarn.lock;
           };
 
@@ -98,14 +97,15 @@
             
             # Use postConfigure to install devDependencies after mkYarnPackage sets up dependencies
             # mkYarnPackage installs production dependencies, we need devDependencies for lerna
+            # mkYarnPackage sets up yarn's offline cache, so we can use --offline
             postConfigure = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
               
-              # mkYarnPackage has installed production dependencies
+              # mkYarnPackage has set up the offline cache and installed production dependencies
               # Now install devDependencies using the offline cache
-              # --offline uses the cache, --frozen-lockfile ensures reproducibility
-              yarn install --offline --frozen-lockfile
+              # The cache is already configured by mkYarnPackage's yarnConfigHook
+              yarn install --offline --frozen-lockfile --ignore-scripts
             '';
             
             # Build the project as part of mkYarnPackage

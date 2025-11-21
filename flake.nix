@@ -138,11 +138,25 @@
             yarnLock = ./yarn.lock;
             offlineCache = yarnDeps;
             
-            # Configure yarn to install all dependencies (including devDependencies)
-            # mkYarnPackage by default only installs production deps
-            yarnBuild = ''
-              # Install all dependencies including devDependencies
+            # Override configurePhase to ensure offline cache is properly set up
+            # and install all dependencies including devDependencies
+            configurePhase = ''
+              runHook preConfigure
+              
+              export HOME="$TMPDIR/home"
+              mkdir -p "$HOME"
+              
+              # mkYarnPackage's yarnConfigHook should have set up the offline cache
+              # Verify the cache is accessible
+              if [ -z "${yarnDeps}" ] || [ ! -d "${yarnDeps}" ]; then
+                echo "ERROR: offlineCache (yarnDeps) is not accessible" >&2
+                exit 1
+              fi
+              
+              # Install all dependencies (including devDependencies) using offline cache
               yarn install --offline --frozen-lockfile --ignore-scripts
+              
+              runHook postConfigure
             '';
             
             # Build the project after dependencies are installed

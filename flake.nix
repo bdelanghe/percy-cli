@@ -181,12 +181,11 @@
 
       devShells = forAllSystems (pkgs: system: {
         default = pkgs.mkShell {
-          buildInputs = with pkgs; [
+          nativeBuildInputs = with pkgs; [
             nodejs_20
             yarn
             git
             zip
-            coreutils
             gnused
           ];
         };

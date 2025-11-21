@@ -99,7 +99,7 @@
             '';
           };
 
-        in {
+        in rec {
           # Layer 3: Binary packaging derivation
           # Takes built JS tree, applies CLI-specific patches, and wraps with pkg
           # This is per-system (pkg target varies by architecture)

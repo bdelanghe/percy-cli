@@ -111,8 +111,8 @@ function setup_temp_dir() {
   export BUILD_TMP
   echo "Using temporary build directory: $BUILD_TMP"
   
-  # Set trap to cleanup temp directory on exit
-  trap "rm -rf '$BUILD_TMP'" EXIT INT TERM
+  # Set trap to cleanup on exit (temp directory and signing artifacts)
+  trap cleanup EXIT INT TERM
 }
 
 function prepare_build() {

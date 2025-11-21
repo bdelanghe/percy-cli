@@ -35,7 +35,7 @@
 
           pkgTarget = systemToPkgTarget.${system};
 
-        in {
+        in rec {
           percy-cli = pkgs.stdenv.mkDerivation {
             pname = "percy-cli";
             version = "0.0.1"; # TODO: read from package.json

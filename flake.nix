@@ -110,6 +110,9 @@
                 echo "  1. The hash in fetchYarnDeps is incorrect" >&2
                 echo "  2. yarn.lock has changed but hash wasn't updated" >&2
                 echo "  3. fetchYarnDeps failed to fetch packages" >&2
+                echo "" >&2
+                echo "To build fetchYarnDeps with network access (first time only), run:" >&2
+                echo "  nix build .#packages.${system}.yarnDepsCheck --option sandbox false" >&2
                 exit 1
               fi
               

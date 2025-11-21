@@ -51,8 +51,10 @@
                 echo "ERROR: offline cache directory ${offline} does not exist" >&2
                 exit 1
               fi
-              if ! find -L "${offline}" -name "*.tgz" 2>/dev/null | head -1 | grep -q .; then
-                echo "ERROR: offline cache ${offline} has no .tgz files" >&2
+              # Check for entries (files or symlinks) with .tgz in their names
+              # linkFarm creates symlinks, so we check the symlink names directly
+              if ! ls "${offline}"/*.tgz 2>/dev/null | head -1 | grep -q .; then
+                echo "ERROR: offline cache ${offline} has no .tgz entries" >&2
                 echo "Cache directory contents:" >&2
                 ls -la "${offline}" || true
                 exit 1

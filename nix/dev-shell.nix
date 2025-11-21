@@ -1,7 +1,10 @@
 { pkgs }:
 
 let
-  firefox-bin = "${pkgs.firefox}/bin/firefox";
+  # Firefox is not available on aarch64-darwin in nixpkgs 24.05
+  # Use system Firefox on macOS, or Nix Firefox on Linux
+  firefox-available = pkgs.firefox.meta.availableOn pkgs.stdenv.hostPlatform;
+  firefox-bin = if firefox-available then "${pkgs.firefox}/bin/firefox" else null;
 in
 
 pkgs.mkShell {
@@ -11,10 +14,9 @@ pkgs.mkShell {
     git
     zip
     coreutils
-    firefox
     act
     gnused
-  ];
+  ] ++ pkgs.lib.optional firefox-available pkgs.firefox;
 
   shellHook = ''
     export PATH="$PWD/node_modules/.bin:$PATH"
@@ -24,12 +26,12 @@ pkgs.mkShell {
       export PATH="/usr/local/bin:$PATH"
     fi
 
-    if [ -f "${firefox-bin}" ]; then
-      export FIREFOX_BIN="${firefox-bin}"
+    if [ -n "${if firefox-bin != null then firefox-bin else ""}" ] && [ -f "${if firefox-bin != null then firefox-bin else ""}" ]; then
+      export FIREFOX_BIN="${if firefox-bin != null then firefox-bin else ""}"
     elif [ -f "/Applications/Firefox.app/Contents/MacOS/firefox" ]; then
       export FIREFOX_BIN="/Applications/Firefox.app/Contents/MacOS/firefox"
     else
-      echo "WARNING: Firefox binary not found." >&2
+      echo "WARNING: Firefox binary not found. Using system Firefox if available." >&2
     fi
   '';
 }

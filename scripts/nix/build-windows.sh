@@ -91,11 +91,17 @@ function build_windows() {
   
   # Handle Windows executable
   if [ -f run-win.exe ]; then
-    mv run-win.exe percy.exe
-    mv percy.exe "$ORIGINAL_DIR/"
+    mv run-win.exe percy.exe || {
+      echo "Error: Failed to rename run-win.exe to percy.exe" >&2
+      exit 1
+    }
+    mv percy.exe "$ORIGINAL_DIR/" || {
+      echo "Error: Failed to move executable to $ORIGINAL_DIR/" >&2
+      exit 1
+    }
     # Verify the file exists at destination before reporting success
     if [ ! -f "$ORIGINAL_DIR/percy.exe" ]; then
-      echo "Error: Failed to move executable to $ORIGINAL_DIR/" >&2
+      echo "Error: Executable not found at destination after move: $ORIGINAL_DIR/percy.exe" >&2
       exit 1
     fi
     echo "Windows executable built successfully: $ORIGINAL_DIR/percy.exe"

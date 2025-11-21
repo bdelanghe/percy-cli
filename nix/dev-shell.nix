@@ -4,7 +4,6 @@ let
   # Firefox is not available on aarch64-darwin in nixpkgs 24.05
   # Check platform first to avoid evaluating Firefox on unsupported platforms
   isAarch64Darwin = pkgs.stdenv.hostPlatform.isDarwin && pkgs.stdenv.hostPlatform.isAarch64;
-  firefox-available = !isAarch64Darwin;
   
   # Base build inputs (always included)
   baseInputs = with pkgs; [
@@ -17,9 +16,13 @@ let
     gnused
   ];
   
-  # Don't include Firefox in buildInputs on aarch64-darwin (not available in nixpkgs 24.05)
-  # The shellHook will handle finding Firefox from the system instead
-  buildInputs = baseInputs;
+  # Only add Nix Firefox where it's actually available
+  # On aarch64-darwin, the shellHook will handle finding Firefox from the system instead
+  buildInputs =
+    if isAarch64Darwin then
+      baseInputs
+    else
+      baseInputs ++ [ pkgs.firefox ];
 in
 
 pkgs.mkShell {

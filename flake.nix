@@ -47,8 +47,14 @@
             # Optional: small sanity check
             preConfigure = ''
               echo "Using offline cache at: ${offline}"
-              if ! find -L "${offline}" -name "*.tgz" | head -1 | grep -q .; then
+              if [ ! -d "${offline}" ]; then
+                echo "ERROR: offline cache directory ${offline} does not exist" >&2
+                exit 1
+              fi
+              if ! find -L "${offline}" -name "*.tgz" 2>/dev/null | head -1 | grep -q .; then
                 echo "ERROR: offline cache ${offline} has no .tgz files" >&2
+                echo "Cache directory contents:" >&2
+                ls -la "${offline}" || true
                 exit 1
               fi
             '';

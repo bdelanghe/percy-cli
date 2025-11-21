@@ -171,13 +171,11 @@
         });
 
       # Convenience apps for local dev: `nix run .#percy-cli`
+      # Note: Apps don't support meta attributes in Nix flakes, warnings about missing meta are harmless
       apps = forAllSystems (system: {
         percy-cli = {
           type = "app";
           program = "${self.packages.${system}.percy-cli}/bin/percy";
-          meta = {
-            description = "Percy CLI executable";
-          };
         };
       });
 

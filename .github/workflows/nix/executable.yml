@@ -109,7 +109,7 @@ jobs:
       - name: Package unsigned macOS binary
         if: steps.check-secrets.outputs.has_secrets == 'false'
         run: |
-          zip -j percy-osx-${{ matrix.system }}.zip artifacts/percy-${{ matrix.system }}
+          zip percy-osx-${{ matrix.system }}.zip artifacts/percy-${{ matrix.system }}
       
       - name: Upload signed macOS asset
         if: steps.check-secrets.outputs.has_secrets == 'true'

@@ -30,9 +30,10 @@
           srcPatched = import ./nix/src-patched.nix { inherit pkgs; version = cfg.version; };
 
           # Let Nix compute the offline cache from yarn.lock
+          # Using lib.fakeSha256 to force regeneration - Nix will calculate the correct hash
           yarnDeps = pkgs.fetchYarnDeps {
             yarnLock = ./yarn.lock;
-            sha256 = "sha256-WDkPwahNIcB50PAYiDX9CNGKNCU08sou8Y0d6qTrEyM=";
+            sha256 = pkgs.lib.fakeSha256;
           };
 
           # Layer 2: node tree build (mkYarnPackage)
@@ -73,18 +74,50 @@
               export npm_config_loglevel=error
 
               # Add node_modules/.bin to PATH for babel, lerna, and other build tools
-              # mkYarnPackage should have installed devDependencies (including lerna) 
-              # when NODE_ENV=development is set
               export PATH="$PWD/node_modules/.bin:$PATH"
 
-              # Verify lerna is available (mkYarnPackage should have installed it)
+              # Diagnostic: List all available binaries from devDependencies
+              echo "=== Diagnostic: Checking devDependency binaries ===" >&2
+              echo "NODE_ENV is set to: $NODE_ENV" >&2
+              
+              if [ -d node_modules/.bin ]; then
+                echo "node_modules/.bin exists. Contents:" >&2
+                ls -la node_modules/.bin/ >&2
+                echo "" >&2
+                echo "Expected devDependency binaries:" >&2
+                echo "  - babel (from @babel/cli)" >&2
+                echo "  - eslint (from eslint)" >&2
+                echo "  - lerna (from lerna)" >&2
+                echo "  - karma (from karma)" >&2
+                echo "  - nyc (from nyc)" >&2
+                echo "  - rollup (from rollup)" >&2
+                echo "  - tsd (from tsd)" >&2
+                echo "" >&2
+                echo "Checking for specific binaries:" >&2
+                for bin in babel eslint lerna karma nyc rollup tsd; do
+                  if [ -f "node_modules/.bin/$bin" ] || command -v "$bin" >/dev/null 2>&1; then
+                    echo "  ✓ $bin found" >&2
+                  else
+                    echo "  ✗ $bin NOT found" >&2
+                  fi
+                done
+              else
+                echo "ERROR: node_modules/.bin does not exist!" >&2
+                echo "This suggests dependencies were not installed." >&2
+              fi
+              echo "=== End diagnostic ===" >&2
+              echo "" >&2
+
+              # Verify lerna is available
               if ! command -v lerna >/dev/null 2>&1; then
                 echo "Error: lerna command not found" >&2
-                echo "NODE_ENV is set to: $NODE_ENV" >&2
-                echo "Checking if node_modules/.bin exists:" >&2
-                ls -la node_modules/.bin/ 2>&1 || echo "node_modules/.bin does not exist" >&2
-                echo "Checking if lerna is in node_modules:" >&2
-                find node_modules -name "lerna" -type f 2>&1 | head -5 || echo "lerna not found in node_modules" >&2
+                echo "Checking if lerna package is installed:" >&2
+                if [ -d "node_modules/lerna" ]; then
+                  echo "  node_modules/lerna directory exists" >&2
+                  ls -la node_modules/lerna/ 2>&1 | head -10 >&2
+                else
+                  echo "  node_modules/lerna directory does NOT exist" >&2
+                fi
                 exit 1
               fi
 

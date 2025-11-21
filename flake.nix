@@ -15,24 +15,28 @@
         "x86_64-darwin"
       ];
 
-      # Helper: give each system both pkgs and system
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system:
         let
           pkgs = import nixpkgs { inherit system; };
         in
         f pkgs system);
 
+      # Global: import offline cache once per pkgs
+      offlineCacheFor = pkgs:
+        (import ./nix/offline-cache.nix {
+          inherit (pkgs) fetchurl fetchgit linkFarm runCommand gnutar;
+        }).offline_cache;
+
     in {
-      # Flake schemas for better tooling support and validation
       schemas = flake-schemas.schemas;
 
       packages = forAllSystems (pkgs: system:
         let
-          inherit (pkgs) stdenv yarn gnused;
+          inherit (pkgs) stdenv gnused;
           node = pkgs.nodejs_20;
+          lerna = pkgs.nodePackages.lerna;
           version = "0.0.1";
 
-          # Map Nix system to pkg target
           pkgTarget = {
             "x86_64-linux" = "node20-linux-x64";
             "aarch64-linux" = "node20-linux-arm64";
@@ -40,10 +44,10 @@
             "aarch64-darwin" = "node20-macos-arm64";
           }.${system};
 
-          # Layer 1: Patched source derivation
-          # Removes "type": "module" early so all consumers see consistent CJS semantics
-          # This is arch-agnostic and cache-friendly
-          patchedSrc = stdenv.mkDerivation {
+          offlineCache = offlineCacheFor pkgs;
+
+          # Layer 1: patched source tree
+          src-patched = stdenv.mkDerivation {
             pname = "percy-cli-src-patched";
             inherit version;
             src = ./.;
@@ -53,22 +57,17 @@
               mkdir -p $out
               cp -R . $out
               cd $out
-              
-              # Remove "type": "module" from root package.json
+
               sed -i '/"type": "module",/d' package.json
-              
-              # Add name field to root package.json for mkYarnPackage compatibility
-              # (mkYarnPackage expects a name field for metadata extraction)
+
               if ! grep -q '"name":' package.json; then
-                # Insert name field after opening brace using a temporary file
                 {
                   echo '{'
                   echo '  "name": "percy-cli",'
                   tail -n +2 package.json
                 } > package.json.tmp && mv package.json.tmp package.json
               fi
-              
-              # Remove from all package.json files except dom and sdk-utils
+
               find packages -name package.json \
                 -not -path "*/dom/*" \
                 -not -path "*/sdk-utils/*" \
@@ -76,102 +75,39 @@
             '';
           };
 
-          # Prefetch yarn dependencies for offline cache
-          # This creates a directory of .tgz tarballs that Yarn can use offline
-          # This MUST be fetchYarnDeps, nothing else
-          yarnDeps = pkgs.fetchYarnDeps {
-            yarnLock = ./yarn.lock;
-            sha256 = "WDkPwahNIcB50PAYiDX9CNGKNCU08sou8Y0d6qTrEyM=";
-          };
-
-          # Validation: Check that yarnDeps exists and contains expected packages
-          # This will fail early if the offline cache is missing or incomplete
-          # Run with: nix build .#packages.x86_64-darwin.yarnDepsCheck
-          yarnDepsCheck = stdenv.mkDerivation {
-            pname = "percy-cli-yarn-deps-check";
-            inherit version;
-            dontBuild = true;
-            dontUnpack = true;
-            installPhase = ''
-              echo "Validating yarnDeps offline cache..."
-              
-              # Check that yarnDeps path exists
-              if [ ! -d "${yarnDeps}" ]; then
-                echo "ERROR: yarnDeps path does not exist: ${yarnDeps}" >&2
-                exit 1
-              fi
-              
-              # Check that it contains .tgz files (at least some packages)
-              tgz_count=$(find "${yarnDeps}" -name "*.tgz" 2>/dev/null | wc -l | tr -d ' ')
-              if [ "$tgz_count" -eq 0 ]; then
-                echo "ERROR: yarnDeps cache contains no .tgz files" >&2
-                echo "This means fetchYarnDeps did not download any packages." >&2
-                echo "Possible causes:" >&2
-                echo "  1. The hash in fetchYarnDeps is incorrect" >&2
-                echo "  2. yarn.lock has changed but hash wasn't updated" >&2
-                echo "  3. fetchYarnDeps failed to fetch packages" >&2
-                echo "" >&2
-                echo "To build fetchYarnDeps with network access (first time only), run:" >&2
-                echo "  nix build .#packages.${system}.yarnDepsCheck --option sandbox false" >&2
-                exit 1
-              fi
-              
-              echo "✓ yarnDeps cache validated: found $tgz_count .tgz files"
-              echo "✓ Offline cache is ready for mkYarnPackage"
-              
-              # Create a marker file to indicate validation passed
-              mkdir -p $out
-              echo "yarnDeps validation passed" > $out/validation.txt
-              echo "Cache location: ${yarnDeps}" >> $out/validation.txt
-              echo "Package count: $tgz_count" >> $out/validation.txt
-            '';
-          };
-
-          # Layer 2: Yarn build derivation (mkYarnPackage)
-          # Builds JS project with patched source, producing a complete node tree
-          # This is arch-agnostic (if no native addons) and highly cache-friendly
-          # mkYarnPackage handles yarn2nix + offline cache internally
-          nodeTree = pkgs.mkYarnPackage {
+          # Layer 2: node tree build (mkYarnPackage)
+          node-tree = pkgs.mkYarnPackage {
             pname = "percy-cli-node-tree";
             inherit version;
-            src = patchedSrc;
+            src = src-patched;
             yarnLock = ./yarn.lock;
-            offlineCache = yarnDeps;
-            
-            # mkYarnPackage installs production dependencies by default in configurePhase
-            # Install devDependencies after configurePhase completes
-            # The yarnConfigHook from mkYarnPackage configures yarn to use offlineCache
-            postConfigure = ''
-              export HOME="$TMPDIR/home"
-              mkdir -p "$HOME"
-              
-              # Install devDependencies using the offline cache
-              # mkYarnPackage's configurePhase has already set up yarn to use offlineCache
-              yarn install --offline --frozen-lockfile --ignore-scripts
+            offlineCache = offlineCache;
+
+            nativeBuildInputs = [ lerna ];
+
+            # Optional: small sanity check
+            preConfigure = ''
+              echo "Using offline cache at: ${offlineCache}"
+              if ! find "${offlineCache}" -name "*.tgz" | head -1 | grep -q .; then
+                echo "ERROR: offline cache ${offlineCache} has no .tgz files" >&2
+                exit 1
+              fi
             '';
-            
-            # Build the project after all dependencies are installed
+
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
-              
-              # Enforce offline for any npm/npx subprocesses
+
               export npm_config_offline=true
               export NPM_CONFIG_OFFLINE=true
-              
-              # Ensure local binaries (including lerna) are visible
-              export PATH="$PWD/node_modules/.bin:$PATH"
-              
-              # Verify lerna is available
+
               if ! command -v lerna >/dev/null 2>&1; then
-                echo "Error: lerna not found in node_modules/.bin" >&2
-                ls -la "$PWD/node_modules/.bin" 2>&1 || echo "node_modules/.bin does not exist" >&2
+                echo "Error: lerna (from Nix) not on PATH" >&2
                 exit 1
               fi
-              
-              # Monorepo build
+
               lerna run build --stream
-              
+
               npm run build_cjs || true
               if [ -d build ]; then
                 cp -R build/* packages/
@@ -179,15 +115,12 @@
             '';
           };
 
-          # Layer 3: Binary packaging derivation
-          # Takes built JS tree, applies CLI-specific patches, and wraps with pkg
-          # This is per-system (pkg target varies by architecture)
+          # Layer 3: pkg-wrapped CLI binary
           percy-cli = stdenv.mkDerivation {
             pname = "percy-cli";
             inherit version;
 
-            src = nodeTree;
-            # mkYarnPackage nests the project under libexec/<pname>
+            src = node-tree;
             sourceRoot = "libexec/percy-cli-node-tree";
 
             nativeBuildInputs = [
@@ -198,9 +131,7 @@
 
             NODE_ENV = "production";
 
-            # CLI-specific patches: percy.js prepend and NODE_ENV injection
             patchPhase = ''
-              # Prepend import to percy.js
               if [ -f packages/cli/dist/percy.js ]; then
                 {
                   echo "import { cli } from '@percy/cli';"
@@ -209,7 +140,6 @@
                 mv packages/cli/dist/percy.js.new packages/cli/dist/percy.js
               fi
 
-              # Ensure NODE_ENV is set in run.cjs
               if [ -f packages/cli/bin/run.cjs ] && \
                  ! grep -q 'process.env.NODE_ENV = "executable";' packages/cli/bin/run.cjs; then
                 sed -i '1a process.env.NODE_ENV = "executable";' packages/cli/bin/run.cjs
@@ -221,15 +151,10 @@
 
             installPhase = ''
               mkdir -p "$out/bin"
-
-              # Ensure node_modules is accessible for pkg
               export NODE_PATH="$PWD/node_modules:$NODE_PATH"
 
-              # Binary packaging logic (also available as scripts/percy-make-binary.sh for CI)
-              # Use Nix-provided pkg instead of npx -y pkg for purity (no network access)
               pkg ./packages/cli/bin/run.cjs -t ${pkgTarget} -d
 
-              # pkg can name outputs differently; handle the common cases
               for name in run-${pkgTarget} run-linux run-macos run; do
                 if [ -f "$name" ]; then
                   mv "$name" "$out/bin/percy"
@@ -239,7 +164,6 @@
               done
 
               echo "Error: pkg did not produce expected binary" >&2
-              echo "Expected one of: run-${pkgTarget}, run-linux, run-macos, run" >&2
               ls -la
               exit 1
             '';
@@ -252,8 +176,7 @@
           };
 
         in {
-          inherit percy-cli;
-          inherit yarnDepsCheck;
+          inherit src-patched node-tree percy-cli;
           default = percy-cli;
         });
 
@@ -266,26 +189,12 @@
       });
 
       devShells = forAllSystems (pkgs: system: {
-        default = pkgs.mkShell {
-          nativeBuildInputs = with pkgs; [
-            nodejs_20
-            yarn
-            yarn2nix
-            git
-            zip
-            gnused
-          ];
-        };
+        default = import ./nix/dev-shell.nix { inherit pkgs; };
       });
 
-      # Conditional checks: only define checks for systems that can be built locally
-      # This allows `nix flake check` to work on darwin without requiring Linux builders
-      # Linux packages remain defined for CI but aren't checked locally
       checks = forAllSystems (pkgs: system:
         if pkgs.stdenv.isDarwin then {
-          # Validate offline cache before attempting full build
-          yarn-deps-check = self.packages.${system}.yarnDepsCheck;
-          # Full package build
+          node_tree = self.packages.${system}.node-tree;
           default = self.packages.${system}.percy-cli;
         } else {}
       );

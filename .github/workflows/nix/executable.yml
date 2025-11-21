@@ -188,12 +188,6 @@ jobs:
           name: win-exe
           path: percy.exe
       
-      - name: Set up Node.js for signing
-        if: hashFiles('percy.exe') != ''
-        uses: actions/setup-node@v3
-        with:
-          node-version: 20
-      
       - name: Install resedit
         if: hashFiles('percy.exe') != ''
         run: npm install resedit

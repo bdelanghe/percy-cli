@@ -104,8 +104,7 @@ function build_windows() {
   cd "$BUILD_TMP"
   
   echo "Building Windows executable for: x64"
-  # Note: package.json specifies bin as ./bin/run.cjs (not run.js)
-  npx -y pkg ./packages/cli/bin/run.cjs -t node20-win-x64 -d
+  npx -y pkg ./packages/cli/bin/run.js -t node20-win-x64 -d
   
   # Handle Windows executable
   if [ -f run-win.exe ]; then
@@ -153,4 +152,3 @@ setup_temp_dir
 prepare_build
 build_windows
 cleanup
-

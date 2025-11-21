@@ -133,6 +133,8 @@
             src = patchedSrc;
             yarnLock = ./yarn.lock;
             offlineCache = yarnDeps;
+            # Ensure yarnDeps is built as a dependency
+            nativeBuildInputs = [ yarnDeps ];
             
             # Pre-configure validation: Verify offline cache is accessible
             preConfigure = ''

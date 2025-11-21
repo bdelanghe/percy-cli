@@ -2,7 +2,7 @@
 # Layer 3: Prepares the CLI tree for pkg by applying CLI-specific patches
 # Takes the built node-tree and applies percy.js import and NODE_ENV patches
 
-{ pkgs, nodeTree }:
+{ pkgs, nodeTree, version }:
 
 let
   inherit (pkgs) stdenv gnused;
@@ -10,7 +10,7 @@ in
 
 stdenv.mkDerivation {
   pname = "percy-cli-prepared";
-  version = "0.0.1";
+  inherit version;
 
   src = nodeTree;
   sourceRoot = "libexec/percy-cli-node-tree";

@@ -94,6 +94,7 @@
           preparedCli = import ./nix/prepared-cli.nix {
             inherit pkgs;
             nodeTree = nodeTree;
+            version = cfg.version;
           };
 
           pkgWrapper = import ./nix/pkg-wrapper.nix { inherit pkgs; };

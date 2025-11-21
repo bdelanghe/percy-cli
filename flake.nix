@@ -85,19 +85,16 @@
             src = patchedSrc;
             yarnLock = ./yarn.lock;
             
-            # Override configurePhase to ensure devDependencies are installed
-            # mkYarnPackage's default configurePhase may skip devDependencies
-            configurePhase = ''
-              runHook preConfigure
-              
+            # Use postConfigure to install devDependencies after mkYarnPackage sets up offline cache
+            # mkYarnPackage's default configurePhase installs production dependencies
+            # We need devDependencies (like lerna) for the build
+            postConfigure = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
               
-              # mkYarnPackage sets up yarn, but we need to ensure devDependencies are installed
-              # Install all dependencies including devDependencies (not --production)
+              # mkYarnPackage has set up the offline cache, now install devDependencies
+              # Use --offline to use the cache, and ensure devDependencies are included
               yarn install --offline --frozen-lockfile
-              
-              runHook postConfigure
             '';
             
             # Build the project as part of mkYarnPackage

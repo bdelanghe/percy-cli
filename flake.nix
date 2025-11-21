@@ -131,7 +131,6 @@
           # Builds JS project with patched source, producing a complete node tree
           # This is arch-agnostic (if no native addons) and highly cache-friendly
           # mkYarnPackage handles yarn2nix + offline cache internally
-          # offlineCache = yarnDeps ensures fetchYarnDeps is built as a dependency
           nodeTree = pkgs.mkYarnPackage {
             pname = "percy-cli-node-tree";
             inherit version;
@@ -139,21 +138,14 @@
             yarnLock = ./yarn.lock;
             offlineCache = yarnDeps;
             
-            # mkYarnPackage installs production dependencies by default
-            # We need devDependencies (like lerna) for the build
-            # Install them after mkYarnPackage's configurePhase
-            # mkYarnPackage's yarnConfigHook has configured yarn to use the offline cache
-            postConfigure = ''
-              export HOME="$TMPDIR/home"
-              mkdir -p "$HOME"
-              
-              # mkYarnPackage's configurePhase has set up yarn to use the offline cache
-              # Install devDependencies - MUST use --offline to prevent network access
-              # This installs lerna and other devDependencies into node_modules/.bin
+            # Configure yarn to install all dependencies (including devDependencies)
+            # mkYarnPackage by default only installs production deps
+            yarnBuild = ''
+              # Install all dependencies including devDependencies
               yarn install --offline --frozen-lockfile --ignore-scripts
             '';
             
-            # Build the project as part of mkYarnPackage
+            # Build the project after dependencies are installed
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
@@ -163,14 +155,11 @@
               export NPM_CONFIG_OFFLINE=true
               
               # Ensure local binaries (including lerna) are visible
-              # lerna is installed as a devDependency via yarn install in postConfigure
               export PATH="$PWD/node_modules/.bin:$PATH"
               
-              # Verify lerna is available (from node_modules/.bin, installed via yarn)
+              # Verify lerna is available
               if ! command -v lerna >/dev/null 2>&1; then
                 echo "Error: lerna not found in node_modules/.bin" >&2
-                echo "This means devDependencies weren't installed correctly." >&2
-                echo "Checking node_modules/.bin:" >&2
                 ls -la "$PWD/node_modules/.bin" 2>&1 || echo "node_modules/.bin does not exist" >&2
                 exit 1
               fi

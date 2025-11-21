@@ -80,9 +80,7 @@
             inherit version;
             src = patchedSrc;
             yarnLock = ./yarn.lock;
-            # Hash will need to be recalculated after first build
-            # Run: nix-build .#nodeTree 2>&1 | grep got:
-            yarnNix = null;
+            yarnNix = ./yarn.nix;
             
             # Build the project as part of mkYarnPackage
             buildPhase = ''
@@ -165,7 +163,7 @@
             };
           };
 
-          default = self.packages.${system}.percy-cli;
+          default = percy-cli;
         });
 
       apps = forAllSystems (pkgs: system: {

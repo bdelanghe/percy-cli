@@ -70,11 +70,13 @@ function prepare_build() {
   done
 
   # Modify percy.js in temp
-  {
-    echo "import { cli } from '@percy/cli';"
-    cat ./packages/cli/dist/percy.js
-  } > ./packages/cli/dist/percy.js.new
-  mv ./packages/cli/dist/percy.js.new ./packages/cli/dist/percy.js
+  if [ -f ./packages/cli/dist/percy.js ]; then
+    {
+      echo "import { cli } from '@percy/cli';"
+      cat ./packages/cli/dist/percy.js
+    } > ./packages/cli/dist/percy.js.new
+    mv ./packages/cli/dist/percy.js.new ./packages/cli/dist/percy.js
+  fi
 
   # Ensure NODE_ENV is set in run.cjs (matches Nix build behavior)
   if [ -f ./packages/cli/bin/run.cjs ] && \

@@ -81,7 +81,7 @@
           # First run with placeholder hash, Nix will tell you the real one
           yarnDeps = pkgs.fetchYarnDeps {
             yarnLock = ./yarn.lock;
-            hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+            hash = "sha256-WDkPwahNIcB50PAYiDX9CNGKNCU08sou8Y0d6qTrEyM=";
           };
 
           # Layer 2: Yarn build derivation (mkYarnPackage)

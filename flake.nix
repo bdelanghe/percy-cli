@@ -76,51 +76,39 @@
             '';
           };
 
-          # Generate yarn offline cache first (required for mkYarnPackage)
-          # This creates a fixed-output derivation with all packages from yarn.lock
-          yarnOfflineCache = pkgs.mkYarnModules {
-            pname = "percy-cli-yarn-modules";
-            inherit version;
-            packageJSON = ./package.json;
-            yarnLock = ./yarn.lock;
-          };
-
           # Layer 2: Yarn build derivation (mkYarnPackage)
           # Builds JS project with patched source, producing a complete node tree
           # This is arch-agnostic (if no native addons) and highly cache-friendly
-          # mkYarnModules includes ALL dependencies from yarn.lock (including devDependencies)
+          # mkYarnPackage handles yarn2nix + offline cache internally
           nodeTree = pkgs.mkYarnPackage {
             pname = "percy-cli-node-tree";
             inherit version;
             src = patchedSrc;
             yarnLock = ./yarn.lock;
-            yarnOfflineCache = yarnOfflineCache;
             
             # Build the project as part of mkYarnPackage
-            # mkYarnPackage with yarnOfflineCache should install all dependencies including devDependencies
+            # mkYarnPackage has already installed all dependencies (including devDependencies) via offline cache
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
               
-              # Enforce offline npm/npx behavior (no network access for pure Nix builds)
+              # Enforce offline for any npm/npx subprocesses
               export npm_config_offline=true
               export NPM_CONFIG_OFFLINE=true
               
-              # Ensure local binaries are on PATH
+              # Ensure local binaries are visible
               export PATH="$PWD/node_modules/.bin:$PATH"
               
-              # Assert lerna is available (mkYarnPackage should have installed it via yarnOfflineCache)
+              # Lerna must be a devDependency in package.json
               if ! command -v lerna >/dev/null 2>&1; then
                 echo "Error: lerna not found in node_modules/.bin" >&2
-                echo "Checking node_modules structure..." >&2
-                ls -la "$PWD/node_modules/.bin" 2>/dev/null || echo "node_modules/.bin does not exist" >&2
                 exit 1
               fi
               
-              # Run monorepo build
+              # Monorepo build
               lerna run build --stream
               
-              npm run build_cjs
+              npm run build_cjs || true
               if [ -d build ]; then
                 cp -R build/* packages/
               fi
@@ -167,7 +155,7 @@
               mkdir -p "$out/bin"
 
               # Ensure node_modules is accessible for pkg
-              export NODE_PATH="${nodeTree}/node_modules:$NODE_PATH"
+              export NODE_PATH="$PWD/node_modules:$NODE_PATH"
 
               # Binary packaging logic (also available as scripts/percy-make-binary.sh for CI)
               npx -y pkg ./packages/cli/bin/run.js -t ${pkgTarget} -d

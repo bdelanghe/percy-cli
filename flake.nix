@@ -44,21 +44,16 @@
             yarnLock = ./yarn.lock;
             offlineCache = offline;
 
-            # Override installPhase to include devDependencies (needed for lerna)
-            installPhase = ''
-              runHook preInstall
-
-              yarn install --offline --frozen-lockfile --production=false
-
-              runHook postInstall
-            '';
-
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
 
               export npm_config_offline=true
               export NPM_CONFIG_OFFLINE=true
+
+              # Install devDependencies (needed for lerna) before building
+              # mkYarnPackage only installs production deps by default
+              yarn install --offline --frozen-lockfile --production=false
 
               yarn run build
 

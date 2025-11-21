@@ -44,8 +44,14 @@
             yarnLock = ./yarn.lock;
             offlineCache = offline;
 
-            # Provide lerna as a build-time tool (avoids needing devDependencies)
-            nativeBuildInputs = [ pkgs.nodePackages.lerna ];
+            # Override installPhase to include devDependencies (needed for lerna)
+            installPhase = ''
+              runHook preInstall
+
+              yarn install --offline --frozen-lockfile --production=false
+
+              runHook postInstall
+            '';
 
             buildPhase = ''
               export HOME="$TMPDIR/home"

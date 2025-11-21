@@ -30,10 +30,10 @@
           srcPatched = import ./nix/src-patched.nix { inherit pkgs; version = cfg.version; };
 
           # Let Nix compute the offline cache from yarn.lock
-          # Using lib.fakeSha256 to force regeneration - Nix will calculate the correct hash
+          # Regenerating cache to include @nx/nx-darwin-arm64 that was added to yarn.lock
           yarnDeps = pkgs.fetchYarnDeps {
             yarnLock = ./yarn.lock;
-            sha256 = pkgs.lib.fakeSha256;
+            sha256 = pkgs.lib.fakeSha256;  # Will be replaced with actual hash after first run
           };
 
           # Layer 2: node tree build (mkYarnPackage)

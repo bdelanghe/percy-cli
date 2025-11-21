@@ -58,31 +58,54 @@
               # Suppress npm deprecation warnings
               export npm_config_loglevel=error
 
-              # mkYarnPackage should have installed dependencies in configurePhase
-              # Check if lerna is available - if not, mkYarnPackage might have installed with --production
-              # In that case, we need to install devDependencies, but the offline cache should already be set up
-              if [ ! -f node_modules/.bin/lerna ]; then
-                echo "lerna not found, checking if devDependencies need to be installed..." >&2
-                echo "Current directory: $PWD" >&2
+              # mkYarnPackage structures things differently - check where we are
+              echo "=== Checking mkYarnPackage structure ===" >&2
+              echo "Current directory: $PWD" >&2
+              echo "Directory contents:" >&2
+              ls -la 2>&1 | head -20
+              echo "" >&2
+              
+              # mkYarnPackage might put source in a subdirectory or use a different structure
+              # Check if lerna is already available in node_modules/.bin
+              if [ -f node_modules/.bin/lerna ]; then
+                echo "✓ lerna found in node_modules/.bin" >&2
+              else
+                echo "✗ lerna NOT found in node_modules/.bin" >&2
+                echo "Checking node_modules/.bin contents:" >&2
+                ls -la node_modules/.bin/ 2>&1 | head -20 || echo "node_modules/.bin does not exist" >&2
+                echo "" >&2
+                
+                # mkYarnPackage might have installed with --production
+                # Find package.json - it might be in a subdirectory
+                PKG_JSON=""
                 if [ -f package.json ]; then
-                  echo "package.json found, installing devDependencies..." >&2
-                  # mkYarnPackage sets up yarn's offline cache via yarnConfigHook
-                  # We can use yarn install with --offline, but need to ensure the cache is available
-                  # The cache from fetchYarnDeps should be linked by mkYarnPackage
+                  PKG_JSON="package.json"
+                elif [ -f deps/*/package.json ]; then
+                  PKG_JSON=$(ls deps/*/package.json | head -1)
+                  echo "Found package.json in: $PKG_JSON" >&2
+                fi
+                
+                if [ -n "$PKG_JSON" ]; then
+                  echo "Installing devDependencies from $PKG_JSON..." >&2
+                  # Change to directory containing package.json if needed
+                  PKG_DIR=$(dirname "$PKG_JSON")
+                  if [ "$PKG_DIR" != "." ]; then
+                    cd "$PKG_DIR"
+                    echo "Changed to directory: $PWD" >&2
+                  fi
+                  
                   yarn install --offline --frozen-lockfile --production=false --ignore-scripts 2>&1 || {
                     echo "ERROR: Failed to install devDependencies" >&2
-                    echo "This might indicate the offline cache is not properly configured." >&2
-                    echo "Checking yarn cache configuration..." >&2
-                    yarn config get yarn-offline-mirror 2>&1 || true
                     exit 1
                   }
                 else
-                  echo "ERROR: package.json not found in $PWD" >&2
-                  echo "Directory contents:" >&2
-                  ls -la 2>&1 | head -20
+                  echo "ERROR: Could not find package.json" >&2
+                  echo "This suggests mkYarnPackage structure is different than expected." >&2
                   exit 1
                 fi
               fi
+              echo "=== Structure check complete ===" >&2
+              echo "" >&2
 
               # Add node_modules/.bin to PATH for babel, lerna, and other build tools
               export PATH="$PWD/node_modules/.bin:$PATH"

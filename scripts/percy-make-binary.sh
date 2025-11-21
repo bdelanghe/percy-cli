@@ -21,7 +21,8 @@ outbin="$2"
 mkdir -p "$(dirname "$outbin")"
 
 # Run pkg to create the binary
-npx -y pkg ./packages/cli/bin/run.js -t "$target" -d
+# Note: package.json specifies bin as ./bin/run.cjs (not run.js)
+npx -y pkg ./packages/cli/bin/run.cjs -t "$target" -d
 
 # pkg can name outputs differently; handle the common cases
 for name in "run-$target" run-linux run-macos run; do

@@ -2,9 +2,8 @@
 
 let
   # Firefox is not available on aarch64-darwin in nixpkgs 24.05
-  # Use system Firefox on macOS, or Nix Firefox on Linux
-  firefox-available = pkgs.firefox.meta.availableOn pkgs.stdenv.hostPlatform;
-  firefox-bin = if firefox-available then "${pkgs.firefox}/bin/firefox" else null;
+  # Use tryEval to safely check if Firefox is available
+  firefox-available = pkgs.lib.meta.availableOn pkgs.stdenv.hostPlatform pkgs.firefox;
 in
 
 pkgs.mkShell {
@@ -26,8 +25,9 @@ pkgs.mkShell {
       export PATH="/usr/local/bin:$PATH"
     fi
 
-    if [ -n "${if firefox-bin != null then firefox-bin else ""}" ] && [ -f "${if firefox-bin != null then firefox-bin else ""}" ]; then
-      export FIREFOX_BIN="${if firefox-bin != null then firefox-bin else ""}"
+    # Try Nix Firefox first (if available), then system Firefox
+    if ${if firefox-available then ''[ -f "${pkgs.firefox}/bin/firefox" ]'' else "false"}; then
+      export FIREFOX_BIN="${pkgs.firefox}/bin/firefox"
     elif [ -f "/Applications/Firefox.app/Contents/MacOS/firefox" ]; then
       export FIREFOX_BIN="/Applications/Firefox.app/Contents/MacOS/firefox"
     else

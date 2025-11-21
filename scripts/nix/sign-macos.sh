@@ -49,6 +49,9 @@ BINARY_PATH=$(cd "$(dirname "$BINARY_PATH")" && pwd)/$(basename "$BINARY_PATH")
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENTITLEMENTS="$SCRIPT_DIR/../files/entitlement.plist"
 
+# Define keychain path (use standard location, defined early for cleanup function)
+KEYCHAIN_PATH="$HOME/Library/Keychains/percy.keychain"
+
 # Cleanup function
 cleanup() {
   # Remove certificate file if it exists
@@ -56,8 +59,8 @@ cleanup() {
     rm -f AppleDevIDApp.p12
   fi
   # Remove keychain if it exists
-  if [ -f ~/Library/Keychains/percy.keychain-db ]; then
-    security delete-keychain ~/Library/Keychains/percy.keychain-db 2>/dev/null || true
+  if [ -f "$KEYCHAIN_PATH-db" ]; then
+    security delete-keychain "$KEYCHAIN_PATH-db" 2>/dev/null || true
   fi
 }
 
@@ -69,14 +72,14 @@ echo "Signing and notarizing macOS binary: $BINARY_PATH"
 # Decode and save certificate
 echo "$APPLE_DEV_CERT" | base64 -d > AppleDevIDApp.p12
 
-# Create temporary keychain
-security create-keychain -p percy percy.keychain
-security import AppleDevIDApp.p12 -t agg -k percy.keychain -P "$APPLE_CERT_KEY" -A
-security list-keychains -s ~/Library/Keychains/percy.keychain
-security default-keychain -s ~/Library/Keychains/percy.keychain
-security unlock-keychain -p "percy" ~/Library/Keychains/percy.keychain
-security set-keychain-settings -t 3600 -l ~/Library/Keychains/percy.keychain
-security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k percy ~/Library/Keychains/percy.keychain-db
+# Create temporary keychain in standard location
+security create-keychain -p percy "$KEYCHAIN_PATH"
+security import AppleDevIDApp.p12 -t agg -k "$KEYCHAIN_PATH" -P "$APPLE_CERT_KEY" -A
+security list-keychains -s "$KEYCHAIN_PATH"
+security default-keychain -s "$KEYCHAIN_PATH"
+security unlock-keychain -p "percy" "$KEYCHAIN_PATH"
+security set-keychain-settings -t 3600 -l "$KEYCHAIN_PATH"
+security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k percy "$KEYCHAIN_PATH-db"
 
 # Sign the binary
 echo "Codesigning binary..."
@@ -84,7 +87,7 @@ codesign --force --verbose=4 \
   -s "Developer ID Application: BrowserStack Inc ($APPLE_TEAM_ID)" \
   --options runtime \
   --entitlements "$ENTITLEMENTS" \
-  --keychain ~/Library/Keychains/percy.keychain \
+  --keychain "$KEYCHAIN_PATH" \
   "$BINARY_PATH"
 
 # Create zip for notarization

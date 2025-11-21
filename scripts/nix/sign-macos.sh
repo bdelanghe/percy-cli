@@ -94,9 +94,9 @@ codesign --force --verbose=4 \
   "$BINARY_PATH"
 
 # Create zip for notarization
-# Use -j flag to junk paths (consistent with unsigned binary case and Windows)
+# Preserve directory structure (consistent with unsigned binary case in workflow)
 echo "Creating zip for notarization..."
-zip -j "$OUTPUT_ZIP" "$ORIGINAL_BINARY_PATH"
+zip "$OUTPUT_ZIP" "$ORIGINAL_BINARY_PATH"
 
 # Notarize
 echo "Submitting for notarization..."

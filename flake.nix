@@ -80,7 +80,7 @@
           # This creates a directory of .tgz tarballs that Yarn can use offline
           yarnDeps = pkgs.fetchYarnDeps {
             yarnLock = ./yarn.lock;
-            hash = "sha256-WDkPwahNIcB50PAYiDX9CNGKNCU08sou8Y0d6qTrEyM=";
+            hash = "";
           };
 
           # Validation: Check that yarnDeps exists and contains expected packages
@@ -250,7 +250,7 @@
 
               # Binary packaging logic (also available as scripts/percy-make-binary.sh for CI)
               # Use Nix-provided pkg instead of npx -y pkg for purity (no network access)
-              pkg ./packages/cli/bin/run.js -t ${pkgTarget} -d
+              pkg ./packages/cli/bin/run.cjs -t ${pkgTarget} -d
 
               # pkg can name outputs differently; handle the common cases
               for name in run-${pkgTarget} run-linux run-macos run; do

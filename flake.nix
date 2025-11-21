@@ -53,6 +53,8 @@
 
               export npm_config_offline=true
               export NPM_CONFIG_OFFLINE=true
+              # Suppress npm deprecation warnings
+              export npm_config_loglevel=error
 
               # Add node_modules/.bin to PATH for babel, lerna, and other build tools
               # lerna is installed as a devDependency, so it will be available here

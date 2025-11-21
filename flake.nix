@@ -90,9 +90,31 @@
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
               
-              # Use yarn to run lerna directly - yarn will resolve lerna from node_modules
-              # This bypasses the package.json script and ensures lerna is found via yarn's resolution
-              yarn lerna run build --stream
+              # Ensure npx runs offline (no network access) for pure Nix builds
+              export npm_config_offline=true
+              export NPM_CONFIG_OFFLINE=true
+              
+              # mkYarnPackage installs dependencies, but we need to ensure devDependencies are available
+              # Check where node_modules is located and add it to PATH
+              if [ -d "$PWD/node_modules/.bin" ]; then
+                export PATH="$PWD/node_modules/.bin:$PATH"
+              fi
+              
+              # Try to find lerna - mkYarnPackage should install it as a devDependency
+              # Use npx with --offline flag to ensure no network access, or fall back to direct path
+              if [ -f "$PWD/node_modules/.bin/lerna" ]; then
+                "$PWD/node_modules/.bin/lerna" run build --stream
+              elif [ -f "$PWD/node_modules/lerna/cli.js" ]; then
+                node "$PWD/node_modules/lerna/cli.js" run build --stream
+              elif command -v lerna >/dev/null 2>&1; then
+                lerna run build --stream
+              else
+                echo "Error: lerna not found. Checking node_modules structure..." >&2
+                ls -la "$PWD/node_modules/.bin" 2>/dev/null || echo "node_modules/.bin does not exist" >&2
+                find "$PWD" -name "lerna" -type f 2>/dev/null | head -5
+                exit 1
+              fi
+              
               npm run build_cjs
               if [ -d build ]; then
                 cp -R build/* packages/

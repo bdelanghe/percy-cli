@@ -38,7 +38,7 @@
             pname = "percy-cli";
             version = "0.0.1";
 
-            src = pkgs.lib.cleanSource ./.;
+            src = ./.;
 
             nativeBuildInputs = [ node yarn gsed ];
 

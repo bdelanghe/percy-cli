@@ -14,6 +14,8 @@
         let
           pkgs = import nixpkgs { inherit system; };
 
+          # Using Node 20 since nodejs_14 is EOL and removed from nixpkgs
+          # Project requires Node >=14, so Node 20 is compatible
           node = pkgs.nodejs_20;
           yarn = pkgs.yarn;
           gsed = pkgs.gnused;
@@ -23,6 +25,7 @@
           pkgNode = pkgs.nodePackages_latest.pkg;
 
           # Map Nix system to pkg target
+          # Using node20 targets since we're building with Node 20
           systemToPkgTarget = {
             "x86_64-linux" = "node20-linux-x64";
             "aarch64-linux" = "node20-linux-arm64";

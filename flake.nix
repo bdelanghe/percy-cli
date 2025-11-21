@@ -53,7 +53,13 @@
               fi
               # Check for entries (files or symlinks) with .tgz in their names
               # linkFarm creates symlinks, so we check the symlink names directly
-              if ! ls "${offline}"/*.tgz 2>/dev/null | head -1 | grep -q .; then
+              # Use shopt -s nullglob to handle empty globs, and check if any files match
+              set +e
+              shopt -s nullglob
+              matches=("${offline}"/*.tgz)
+              shopt -u nullglob
+              set -e
+              if [ ${#matches[@]} -eq 0 ]; then
                 echo "ERROR: offline cache ${offline} has no .tgz entries" >&2
                 echo "Cache directory contents:" >&2
                 ls -la "${offline}" || true
@@ -89,24 +95,30 @@
             '';
           };
 
+          # Layer 3: prepared CLI tree (patched for pkg)
+          preparedCli = import ./nix/prepared-cli.nix {
+            inherit pkgs;
+            nodeTree = nodeTree;
+          };
+
           pkgWrapper = import ./nix/pkg-wrapper.nix { inherit pkgs; };
 
-          # Layer 3: pkg-wrapped CLI binary
+          # Layer 4: pkg-wrapped CLI binary
           percyCli = pkgWrapper {
             pname = "percy-cli";
             version = cfg.version;
             pkgTarget = cfg.pkgTargetFor system;
-            nodeTree = nodeTree;
+            preparedCli = preparedCli;
             entrypoint = "./packages/cli/bin/run.cjs";
-            patchCli = true;
             binaryName = "percy";
           };
 
         in {
-          src-patched = srcPatched;
-          node-tree   = nodeTree;
-          percy-cli   = percyCli;
-          default     = percyCli;
+          src-patched   = srcPatched;
+          node-tree     = nodeTree;
+          prepared-cli  = preparedCli;
+          percy-cli     = percyCli;
+          default       = percyCli;
         });
 
       apps = forAllSystems (pkgs: system: {
@@ -123,8 +135,9 @@
 
       checks = forAllSystems (pkgs: system:
         if pkgs.stdenv.isDarwin then {
-          node_tree = self.packages.${system}.node-tree;
-          default = self.packages.${system}.percy-cli;
+          src_patched = self.packages.${system}.src-patched;
+          node_tree   = self.packages.${system}.node-tree;
+          default     = self.packages.${system}.percy-cli;
         } else {}
       );
     };

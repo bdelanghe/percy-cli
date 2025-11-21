@@ -1,53 +1,34 @@
 # nix/pkg-wrapper.nix
 # Reusable function to wrap a Node.js CLI with pkg
-# Given a node tree and a JS entrypoint, builds a platform-specific binary
+# Given a prepared CLI tree and a JS entrypoint, builds a platform-specific binary
 
 { pkgs }:
 
 { pname
 , version
 , pkgTarget
-, nodeTree
+, preparedCli
 , entrypoint ? "./packages/cli/bin/run.cjs"
-, patchCli ? true
 , binaryName ? pname
 }:
 
 let
-  inherit (pkgs) stdenv gnused;
+  inherit (pkgs) stdenv;
   pkgTool = pkgs.nodePackages.pkg;
   node    = pkgs.nodejs_20;
 in
 
 stdenv.mkDerivation {
   inherit pname version;
-  src = nodeTree;
-  sourceRoot = "libexec/${pname}-node-tree";
+  src = preparedCli;
+  sourceRoot = ".";
 
   nativeBuildInputs = [
     node
-    gnused
     pkgTool
   ];
 
   NODE_ENV = "production";
-
-  patchPhase = ''
-    ${if patchCli then ''
-      if [ -f packages/cli/dist/percy.js ]; then
-        {
-          echo "import { cli } from '@percy/cli';"
-          cat packages/cli/dist/percy.js
-        } > packages/cli/dist/percy.js.new
-        mv packages/cli/dist/percy.js.new packages/cli/dist/percy.js
-      fi
-
-      if [ -f packages/cli/bin/run.cjs ] && \
-         ! grep -q 'process.env.NODE_ENV = "executable";' packages/cli/bin/run.cjs; then
-        sed -i '1a process.env.NODE_ENV = "executable";' packages/cli/bin/run.cjs
-      fi
-    '' else ""}
-  '';
 
   dontBuild = true;
   dontConfigure = true;

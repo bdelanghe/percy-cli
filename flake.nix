@@ -53,6 +53,17 @@
               # Remove "type": "module" from root package.json
               sed -i '/"type": "module",/d' package.json
               
+              # Add name field to root package.json for mkYarnPackage compatibility
+              # (mkYarnPackage expects a name field for metadata extraction)
+              if ! grep -q '"name":' package.json; then
+                # Insert name field after opening brace using a temporary file
+                {
+                  echo '{'
+                  echo '  "name": "percy-cli",'
+                  tail -n +2 package.json
+                } > package.json.tmp && mv package.json.tmp package.json
+              fi
+              
               # Remove from all package.json files except dom and sdk-utils
               find packages -name package.json \
                 -not -path "*/dom/*" \
@@ -150,6 +161,7 @@
             meta = {
               description = "Percy CLI packaged via pkg";
               mainProgram = "percy";
+              license = pkgs.lib.licenses.mit;
             };
           };
 

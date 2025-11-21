@@ -51,6 +51,20 @@
             };
 
             nativeBuildInputs = [ node yarn gsed ];
+            
+            # Set up node_modules from fetchYarnDeps
+            # This replicates what linkNodeModulesHook does
+            preBuild = ''
+              # linkNodeModulesHook equivalent: create node_modules from fetchYarnDeps
+              mkdir -p node_modules
+              # fetchYarnDeps returns a directory we can link/copy
+              if [ -d "${yarnDeps}" ]; then
+                # Try linking first (more efficient)
+                ln -sf ${yarnDeps}/* node_modules/ 2>/dev/null || \
+                # If linking doesn't work, copy
+                cp -rL ${yarnDeps}/* node_modules/ 2>/dev/null || true
+              fi
+            '';
 
             NODE_ENV = "production";
 
@@ -69,24 +83,18 @@
               export HOME=$TMPDIR/home
               mkdir -p $HOME
 
-              # Use prefetched yarn dependencies
-              # fetchYarnDeps returns a directory structure we can use
-              # First, let's see what structure it has and copy it appropriately
-              if [ -d "${yarnDeps}" ]; then
-                # Try copying the entire structure - fetchYarnDeps might return
-                # a directory that can be used directly or needs to be in node_modules
-                if [ -d "${yarnDeps}/node_modules" ]; then
-                  cp -rL ${yarnDeps}/node_modules node_modules
-                else
-                  # It might be the node_modules structure itself
-                  cp -rL ${yarnDeps} node_modules
-                fi
+              # preBuild should have set up node_modules from fetchYarnDeps
+              # Verify the structure and try yarn install
+              # If node_modules exists with packages, yarn might be able to use them
+              # even without --offline if we use --prefer-offline
+              if [ -d "node_modules" ] && [ "$(ls -A node_modules 2>/dev/null)" ]; then
+                # Packages are present, try with prefer-offline
+                yarn install --frozen-lockfile --prefer-offline --check-files || \
+                yarn install --frozen-lockfile --link-duplicates
+              else
+                # Fallback: try normal install (will fail in sandbox, but let's see the error)
+                yarn install --frozen-lockfile
               fi
-              
-              # Install dependencies - with packages already in node_modules,
-              # yarn should be able to use them (even in sandbox, it won't need network
-              # if all packages are present)
-              yarn install --frozen-lockfile --prefer-offline --check-files
               yarn build
 
               # Prepend import to percy.js using process substitution (no temp file)

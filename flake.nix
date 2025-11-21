@@ -29,12 +29,9 @@
 
         in rec {
           # Prefetch yarn dependencies (fixed-output derivation allows network access)
-          # Note: The hash will be computed by Nix on first build. If you get a hash mismatch error,
-          # Nix will tell you the correct hash to use. Alternatively, run:
-          # nix-prefetch-yarn-deps yarn.lock
           yarnDeps = pkgs.fetchYarnDeps {
             yarnLock = ./yarn.lock;
-            hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="; # Placeholder - replace with actual hash from nix-prefetch-yarn-deps
+            hash = "sha256-WDkPwahNIcB50PAYiDX9CNGKNCU08sou8Y0d6qTrEyM=";
           };
 
           percy-cli = pkgs.stdenv.mkDerivation {
@@ -66,16 +63,11 @@
               mkdir -p $HOME
 
               # Use prefetched yarn dependencies
-              # fetchYarnDeps returns a directory that we can link/copy to node_modules
-              mkdir -p node_modules
-              if [ -d "${yarnDeps}/node_modules" ]; then
-                # Link the prefetched node_modules
-                cp -rL ${yarnDeps}/node_modules/* node_modules/ || true
-              fi
+              # fetchYarnDeps creates a directory structure we can copy
+              cp -r ${yarnDeps}/* .
               
-              # Install dependencies using prefetched deps
-              # The --offline flag will use the prefetched dependencies
-              yarn install --frozen-lockfile --offline || yarn install --frozen-lockfile
+              # Install dependencies (prefetched deps are already in place)
+              yarn install --frozen-lockfile --offline
               yarn build
 
               # Prepend import to percy.js using process substitution (no temp file)

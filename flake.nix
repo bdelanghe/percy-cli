@@ -21,12 +21,6 @@
         in
         f pkgs system);
 
-      # Global: import offline cache once per pkgs
-      offlineCacheFor = pkgs:
-        (import ./nix/offline-cache.nix {
-          inherit (pkgs) fetchurl fetchgit linkFarm runCommand gnutar;
-        }).offline_cache;
-
     in {
       schemas = flake-schemas.schemas;
 
@@ -34,7 +28,12 @@
         let
           cfg        = import ./nix/percy-config.nix { inherit pkgs; };
           srcPatched = import ./nix/src-patched.nix { inherit pkgs; version = cfg.version; };
-          offline    = offlineCacheFor pkgs;
+
+          # Let Nix compute the offline cache from yarn.lock
+          yarnDeps = pkgs.fetchYarnDeps {
+            yarnLock = ./yarn.lock;
+            sha256 = pkgs.lib.fakeSha256; # Will be replaced with actual hash on first run
+          };
 
           # Layer 2: node tree build (mkYarnPackage)
           nodeTree = pkgs.mkYarnPackage {
@@ -42,7 +41,7 @@
             inherit (cfg) version;
             src = srcPatched;
             yarnLock = ./yarn.lock;
-            offlineCache = offline;
+            offlineCache = yarnDeps;
 
             # Make sure devDependencies (including lerna) are installed
             NODE_ENV = "development";

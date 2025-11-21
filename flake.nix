@@ -35,10 +35,14 @@
             "aarch64-darwin" = "node20-macos-arm64";
           }.${system};
 
-          # Prefetched yarn dependencies (fixed-output derivation)
-          yarnDeps = pkgs.fetchYarnDeps {
+          # Build node_modules as a fixed-output derivation using mkYarnPackage
+          yarnPackage = pkgs.mkYarnPackage {
+            name = "percy-cli-deps";
+            src = ./.;
             yarnLock = ./yarn.lock;
-            hash = "sha256-WDkPwahNIcB50PAYiDX9CNGKNCU08sou8Y0d6qTrEyM=";
+            # Hash will need to be recalculated after first build
+            # Run: nix-build -A yarnPackage 2>&1 | grep got:
+            yarnNix = null;
           };
 
         in {
@@ -52,6 +56,7 @@
               node
               yarn
               gnused
+              yarnPackage
             ];
 
             NODE_ENV = "production";
@@ -71,24 +76,12 @@
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
 
-              # Use prefetched yarn dependencies
-              # fetchYarnDeps returns packages that need to be linked properly
-              # We'll let yarn handle the linking by using the offline cache
-              export YARN_CACHE_FOLDER="$TMPDIR/yarn-cache"
-              mkdir -p "$YARN_CACHE_FOLDER"
+              # Use node_modules from mkYarnPackage derivation
+              # mkYarnPackage already built node_modules as a fixed-output derivation
+              # Symlink it into the build directory so yarn build can find dependencies
+              ln -sfn ${yarnPackage}/node_modules ./node_modules
               
-              # Copy fetchYarnDeps output to cache (it may need unpacking)
-              # Try both possible structures
-              if [ -d "${yarnDeps}/node_modules" ]; then
-                # Structure has node_modules subdirectory
-                cp -rL ${yarnDeps}/node_modules "$TMPDIR/" || true
-              fi
-              cp -rL ${yarnDeps}/* "$YARN_CACHE_FOLDER/" 2>/dev/null || true
-
-              # Try installing with offline mode - if packages are in cache, it should work
-              # --check-files verifies files exist without fetching
-              yarn install --frozen-lockfile --offline --check-files || \
-                yarn install --frozen-lockfile --prefer-offline
+              # Build the project using the derived node_modules
               yarn build
 
               # Prepend import to percy.js
@@ -114,6 +107,10 @@
 
             installPhase = ''
               mkdir -p "$out/bin"
+
+              # Ensure node_modules is accessible for pkg (symlink persists from buildPhase)
+              # Set NODE_PATH to help pkg resolve dependencies if needed
+              export NODE_PATH="${yarnPackage}/node_modules:$NODE_PATH"
 
               npx -y pkg ./packages/cli/bin/run.js -t ${pkgTarget} -d
 

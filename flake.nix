@@ -90,11 +90,9 @@
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
               
-              # Ensure node_modules/.bin is in PATH for devDependencies like lerna
-              export PATH="$PWD/node_modules/.bin:$PATH"
-              
-              # Run build - yarn should handle PATH, but we ensure node_modules/.bin is available
-              yarn build
+              # Use yarn to run lerna directly - yarn will resolve lerna from node_modules
+              # This bypasses the package.json script and ensures lerna is found via yarn's resolution
+              yarn lerna run build --stream
               npm run build_cjs
               if [ -d build ]; then
                 cp -R build/* packages/

@@ -148,7 +148,7 @@ jobs:
       
       - name: Create Linux zip
         run: |
-          zip percy-linux-${{ matrix.system }}.zip artifacts/percy-${{ matrix.system }}
+          zip -j percy-linux-${{ matrix.system }}.zip artifacts/percy-${{ matrix.system }}
       
       - name: Upload Linux asset
         uses: softprops/action-gh-release@62c96d0c4e8a889135c1f3a25910db8dbe0e85f7
@@ -210,13 +210,18 @@ jobs:
         run: |
           cd prepared-cli
           npx -y pkg ./packages/cli/bin/run.cjs -t node20-win-x64 -d
-          if [ -f run-win.exe ]; then
-            mv run-win.exe ../percy.exe
-          else
-            echo "Error: pkg did not produce run-win.exe" >&2
-            ls -la
-            exit 1
-          fi
+          # pkg generates run-<target> when using a single target specification
+          # Check for run-node20-win-x64.exe first, then fallback patterns
+          for name in run-node20-win-x64.exe run-node20-win-x64 run-win.exe run.exe; do
+            if [ -f "$name" ]; then
+              mv "$name" ../percy.exe
+              exit 0
+            fi
+          done
+          echo "Error: pkg did not produce expected Windows executable" >&2
+          echo "Expected one of: run-node20-win-x64.exe, run-node20-win-x64, run-win.exe, run.exe" >&2
+          ls -la
+          exit 1
         shell: bash
       
       - name: Upload win artifact

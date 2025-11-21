@@ -47,6 +47,22 @@
             # from devDependencies are available and behave correctly during build
             NODE_ENV = "development";
 
+            # Override configurePhase to ensure devDependencies are installed
+            # mkYarnPackage might install with --production by default
+            configurePhase = ''
+              runHook preConfigure
+              
+              # mkYarnPackage's default configurePhase runs yarn install,
+              # but we need to ensure devDependencies are included
+              export HOME="$TMPDIR/home"
+              mkdir -p "$HOME"
+              
+              # Install all dependencies including devDependencies
+              yarn install --offline --frozen-lockfile --production=false
+              
+              runHook postConfigure
+            '';
+
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
@@ -56,19 +72,19 @@
               # Suppress npm deprecation warnings
               export npm_config_loglevel=error
 
-              # Explicitly install devDependencies to ensure lerna and other build tools are available
-              # mkYarnPackage should do this, but we ensure it happens with the right NODE_ENV
-              echo "Installing dependencies (including devDependencies)..."
-              yarn install --offline --frozen-lockfile --production=false
-
               # Add node_modules/.bin to PATH for babel, lerna, and other build tools
+              # mkYarnPackage should have installed devDependencies (including lerna) 
+              # when NODE_ENV=development is set
               export PATH="$PWD/node_modules/.bin:$PATH"
 
-              # Verify lerna is available
+              # Verify lerna is available (mkYarnPackage should have installed it)
               if ! command -v lerna >/dev/null 2>&1; then
-                echo "Error: lerna command not found after yarn install" >&2
-                echo "Checking node_modules/.bin contents:" >&2
-                ls -la node_modules/.bin/ 2>&1 || true
+                echo "Error: lerna command not found" >&2
+                echo "NODE_ENV is set to: $NODE_ENV" >&2
+                echo "Checking if node_modules/.bin exists:" >&2
+                ls -la node_modules/.bin/ 2>&1 || echo "node_modules/.bin does not exist" >&2
+                echo "Checking if lerna is in node_modules:" >&2
+                find node_modules -name "lerna" -type f 2>&1 | head -5 || echo "lerna not found in node_modules" >&2
                 exit 1
               fi
 

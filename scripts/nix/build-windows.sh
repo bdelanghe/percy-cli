@@ -107,26 +107,32 @@ function build_windows() {
   npx -y pkg ./packages/cli/bin/run.cjs -t node20-win-x64 -d
   
   # Handle Windows executable
-  if [ -f run-win.exe ]; then
-    mv run-win.exe percy.exe || {
-      echo "Error: Failed to rename run-win.exe to percy.exe" >&2
-      exit 1
-    }
-    mv percy.exe "$ORIGINAL_DIR/" || {
-      echo "Error: Failed to move executable to $ORIGINAL_DIR/" >&2
-      exit 1
-    }
-    # Verify the file exists at destination before reporting success
-    if [ ! -f "$ORIGINAL_DIR/percy.exe" ]; then
-      echo "Error: Executable not found at destination after move: $ORIGINAL_DIR/percy.exe" >&2
-      exit 1
+  # pkg generates run-<target> when using a single target specification
+  # Check for run-node20-win-x64.exe first, then fallback patterns
+  for name in run-node20-win-x64.exe run-node20-win-x64 run-win.exe run.exe; do
+    if [ -f "$name" ]; then
+      mv "$name" percy.exe || {
+        echo "Error: Failed to rename $name to percy.exe" >&2
+        exit 1
+      }
+      mv percy.exe "$ORIGINAL_DIR/" || {
+        echo "Error: Failed to move executable to $ORIGINAL_DIR/" >&2
+        exit 1
+      }
+      # Verify the file exists at destination before reporting success
+      if [ ! -f "$ORIGINAL_DIR/percy.exe" ]; then
+        echo "Error: Executable not found at destination after move: $ORIGINAL_DIR/percy.exe" >&2
+        exit 1
+      fi
+      echo "Windows executable built successfully: $ORIGINAL_DIR/percy.exe"
+      exit 0
     fi
-    echo "Windows executable built successfully: $ORIGINAL_DIR/percy.exe"
-  else
-    echo "Error: Windows executable not found after pkg build" >&2
-    ls -la
-    exit 1
-  fi
+  done
+  
+  echo "Error: Windows executable not found after pkg build" >&2
+  echo "Expected one of: run-node20-win-x64.exe, run-node20-win-x64, run-win.exe, run.exe" >&2
+  ls -la
+  exit 1
 }
 
 function cleanup() {

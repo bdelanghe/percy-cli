@@ -76,6 +76,15 @@
             '';
           };
 
+          # Generate yarn offline cache first (required for mkYarnPackage)
+          # This creates a fixed-output derivation with all packages from yarn.lock
+          yarnOfflineCache = pkgs.mkYarnModules {
+            pname = "percy-cli-yarn-modules";
+            inherit version;
+            packageJson = ./package.json;
+            yarnLock = ./yarn.lock;
+          };
+
           # Layer 2: Yarn build derivation (mkYarnPackage)
           # Builds JS project with patched source, producing a complete node tree
           # This is arch-agnostic (if no native addons) and highly cache-friendly
@@ -84,19 +93,18 @@
             inherit version;
             src = patchedSrc;
             yarnLock = ./yarn.lock;
+            yarnOfflineCache = yarnOfflineCache;
             
             # Use postConfigure to install devDependencies after mkYarnPackage sets up dependencies
-            # mkYarnPackage's default configurePhase installs production dependencies via yarn2nix
-            # We need devDependencies (like lerna) for the build
-            # Don't use --offline here - let yarn use the cache that mkYarnPackage prepared
+            # mkYarnPackage installs production dependencies, we need devDependencies for lerna
             postConfigure = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
               
-              # mkYarnPackage has installed production dependencies via yarn2nix
-              # Now install devDependencies using the same cache mechanism
-              # Use --frozen-lockfile to ensure reproducibility, but let yarn handle the cache
-              yarn install --frozen-lockfile
+              # mkYarnPackage has installed production dependencies
+              # Now install devDependencies using the offline cache
+              # --offline uses the cache, --frozen-lockfile ensures reproducibility
+              yarn install --offline --frozen-lockfile
             '';
             
             # Build the project as part of mkYarnPackage

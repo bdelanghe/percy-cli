@@ -53,7 +53,8 @@
 
               # Install devDependencies (needed for lerna) before building
               # mkYarnPackage only installs production deps by default
-              yarn install --offline --frozen-lockfile --production=false
+              # Note: devDeps may not be in offline cache, but lockfile ensures determinism
+              yarn install --frozen-lockfile --production=false
 
               yarn run build
 

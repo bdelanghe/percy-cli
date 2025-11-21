@@ -30,6 +30,7 @@
         let
           inherit (pkgs) stdenv yarn gnused;
           node = pkgs.nodejs_20;
+          lerna = pkgs.lerna;
           version = "0.0.1";
 
           # Map Nix system to pkg target
@@ -86,8 +87,11 @@
             src = patchedSrc;
             yarnLock = ./yarn.lock;
             
+            # Lerna is provided by Nix, not from node_modules
+            nativeBuildInputs = [ lerna ];
+            
             # mkYarnPackage installs production dependencies by default
-            # We need devDependencies (like lerna) for the build
+            # We need devDependencies for the build
             # Install them after mkYarnPackage's configurePhase
             # mkYarnPackage's yarnConfigHook has configured yarn to use the offline cache
             postConfigure = ''
@@ -108,12 +112,15 @@
               export npm_config_offline=true
               export NPM_CONFIG_OFFLINE=true
               
-              # Ensure local binaries are visible
-              export PATH="$PWD/node_modules/.bin:$PATH"
+              # If node_modules/.bin exists, add it to PATH for other tools
+              # But lerna comes from Nix, not from node_modules
+              if [ -d "$PWD/node_modules/.bin" ]; then
+                export PATH="$PWD/node_modules/.bin:$PATH"
+              fi
               
-              # Lerna must be a devDependency in package.json
+              # Lerna is provided by Nix via nativeBuildInputs
               if ! command -v lerna >/dev/null 2>&1; then
-                echo "Error: lerna not found in node_modules/.bin" >&2
+                echo "Error: lerna not found on PATH (Nix-provided lerna missing?)" >&2
                 exit 1
               fi
               

@@ -49,8 +49,6 @@
             src = ./.;
             nativeBuildInputs = [ gnused ];
             dontBuild = true;
-            dontConfigure = true;
-
             installPhase = ''
               mkdir -p $out
               cp -R . $out
@@ -172,8 +170,6 @@
             '';
 
             dontBuild = true;
-            dontConfigure = true;
-
 
             installPhase = ''
               mkdir -p "$out/bin"

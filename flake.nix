@@ -41,11 +41,11 @@
             # Patch phase: remove "type": "module" from package.json files
             patchPhase = ''
               # Remove from root package.json
-              gsed -i '/"type": "module",/d' package.json
+              sed -i '/"type": "module",/d' package.json
 
               # Remove from all package.json files except dom and sdk-utils
               find packages -name package.json -not -path "*/dom/*" -not -path "*/sdk-utils/*" \
-                -exec gsed -i '/"type": "module",/d' {} \;
+                -exec sed -i '/"type": "module",/d' {} \;
             '';
 
             # Build phase: install, build, and transform
@@ -64,7 +64,7 @@
 
               # Ensure NODE_ENV is set in run.cjs
               if [ -f packages/cli/bin/run.cjs ] && ! grep -q 'process.env.NODE_ENV = "executable";' packages/cli/bin/run.cjs; then
-                gsed -i '1a process.env.NODE_ENV = "executable";' packages/cli/bin/run.cjs
+                sed -i '1a process.env.NODE_ENV = "executable";' packages/cli/bin/run.cjs
               fi
 
               npm run build_cjs

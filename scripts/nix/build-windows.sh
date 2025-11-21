@@ -3,7 +3,7 @@ set -e -o pipefail
 
 # Windows-specific build script for Percy CLI
 # This script builds Windows executables without signing
-# Usage: ./scripts/build-windows.sh
+# Usage: ./scripts/nix/build-windows.sh
 
 function check_dependencies() {
   if ! command -v gsed &> /dev/null; then
@@ -84,7 +84,7 @@ function build_windows() {
   cd "$BUILD_TMP"
   
   echo "Building Windows executable for: x64"
-  npx -y pkg ./packages/cli/bin/run.js -t node14-win-x64 -d
+  npx -y pkg ./packages/cli/bin/run.js -t node20-win-x64 -d
   
   # Handle Windows executable
   if [ -f run-win.exe ]; then

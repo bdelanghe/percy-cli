@@ -100,7 +100,7 @@ jobs:
       - name: Sign and notarize macOS binary
         if: steps.check-secrets.outputs.has_secrets == 'true'
         run: |
-          ./scripts/sign-macos.sh artifacts/percy-${{ matrix.system }} percy-osx-${{ matrix.system }}.zip
+          ./scripts/nix/sign-macos.sh artifacts/percy-${{ matrix.system }} percy-osx-${{ matrix.system }}.zip
         env:
           APPLE_DEV_CERT: ${{secrets.APPLE_DEV_CERT}}
           APPLE_CERT_KEY: ${{secrets.APPLE_CERT_KEY}}
@@ -178,7 +178,7 @@ jobs:
       - name: Build Windows executable
         run: |
           # Use the Windows-specific build script
-          bash ./scripts/build-windows.sh
+          bash ./scripts/nix/build-windows.sh
         shell: bash
       
       - name: Upload win artifact

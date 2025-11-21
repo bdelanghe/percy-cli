@@ -51,7 +51,7 @@ function parse_arch_config() {
 }
 
 # Convert architecture list to pkg target format
-# Input: "x64,arm64" -> Output: "node14-linux-x64 node14-linux-arm64"
+# Input: "x64,arm64" -> Output: "node20-linux-x64 node20-linux-arm64"
 function archs_to_pkg_targets() {
   local platform=$1
   local archs=$2
@@ -63,7 +63,7 @@ function archs_to_pkg_targets() {
     if [ -n "$targets" ]; then
       targets="$targets "
     fi
-    targets="${targets}node14-${platform}-${arch}"
+    targets="${targets}node20-${platform}-${arch}"
   done
   
   echo "$targets"
@@ -219,7 +219,7 @@ function build_windows_only() {
   cd "$BUILD_TMP"
   
   echo "Building Windows executable for: x64"
-  npx -y pkg ./packages/cli/bin/run.js -t node14-win-x64 -d
+  npx -y pkg ./packages/cli/bin/run.js -t node20-win-x64 -d
   
   # Handle Windows executable
   if [ -f run-win.exe ]; then
@@ -241,7 +241,7 @@ function build_all_platforms() {
   # For Linux and macOS, we support multiple architectures
   local linux_targets=$(archs_to_pkg_targets "linux" "$LINUX_ARCHS")
   local macos_targets=$(archs_to_pkg_targets "macos" "$MACOS_ARCHS")
-  local all_targets="${linux_targets} ${macos_targets} node14-win-x64"
+  local all_targets="${linux_targets} ${macos_targets} node20-win-x64"
   
   echo "Building executables for all platforms"
   echo "  Linux: $LINUX_ARCHS"
@@ -397,8 +397,8 @@ function cleanup() {
   if [ -f AppleDevIDApp.p12 ]; then
     rm AppleDevIDApp.p12
   fi
-  if [ "$NO_SIGN" = false ] && [ -d ~/Library/Keychains/percy.keychain ]; then
-    security delete-keychain percy.keychain 2>/dev/null || true
+  if [ "$NO_SIGN" = false ] && [ -f ~/Library/Keychains/percy.keychain-db ]; then
+    security delete-keychain ~/Library/Keychains/percy.keychain-db 2>/dev/null || true
   fi
 }
 

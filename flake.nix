@@ -81,7 +81,7 @@
           yarnOfflineCache = pkgs.mkYarnModules {
             pname = "percy-cli-yarn-modules";
             inherit version;
-            packageJson = ./package.json;
+            packageJSON = ./package.json;
             yarnLock = ./yarn.lock;
           };
 

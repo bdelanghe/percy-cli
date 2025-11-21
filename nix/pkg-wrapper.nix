@@ -36,6 +36,8 @@ stdenv.mkDerivation {
   installPhase = ''
     mkdir -p "$out/bin"
     export NODE_PATH="$PWD/node_modules:$NODE_PATH"
+    # Disable post-install scripts since everything is already built
+    export npm_config_ignore_scripts=true
 
     pkg ${entrypoint} -t ${pkgTarget} -d
 

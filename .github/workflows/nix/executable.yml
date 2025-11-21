@@ -204,6 +204,7 @@ jobs:
       - name: Extract prepared CLI
         run: |
           tar -xzf prepared-cli.tar.gz
+        shell: bash
       
       - name: Build Windows executable
         run: |

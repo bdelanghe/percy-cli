@@ -32,61 +32,23 @@
 
       packages = forAllSystems (pkgs: system:
         let
-          inherit (pkgs) stdenv gnused;
-          node = pkgs.nodejs_20;
-          version = "0.0.1";
-
-          pkgTarget = {
-            "x86_64-linux" = "node20-linux-x64";
-            "aarch64-linux" = "node20-linux-arm64";
-            "x86_64-darwin" = "node20-macos-x64";
-            "aarch64-darwin" = "node20-macos-arm64";
-          }.${system};
-
-          offlineCache = offlineCacheFor pkgs;
-
-          # Layer 1: patched source tree
-          src-patched = stdenv.mkDerivation {
-            pname = "percy-cli-src-patched";
-            inherit version;
-            src = ./.;
-            nativeBuildInputs = [ gnused ];
-            dontBuild = true;
-            installPhase = ''
-              mkdir -p $out
-              cp -R . $out
-              cd $out
-
-              sed -i '/"type": "module",/d' package.json
-
-              if ! grep -q '"name":' package.json; then
-                {
-                  echo '{'
-                  echo '  "name": "percy-cli",'
-                  tail -n +2 package.json
-                } > package.json.tmp && mv package.json.tmp package.json
-              fi
-
-              find packages -name package.json \
-                -not -path "*/dom/*" \
-                -not -path "*/sdk-utils/*" \
-                -exec sed -i '/"type": "module",/d' {} \;
-            '';
-          };
+          cfg        = import ./nix/percy-config.nix { inherit pkgs; };
+          srcPatched = import ./nix/src-patched.nix { inherit pkgs; version = cfg.version; };
+          offline    = offlineCacheFor pkgs;
 
           # Layer 2: node tree build (mkYarnPackage)
-          node-tree = pkgs.mkYarnPackage {
+          nodeTree = pkgs.mkYarnPackage {
             pname = "percy-cli-node-tree";
-            inherit version;
-            src = src-patched;
+            inherit (cfg) version;
+            src = srcPatched;
             yarnLock = ./yarn.lock;
-            offlineCache = offlineCache;
+            offlineCache = offline;
 
             # Optional: small sanity check
             preConfigure = ''
-              echo "Using offline cache at: ${offlineCache}"
-              if ! find "${offlineCache}" -name "*.tgz" | head -1 | grep -q .; then
-                echo "ERROR: offline cache ${offlineCache} has no .tgz files" >&2
+              echo "Using offline cache at: ${offline}"
+              if ! find "${offline}" -name "*.tgz" | head -1 | grep -q .; then
+                echo "ERROR: offline cache ${offline} has no .tgz files" >&2
                 exit 1
               fi
             '';
@@ -119,69 +81,24 @@
             '';
           };
 
+          pkgWrapper = import ./nix/pkg-wrapper.nix { inherit pkgs; };
+
           # Layer 3: pkg-wrapped CLI binary
-          percy-cli = stdenv.mkDerivation {
+          percyCli = pkgWrapper {
             pname = "percy-cli";
-            inherit version;
-
-            src = node-tree;
-            sourceRoot = "libexec/percy-cli-node-tree";
-
-            nativeBuildInputs = [
-              node
-              gnused
-              pkgs.nodePackages.pkg
-            ];
-
-            NODE_ENV = "production";
-
-            patchPhase = ''
-              if [ -f packages/cli/dist/percy.js ]; then
-                {
-                  echo "import { cli } from '@percy/cli';"
-                  cat packages/cli/dist/percy.js
-                } > packages/cli/dist/percy.js.new
-                mv packages/cli/dist/percy.js.new packages/cli/dist/percy.js
-              fi
-
-              if [ -f packages/cli/bin/run.cjs ] && \
-                 ! grep -q 'process.env.NODE_ENV = "executable";' packages/cli/bin/run.cjs; then
-                sed -i '1a process.env.NODE_ENV = "executable";' packages/cli/bin/run.cjs
-              fi
-            '';
-
-            dontBuild = true;
-            dontConfigure = true;
-
-            installPhase = ''
-              mkdir -p "$out/bin"
-              export NODE_PATH="$PWD/node_modules:$NODE_PATH"
-
-              pkg ./packages/cli/bin/run.cjs -t ${pkgTarget} -d
-
-              for name in run-${pkgTarget} run-linux run-macos run; do
-                if [ -f "$name" ]; then
-                  mv "$name" "$out/bin/percy"
-                  chmod +x "$out/bin/percy"
-                  exit 0
-                fi
-              done
-
-              echo "Error: pkg did not produce expected binary" >&2
-              ls -la
-              exit 1
-            '';
-
-            meta = {
-              description = "Percy CLI packaged via pkg";
-              mainProgram = "percy";
-              license = pkgs.lib.licenses.mit;
-            };
+            version = cfg.version;
+            pkgTarget = cfg.pkgTargetFor system;
+            nodeTree = nodeTree;
+            entrypoint = "./packages/cli/bin/run.cjs";
+            patchCli = true;
+            binaryName = "percy";
           };
 
         in {
-          inherit src-patched node-tree percy-cli;
-          default = percy-cli;
+          src-patched = srcPatched;
+          node-tree   = nodeTree;
+          percy-cli   = percyCli;
+          default     = percyCli;
         });
 
       apps = forAllSystems (pkgs: system: {

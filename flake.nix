@@ -31,9 +31,10 @@
 
           # Let Nix compute the offline cache from yarn.lock
           # Cache includes @nx/nx-darwin-arm64 that was added to yarn.lock
+          # Regenerating hash after yarn.lock update
           yarnDeps = pkgs.fetchYarnDeps {
             yarnLock = ./yarn.lock;
-            sha256 = "sha256-WDkPwahNIcB50PAYiDX9CNGKNCU08sou8Y0d6qTrEyM=";
+            sha256 = pkgs.lib.fakeSha256;  # Will be replaced with actual hash
           };
 
           # Layer 2: node tree build (mkYarnPackage)
@@ -57,6 +58,44 @@
               # but we need to ensure devDependencies are included
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
+              
+              # Verify yarn.lock is in sync with package.json
+              # This catches cases where package.json was modified but yarn install wasn't run
+              echo "=== Verifying yarn.lock is in sync with package.json ===" >&2
+              
+              # Check for critical dependencies that must be in yarn.lock
+              # If package.json has @nx/nx-darwin-arm64 but yarn.lock doesn't, 
+              # fetchYarnDeps won't include it in the offline cache
+              if grep -q '"@nx/nx-darwin-arm64"' package.json; then
+                if ! grep -q '@nx/nx-darwin-arm64' yarn.lock; then
+                  echo "ERROR: @nx/nx-darwin-arm64 is in package.json but NOT in yarn.lock!" >&2
+                  echo "" >&2
+                  echo "This means yarn.lock is out of sync with package.json." >&2
+                  echo "Run 'yarn install' to update yarn.lock, then commit the updated yarn.lock." >&2
+                  echo "" >&2
+                  echo "Why this matters:" >&2
+                  echo "  - fetchYarnDeps reads from yarn.lock, not package.json" >&2
+                  echo "  - If a dependency isn't in yarn.lock, it won't be in the offline cache" >&2
+                  echo "  - The build will fail when trying to install missing dependencies" >&2
+                  exit 1
+                else
+                  echo "✓ @nx/nx-darwin-arm64 found in yarn.lock" >&2
+                fi
+              fi
+              
+              # Check for lerna in yarn.lock (should always be present)
+              if grep -q '"lerna"' package.json; then
+                if ! grep -q '"lerna@' yarn.lock; then
+                  echo "ERROR: lerna is in package.json but NOT in yarn.lock!" >&2
+                  echo "Run 'yarn install' to update yarn.lock" >&2
+                  exit 1
+                else
+                  echo "✓ lerna found in yarn.lock" >&2
+                fi
+              fi
+              
+              echo "=== yarn.lock verification complete ===" >&2
+              echo "" >&2
               
               # Install all dependencies including devDependencies
               yarn install --offline --frozen-lockfile --production=false

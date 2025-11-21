@@ -31,10 +31,9 @@
 
           # Let Nix compute the offline cache from yarn.lock
           # Cache includes @nx/nx-darwin-arm64 that was added to yarn.lock
-          # Regenerating to ensure all dependencies (including fs-readdir-recursive) are included
           yarnDeps = pkgs.fetchYarnDeps {
             yarnLock = ./yarn.lock;
-            sha256 = pkgs.lib.fakeSha256;  # Will be replaced with actual hash
+            sha256 = "sha256-5ouUohCpHMXz9Xn9jWbNZ5QGe4xVZiFx4AzIEN9QYiQ=";
           };
 
           # Layer 2: node tree build (mkYarnPackage)
@@ -49,11 +48,10 @@
             # from devDependencies are available and behave correctly during build
             NODE_ENV = "development";
 
-            # Override configurePhase to ensure devDependencies are installed
-            # mkYarnPackage's default configurePhase installs dependencies, but we need devDependencies
-            configurePhase = ''
-              runHook preConfigure
-              
+            # Use postConfigure to verify after mkYarnPackage's default install
+            # mkYarnPackage's default configurePhase uses yarnConfigHook to set up offline cache
+            # and runs yarn install. We verify and ensure devDependencies are installed.
+            postConfigure = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
               
@@ -63,7 +61,6 @@
               if grep -q '"@nx/nx-darwin-arm64"' package.json; then
                 if ! grep -q '@nx/nx-darwin-arm64' yarn.lock; then
                   echo "ERROR: @nx/nx-darwin-arm64 is in package.json but NOT in yarn.lock!" >&2
-                  echo "Run 'yarn install' to update yarn.lock" >&2
                   exit 1
                 else
                   echo "✓ @nx/nx-darwin-arm64 found in yarn.lock" >&2
@@ -73,7 +70,6 @@
               if grep -q '"lerna"' package.json; then
                 if ! grep -q '^lerna@' yarn.lock; then
                   echo "ERROR: lerna is in package.json but NOT in yarn.lock!" >&2
-                  echo "Run 'yarn install' to update yarn.lock" >&2
                   exit 1
                 else
                   echo "✓ lerna found in yarn.lock" >&2
@@ -83,20 +79,14 @@
               echo "=== yarn.lock verification complete ===" >&2
               echo "" >&2
               
-              # mkYarnPackage sets up the offline cache, but we need to ensure
-              # devDependencies are installed. The default install might skip them.
-              # Use yarn's offline mode with the cache that mkYarnPackage set up
-              echo "Installing dependencies (including devDependencies)..." >&2
-              
-              # Ensure we're using offline mode and installing devDependencies
+              # mkYarnPackage's default install might skip devDependencies
+              # Re-run yarn install with --production=false to ensure devDependencies are installed
+              # The offline cache is already set up by yarnConfigHook
+              echo "Ensuring devDependencies are installed..." >&2
               yarn install --offline --frozen-lockfile --production=false --ignore-scripts || {
                 echo "ERROR: yarn install failed" >&2
-                echo "This might indicate missing dependencies in the offline cache." >&2
-                echo "Check if all dependencies in yarn.lock are included in fetchYarnDeps." >&2
                 exit 1
               }
-              
-              runHook postConfigure
             '';
 
             buildPhase = ''

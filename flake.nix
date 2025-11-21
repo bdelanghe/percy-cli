@@ -76,6 +76,13 @@
             '';
           };
 
+          # Prefetch yarn dependencies for offline cache
+          # This creates a directory of .tgz tarballs that Yarn can use offline
+          yarnDeps = pkgs.fetchYarnDeps {
+            yarnLock = ./yarn.lock;
+            hash = "sha256-WDkPwahNIcB50PAYiDX9CNGKNCU08sou8Y0d6qTrEyM=";
+          };
+
           # Layer 2: Yarn build derivation (mkYarnPackage)
           # Builds JS project with patched source, producing a complete node tree
           # This is arch-agnostic (if no native addons) and highly cache-friendly
@@ -85,6 +92,7 @@
             inherit version;
             src = patchedSrc;
             yarnLock = ./yarn.lock;
+            offlineCache = yarnDeps;
             
             # mkYarnPackage installs production dependencies by default
             # We need devDependencies (like lerna) for the build

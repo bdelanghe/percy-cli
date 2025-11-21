@@ -60,7 +60,7 @@ cleanup() {
   fi
   # Remove keychain if it exists
   if [ -f "$KEYCHAIN_PATH-db" ]; then
-    security delete-keychain "$KEYCHAIN_PATH-db" 2>/dev/null || true
+    security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
   fi
 }
 

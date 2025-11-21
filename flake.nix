@@ -140,10 +140,13 @@
             inherit version;
 
             src = nodeTree;
+            # mkYarnPackage nests the project under libexec/<pname>
+            sourceRoot = "libexec/percy-cli-node-tree";
 
             nativeBuildInputs = [
               node
               gnused
+              pkgs.nodePackages.pkg
             ];
 
             NODE_ENV = "production";
@@ -175,7 +178,8 @@
               export NODE_PATH="$PWD/node_modules:$NODE_PATH"
 
               # Binary packaging logic (also available as scripts/percy-make-binary.sh for CI)
-              npx -y pkg ./packages/cli/bin/run.js -t ${pkgTarget} -d
+              # Use Nix-provided pkg instead of npx -y pkg for purity (no network access)
+              pkg ./packages/cli/bin/run.js -t ${pkgTarget} -d
 
               # pkg can name outputs differently; handle the common cases
               for name in run-${pkgTarget} run-linux run-macos run; do

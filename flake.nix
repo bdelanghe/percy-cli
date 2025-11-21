@@ -188,5 +188,14 @@
           ];
         };
       });
+
+      # Conditional checks: only define checks for systems that can be built locally
+      # This allows `nix flake check` to work on darwin without requiring Linux builders
+      # Linux packages remain defined for CI but aren't checked locally
+      checks = forAllSystems (pkgs: system:
+        if pkgs.stdenv.isDarwin then {
+          default = self.packages.${system}.percy-cli;
+        } else {}
+      );
     };
 }

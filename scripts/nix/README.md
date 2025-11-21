@@ -167,3 +167,54 @@ builders = ssh://builder@intel-mac x86_64-darwin - 4 1 big-parallel,kvm
 
 Then use the same build commands - Nix will automatically offload to the remote builder.
 
+## Flake Check Usage
+
+The flake defines packages for multiple systems (x86_64-linux, aarch64-linux, x86_64-darwin, aarch64-darwin), but local development machines typically can only build for their native system.
+
+### Local Development
+
+On your local machine (e.g., an aarch64-darwin Mac), use:
+
+```bash
+# Check only the current system (recommended)
+nix flake check
+
+# Or explicitly specify the system
+nix flake check --system aarch64-darwin
+```
+
+This will:
+- Only check packages for systems that can be built locally (darwin systems on macOS)
+- Skip Linux packages that require remote builders or cross-compilation
+- Avoid errors about "required system not available"
+
+The flake defines conditional checks that only run for darwin systems when on macOS, allowing local checks to succeed while keeping multi-system package definitions for CI.
+
+### Why `--all-systems` Fails Locally
+
+Running `nix flake check --all-systems` on a macOS machine will fail because:
+
+1. It attempts to build Linux packages (x86_64-linux, aarch64-linux) that cannot be built on macOS without:
+   - Remote Linux builders configured in `nix.conf`
+   - Cross-compilation setup
+   - A Linux VM or container
+
+2. The error messages will show:
+   ```
+   Required system: 'x86_64-linux'
+   Current system: 'aarch64-darwin'
+   Reason: required system or feature not available
+   ```
+
+This is expected behavior - your local machine simply cannot build those systems.
+
+### CI Usage
+
+In CI environments (like GitHub Actions) that have proper builders for all target systems, you can use:
+
+```bash
+nix flake check --all-systems
+```
+
+The CI workflow (`.github/workflows/nix/executable.yml`) builds each system separately on appropriate runners, which is the correct approach for multi-system builds.
+

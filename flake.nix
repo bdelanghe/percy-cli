@@ -31,10 +31,9 @@
 
           # Let Nix compute the offline cache from yarn.lock
           # Cache includes @nx/nx-darwin-arm64 that was added to yarn.lock
-          # Regenerating hash after yarn.lock update
           yarnDeps = pkgs.fetchYarnDeps {
             yarnLock = ./yarn.lock;
-            sha256 = pkgs.lib.fakeSha256;  # Will be replaced with actual hash
+            sha256 = "sha256-5ouUohCpHMXz9Xn9jWbNZ5QGe4xVZiFx4AzIEN9QYiQ=";
           };
 
           # Layer 2: node tree build (mkYarnPackage)

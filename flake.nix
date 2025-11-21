@@ -14,7 +14,7 @@
         let
           pkgs = import nixpkgs { inherit system; };
 
-          node = pkgs.nodejs_14;
+          node = pkgs.nodejs_20;
           yarn = pkgs.yarn;
           gsed = pkgs.gnused;
           zip = pkgs.zip;
@@ -24,10 +24,10 @@
 
           # Map Nix system to pkg target
           systemToPkgTarget = {
-            "x86_64-linux" = "node14-linux-x64";
-            "aarch64-linux" = "node14-linux-arm64";
-            "x86_64-darwin" = "node14-macos-x64";
-            "aarch64-darwin" = "node14-macos-arm64";
+            "x86_64-linux" = "node20-linux-x64";
+            "aarch64-linux" = "node20-linux-arm64";
+            "x86_64-darwin" = "node20-macos-x64";
+            "aarch64-darwin" = "node20-macos-arm64";
           };
 
           pkgTarget = systemToPkgTarget.${system};
@@ -182,7 +182,7 @@
         in {
           default = pkgs.mkShell {
             buildInputs = with pkgs; [
-              nodejs_14
+              nodejs_20
               yarn
               git
               zip

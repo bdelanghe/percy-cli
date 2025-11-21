@@ -95,9 +95,9 @@
               mkdir -p "$HOME"
               
               # mkYarnPackage's configurePhase has set up yarn to use the offline cache
-              # Install devDependencies - yarn will use the cache automatically via yarnConfigHook
+              # Install devDependencies - MUST use --offline to prevent network access
               # This installs lerna and other devDependencies into node_modules/.bin
-              yarn install --frozen-lockfile --ignore-scripts
+              yarn install --offline --frozen-lockfile --ignore-scripts
             '';
             
             # Build the project as part of mkYarnPackage

@@ -1,3 +1,5 @@
 -P ubuntu-latest=catthehacker/ubuntu:act-latest
+# Note: macOS runners are not supported by act
+# macOS workflows must be run on actual GitHub Actions runners
 
 

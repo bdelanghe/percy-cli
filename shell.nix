@@ -13,6 +13,7 @@ pkgs.mkShell {
     coreutils
     firefox
     act
+    gnused
   ];
 
   shellHook = ''

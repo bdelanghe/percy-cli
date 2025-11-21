@@ -6,13 +6,34 @@ jobs:
   build:
     name: Build Executables
     runs-on: macos-latest
+    outputs:
+      has_windows: ${{ steps.check-build.outputs.has_windows }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
           node-version: 14
           architecture: x64
-      - run: ./scripts/executable.sh
+      - name: Install gnu-sed
+        run: brew install gnu-sed
+      - name: Check if secrets are available
+        id: check-secrets
+        env:
+          APPLE_DEV_CERT: ${{secrets.APPLE_DEV_CERT}}
+          APPLE_CERT_KEY: ${{secrets.APPLE_CERT_KEY}}
+          APPLE_ID_USERNAME: ${{secrets.APPLE_ID_USERNAME}}
+          APPLE_ID_KEY: ${{secrets.APPLE_ID_KEY}}
+          APPLE_TEAM_ID: ${{secrets.APPLE_TEAM_ID}}
+        run: |
+          if [ -z "$APPLE_DEV_CERT" ] || [ -z "$APPLE_CERT_KEY" ] || [ -z "$APPLE_ID_USERNAME" ] || [ -z "$APPLE_ID_KEY" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "has_secrets=false" >> $GITHUB_OUTPUT
+            echo "no_sign_flag=--no-sign" >> $GITHUB_OUTPUT
+          else
+            echo "has_secrets=true" >> $GITHUB_OUTPUT
+            echo "no_sign_flag=" >> $GITHUB_OUTPUT
+          fi
+      - name: Build executables
+        run: ./scripts/executable.sh ${{ steps.check-secrets.outputs.no_sign_flag }}
         env:
           APPLE_DEV_CERT: ${{secrets.APPLE_DEV_CERT}}
           APPLE_ID_USERNAME: ${{secrets.APPLE_ID_USERNAME}}
@@ -21,12 +42,27 @@ jobs:
           APPLE_TEAM_ID: ${{secrets.APPLE_TEAM_ID}}
       - name: Verify executable
         run: ./percy --version
+      - name: Check what was built
+        id: check-build
+        run: |
+          if [ -f percy.exe ]; then
+            echo "has_windows=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_windows=false" >> $GITHUB_OUTPUT
+          fi
+          if [ -f percy-osx.zip ]; then
+            echo "has_macos=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_macos=false" >> $GITHUB_OUTPUT
+          fi
       - name: Upload win artifact
+        if: steps.check-build.outputs.has_windows == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: win-exe
           path: percy.exe
-      - name: Upload assets
+      - name: Upload all assets
+        if: steps.check-build.outputs.has_macos == 'true'
         uses: softprops/action-gh-release@62c96d0c4e8a889135c1f3a25910db8dbe0e85f7
         with:
           files: |
@@ -34,10 +70,19 @@ jobs:
             percy-linux.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Linux asset only
+        if: steps.check-build.outputs.has_macos == 'false'
+        uses: softprops/action-gh-release@62c96d0c4e8a889135c1f3a25910db8dbe0e85f7
+        with:
+          files: |
+            percy-linux.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   notify:
     needs: build
     name: Sign Win Executable
     runs-on: windows-2022
+    if: needs.build.outputs.has_windows == 'true'
     steps:
       - uses: actions/checkout@v5
       - name: Download win artifact

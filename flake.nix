@@ -85,16 +85,18 @@
             src = patchedSrc;
             yarnLock = ./yarn.lock;
             
-            # Use postConfigure to install devDependencies after mkYarnPackage sets up offline cache
-            # mkYarnPackage's default configurePhase installs production dependencies
+            # Use postConfigure to install devDependencies after mkYarnPackage sets up dependencies
+            # mkYarnPackage's default configurePhase installs production dependencies via yarn2nix
             # We need devDependencies (like lerna) for the build
+            # Don't use --offline here - let yarn use the cache that mkYarnPackage prepared
             postConfigure = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
               
-              # mkYarnPackage has set up the offline cache, now install devDependencies
-              # Use --offline to use the cache, and ensure devDependencies are included
-              yarn install --offline --frozen-lockfile
+              # mkYarnPackage has installed production dependencies via yarn2nix
+              # Now install devDependencies using the same cache mechanism
+              # Use --frozen-lockfile to ensure reproducibility, but let yarn handle the cache
+              yarn install --frozen-lockfile
             '';
             
             # Build the project as part of mkYarnPackage

@@ -213,6 +213,25 @@ function build_linux_only() {
   fi
 }
 
+function build_windows_only() {
+  echo "Building Windows executable only (NO_SIGN=true)"
+  # Build in temp directory
+  cd "$BUILD_TMP"
+  
+  echo "Building Windows executable for: x64"
+  npx -y pkg ./packages/cli/bin/run.js -t node14-win-x64 -d
+  
+  # Handle Windows executable
+  if [ -f run-win.exe ]; then
+    mv run-win.exe percy.exe
+    mv percy.exe "$ORIGINAL_DIR/" 2>/dev/null || true
+  else
+    echo "Error: Windows executable not found after pkg build" >&2
+    ls -la
+    exit 1
+  fi
+}
+
 function build_all_platforms() {
   echo "Building all platform executables (signing secrets available)"
   # Build in temp directory
@@ -395,7 +414,12 @@ setup_temp_dir
 prepare_build
 
 if [ "$NO_SIGN" = true ]; then
-  build_linux_only
+  # Detect platform and build accordingly
+  if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]] || [[ -n "$WINDIR" ]]; then
+    build_windows_only
+  else
+    build_linux_only
+  fi
 else
   build_all_platforms
   sign_macos

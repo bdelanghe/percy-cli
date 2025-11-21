@@ -82,7 +82,7 @@ security list-keychains -s "$KEYCHAIN_PATH"
 security default-keychain -s "$KEYCHAIN_PATH"
 security unlock-keychain -p "percy" "$KEYCHAIN_PATH"
 security set-keychain-settings -t 3600 -l "$KEYCHAIN_PATH"
-security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k percy "$KEYCHAIN_PATH-db"
+security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k percy "$KEYCHAIN_PATH"
 
 # Sign the binary
 echo "Codesigning binary..."
@@ -94,7 +94,7 @@ codesign --force --verbose=4 \
   "$BINARY_PATH"
 
 # Create zip for notarization
-# Preserve directory structure (consistent with unsigned binary case in workflow)
+# Use original relative path to preserve directory structure (consistent with unsigned binary case)
 echo "Creating zip for notarization..."
 zip "$OUTPUT_ZIP" "$ORIGINAL_BINARY_PATH"
 

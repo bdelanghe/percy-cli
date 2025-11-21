@@ -47,7 +47,7 @@
             # Optional: small sanity check
             preConfigure = ''
               echo "Using offline cache at: ${offline}"
-              if ! find "${offline}" -name "*.tgz" | head -1 | grep -q .; then
+              if ! find -L "${offline}" -name "*.tgz" | head -1 | grep -q .; then
                 echo "ERROR: offline cache ${offline} has no .tgz files" >&2
                 exit 1
               fi
@@ -110,7 +110,7 @@
       });
 
       devShells = forAllSystems (pkgs: system: {
-        default = import ./nix/dev-shell.nix { inherit pkgs; };
+        default = import ./nix/percy-firefox.nix { inherit pkgs; };
       });
 
       checks = forAllSystems (pkgs: system:

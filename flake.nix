@@ -78,9 +78,10 @@
 
           # Prefetch yarn dependencies for offline cache
           # This creates a directory of .tgz tarballs that Yarn can use offline
+          # This MUST be fetchYarnDeps, nothing else
           yarnDeps = pkgs.fetchYarnDeps {
             yarnLock = ./yarn.lock;
-            hash = "sha256-WDkPwahNIcB50PAYiDX9CNGKNCU08sou8Y0d6qTrEyM=";
+            sha256 = "WDkPwahNIcB50PAYiDX9CNGKNCU08sou8Y0d6qTrEyM=";
           };
 
           # Validation: Check that yarnDeps exists and contains expected packages
@@ -127,48 +128,13 @@
           # Builds JS project with patched source, producing a complete node tree
           # This is arch-agnostic (if no native addons) and highly cache-friendly
           # mkYarnPackage handles yarn2nix + offline cache internally
-          # Explicitly pass yarnDeps as offlineCache - mkYarnPackage will handle the derivation
-          nodeTree = pkgs.mkYarnPackage rec {
+          # offlineCache = yarnDeps ensures fetchYarnDeps is built as a dependency
+          nodeTree = pkgs.mkYarnPackage {
             pname = "percy-cli-node-tree";
             inherit version;
             src = patchedSrc;
             yarnLock = ./yarn.lock;
-            # Pass yarnDeps derivation directly - mkYarnPackage will realize it
             offlineCache = yarnDeps;
-            # Ensure yarnDeps is built by referencing it in buildInputs
-            # This forces it to be built before mkYarnPackage tries to use it
-            buildInputs = [ yarnDeps ];
-            
-            # Pre-configure validation: Verify offline cache is accessible
-            # Using ${yarnDeps} in string interpolation ensures it's built as a dependency
-            preConfigure = ''
-              echo "Pre-configure check: Verifying offline cache..."
-              
-              # Reference yarnDeps directly to ensure it's built
-              cache_path="${yarnDeps}"
-              
-              if [ -z "$cache_path" ] || [ ! -d "$cache_path" ]; then
-                echo "ERROR: offlineCache (yarnDeps) is not accessible" >&2
-                echo "Expected path: $cache_path" >&2
-                echo "This will cause 'yarn install' to fail in offline mode." >&2
-                ls -la "$(dirname "$cache_path")" 2>&1 || true
-                exit 1
-              fi
-              
-              # Check for at least some packages in the cache
-              tgz_count=$(find "$cache_path" -name "*.tgz" 2>/dev/null | wc -l | tr -d ' ')
-              if [ "$tgz_count" -eq 0 ]; then
-                echo "ERROR: offlineCache appears empty (no .tgz files found)" >&2
-                echo "Cache path: $cache_path" >&2
-                echo "Directory contents:" >&2
-                ls -la "$cache_path" 2>&1 | head -20 || true
-                echo "This suggests fetchYarnDeps hash may be incorrect." >&2
-                echo "Run: nix build .#packages.${system}.yarnDepsCheck to validate" >&2
-                exit 1
-              fi
-              
-              echo "✓ Offline cache verified: $cache_path (found $tgz_count .tgz files)"
-            '';
             
             # mkYarnPackage installs production dependencies by default
             # We need devDependencies (like lerna) for the build

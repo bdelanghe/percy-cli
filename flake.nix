@@ -53,13 +53,8 @@
               fi
               # Check for entries (files or symlinks) with .tgz in their names
               # linkFarm creates symlinks, so we check the symlink names directly
-              # Use shopt -s nullglob to handle empty globs, and check if any files match
-              set +e
-              shopt -s nullglob
-              matches=("${offline}"/*.tgz)
-              shopt -u nullglob
-              set -e
-              if [ ${#matches[@]} -eq 0 ]; then
+              # Use find to check for entries matching the pattern without following symlinks
+              if ! find "${offline}" -maxdepth 1 -name "*.tgz" 2>/dev/null | head -1 | grep -q .; then
                 echo "ERROR: offline cache ${offline} has no .tgz entries" >&2
                 echo "Cache directory contents:" >&2
                 ls -la "${offline}" || true

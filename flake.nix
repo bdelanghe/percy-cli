@@ -90,30 +90,21 @@
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
               
-              # Ensure npx runs offline (no network access) for pure Nix builds
+              # Enforce offline npm/npx behavior (no network access for pure Nix builds)
               export npm_config_offline=true
               export NPM_CONFIG_OFFLINE=true
               
-              # mkYarnPackage installs dependencies, but we need to ensure devDependencies are available
-              # Check where node_modules is located and add it to PATH
-              if [ -d "$PWD/node_modules/.bin" ]; then
-                export PATH="$PWD/node_modules/.bin:$PATH"
-              fi
+              # Ensure local binaries are on PATH (mkYarnPackage installs devDependencies here)
+              export PATH="$PWD/node_modules/.bin:$PATH"
               
-              # Try to find lerna - mkYarnPackage should install it as a devDependency
-              # Use npx with --offline flag to ensure no network access, or fall back to direct path
-              if [ -f "$PWD/node_modules/.bin/lerna" ]; then
-                "$PWD/node_modules/.bin/lerna" run build --stream
-              elif [ -f "$PWD/node_modules/lerna/cli.js" ]; then
-                node "$PWD/node_modules/lerna/cli.js" run build --stream
-              elif command -v lerna >/dev/null 2>&1; then
-                lerna run build --stream
-              else
-                echo "Error: lerna not found. Checking node_modules structure..." >&2
-                ls -la "$PWD/node_modules/.bin" 2>/dev/null || echo "node_modules/.bin does not exist" >&2
-                find "$PWD" -name "lerna" -type f 2>/dev/null | head -5
+              # Assert lerna is available (mkYarnPackage should have installed it as devDependency)
+              if ! command -v lerna >/dev/null 2>&1; then
+                echo "Error: lerna not found in node_modules/.bin" >&2
                 exit 1
               fi
+              
+              # Run monorepo build
+              lerna run build --stream
               
               npm run build_cjs
               if [ -d build ]; then

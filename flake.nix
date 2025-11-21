@@ -84,13 +84,16 @@
             inherit version;
             src = patchedSrc;
             yarnLock = ./yarn.lock;
-            yarnNix = ./yarn.nix;
             
             # Build the project as part of mkYarnPackage
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
               
+              # Ensure node_modules/.bin is in PATH for devDependencies like lerna
+              export PATH="$PWD/node_modules/.bin:$PATH"
+              
+              # Run build - yarn should handle PATH, but we ensure node_modules/.bin is available
               yarn build
               npm run build_cjs
               if [ -d build ]; then

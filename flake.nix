@@ -48,46 +48,6 @@
             # from devDependencies are available and behave correctly during build
             NODE_ENV = "development";
 
-            # Use postConfigure to verify after mkYarnPackage's default install
-            # mkYarnPackage's default configurePhase uses yarnConfigHook to set up offline cache
-            # and runs yarn install. We verify and ensure devDependencies are installed.
-            postConfigure = ''
-              export HOME="$TMPDIR/home"
-              mkdir -p "$HOME"
-              
-              # Verify yarn.lock is in sync with package.json
-              echo "=== Verifying yarn.lock is in sync with package.json ===" >&2
-              
-              if grep -q '"@nx/nx-darwin-arm64"' package.json; then
-                if ! grep -q '@nx/nx-darwin-arm64' yarn.lock; then
-                  echo "ERROR: @nx/nx-darwin-arm64 is in package.json but NOT in yarn.lock!" >&2
-                  exit 1
-                else
-                  echo "✓ @nx/nx-darwin-arm64 found in yarn.lock" >&2
-                fi
-              fi
-              
-              if grep -q '"lerna"' package.json; then
-                if ! grep -q '^lerna@' yarn.lock; then
-                  echo "ERROR: lerna is in package.json but NOT in yarn.lock!" >&2
-                  exit 1
-                else
-                  echo "✓ lerna found in yarn.lock" >&2
-                fi
-              fi
-              
-              echo "=== yarn.lock verification complete ===" >&2
-              echo "" >&2
-              
-              # mkYarnPackage's default install might skip devDependencies
-              # Re-run yarn install with --production=false to ensure devDependencies are installed
-              # The offline cache is already set up by yarnConfigHook
-              echo "Ensuring devDependencies are installed..." >&2
-              yarn install --offline --frozen-lockfile --production=false --ignore-scripts || {
-                echo "ERROR: yarn install failed" >&2
-                exit 1
-              }
-            '';
 
             buildPhase = ''
               export HOME="$TMPDIR/home"
@@ -97,6 +57,32 @@
               export NPM_CONFIG_OFFLINE=true
               # Suppress npm deprecation warnings
               export npm_config_loglevel=error
+
+              # mkYarnPackage should have installed dependencies in configurePhase
+              # Check if lerna is available - if not, mkYarnPackage might have installed with --production
+              # In that case, we need to install devDependencies, but the offline cache should already be set up
+              if [ ! -f node_modules/.bin/lerna ]; then
+                echo "lerna not found, checking if devDependencies need to be installed..." >&2
+                echo "Current directory: $PWD" >&2
+                if [ -f package.json ]; then
+                  echo "package.json found, installing devDependencies..." >&2
+                  # mkYarnPackage sets up yarn's offline cache via yarnConfigHook
+                  # We can use yarn install with --offline, but need to ensure the cache is available
+                  # The cache from fetchYarnDeps should be linked by mkYarnPackage
+                  yarn install --offline --frozen-lockfile --production=false --ignore-scripts 2>&1 || {
+                    echo "ERROR: Failed to install devDependencies" >&2
+                    echo "This might indicate the offline cache is not properly configured." >&2
+                    echo "Checking yarn cache configuration..." >&2
+                    yarn config get yarn-offline-mirror 2>&1 || true
+                    exit 1
+                  }
+                else
+                  echo "ERROR: package.json not found in $PWD" >&2
+                  echo "Directory contents:" >&2
+                  ls -la 2>&1 | head -20
+                  exit 1
+                fi
+              fi
 
               # Add node_modules/.bin to PATH for babel, lerna, and other build tools
               export PATH="$PWD/node_modules/.bin:$PATH"

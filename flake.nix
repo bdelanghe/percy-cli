@@ -43,6 +43,10 @@
             yarnLock = ./yarn.lock;
             offlineCache = yarnDeps;
 
+            # Add lerna to nativeBuildInputs as a fallback in case it's not available
+            # in node_modules/.bin (e.g., on aarch64-darwin)
+            nativeBuildInputs = [ pkgs.nodePackages.lerna ];
+
             # Keep NODE_ENV=development to ensure build tools (babel, rollup) 
             # from devDependencies are available and behave correctly during build
             NODE_ENV = "development";

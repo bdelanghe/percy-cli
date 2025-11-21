@@ -158,9 +158,34 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Windows build (kept separate, using bash script)
+  # Build prepared CLI using Nix (for Windows build)
+  build-prepared-cli:
+    name: Build Prepared CLI with Nix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v14
+      
+      - name: Build prepared CLI with Nix
+        run: nix build .#prepared-cli --system x86_64-linux
+      
+      - name: Copy prepared CLI
+        run: |
+          cp -R result prepared-cli
+          tar -czf prepared-cli.tar.gz prepared-cli
+      
+      - name: Upload prepared CLI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prepared-cli
+          path: prepared-cli.tar.gz
+
+  # Windows build (using Nix-prepared CLI)
   build-windows:
     name: Build Windows Executable
+    needs: build-prepared-cli
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v5
@@ -170,13 +195,27 @@ jobs:
         with:
           node-version: 20
       
-      - name: Install gnu-sed (via Git Bash)
-        run: choco install gnu-sed -y
+      - name: Download prepared CLI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: prepared-cli
+          path: .
+      
+      - name: Extract prepared CLI
+        run: |
+          tar -xzf prepared-cli.tar.gz
       
       - name: Build Windows executable
         run: |
-          # Use the Windows-specific build script
-          bash ./scripts/nix/build-windows.sh
+          cd prepared-cli
+          npx -y pkg ./packages/cli/bin/run.cjs -t node20-win-x64 -d
+          if [ -f run-win.exe ]; then
+            mv run-win.exe ../percy.exe
+          else
+            echo "Error: pkg did not produce run-win.exe" >&2
+            ls -la
+            exit 1
+          fi
         shell: bash
       
       - name: Upload win artifact

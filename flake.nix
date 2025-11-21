@@ -38,10 +38,7 @@
             pname = "percy-cli";
             version = "0.0.1";
 
-            src = builtins.path {
-              path = ./.;
-              name = "percy-cli-source";
-            };
+            src = pkgs.lib.cleanSource ./.;
 
             nativeBuildInputs = [ node yarn gsed ];
 
@@ -63,11 +60,13 @@
               mkdir -p $HOME
 
               # Use prefetched yarn dependencies
-              # fetchYarnDeps creates a directory structure we can copy
-              cp -r ${yarnDeps}/* .
+              # fetchYarnDeps returns a directory with the unpacked packages
+              # We copy it to node_modules to make packages available
+              cp -rL ${yarnDeps} node_modules
               
-              # Install dependencies (prefetched deps are already in place)
-              yarn install --frozen-lockfile --offline
+              # Install dependencies using prefetched deps (offline mode)
+              # This will use the already-unpacked packages from node_modules
+              yarn install --frozen-lockfile --offline --prefer-offline
               yarn build
 
               # Prepend import to percy.js using process substitution (no temp file)

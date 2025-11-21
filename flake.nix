@@ -44,32 +44,6 @@
             yarnLock = ./yarn.lock;
             offlineCache = offline;
 
-            # Optional: small sanity check
-            preConfigure = ''
-              echo "Using offline cache at: ${offline}"
-              if [ ! -d "${offline}" ]; then
-                echo "ERROR: offline cache directory ${offline} does not exist" >&2
-                exit 1
-              fi
-              # Check for entries (files or symlinks) with .tgz in their names
-              # linkFarm creates symlinks, so we check the symlink names directly
-              # Use a loop to check if any entry matches the pattern
-              found=0
-              for entry in "${offline}"/*; do
-                if [ -e "$entry" ] && [[ "$(basename "$entry")" == *.tgz ]]; then
-                  found=1
-                  break
-                fi
-              done
-              if [ "$found" -eq 0 ]; then
-                echo "ERROR: offline cache ${offline} has no .tgz entries" >&2
-                echo "Cache directory contents:" >&2
-                ls -la "${offline}" || true
-                exit 1
-              fi
-              echo "Offline cache validation passed"
-            '';
-
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"

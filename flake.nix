@@ -34,7 +34,6 @@
         let
           inherit (pkgs) stdenv gnused;
           node = pkgs.nodejs_20;
-          lerna = pkgs.nodePackages.lerna;
           version = "0.0.1";
 
           pkgTarget = {
@@ -83,8 +82,6 @@
             yarnLock = ./yarn.lock;
             offlineCache = offlineCache;
 
-            nativeBuildInputs = [ lerna ];
-
             # Optional: small sanity check
             preConfigure = ''
               echo "Using offline cache at: ${offlineCache}"
@@ -101,12 +98,16 @@
               export npm_config_offline=true
               export NPM_CONFIG_OFFLINE=true
 
-              if ! command -v lerna >/dev/null 2>&1; then
-                echo "Error: lerna (from Nix) not on PATH" >&2
+              # Use lerna from node_modules (installed via yarn) instead of nixpkgs
+              # This ensures we use the correct version (6.0.1) that matches package.json
+              if [ ! -f node_modules/.bin/lerna ]; then
+                echo "Error: lerna not found in node_modules/.bin" >&2
+                echo "Available binaries:" >&2
+                ls -la node_modules/.bin/ || true
                 exit 1
               fi
 
-              lerna run build --stream
+              ./node_modules/.bin/lerna run build --stream
 
               npm run build_cjs || true
               if [ -d build ]; then

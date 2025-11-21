@@ -44,6 +44,9 @@
             yarnLock = ./yarn.lock;
             offlineCache = offline;
 
+            # Make sure devDependencies (including lerna) are installed
+            NODE_ENV = "development";
+
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
@@ -51,11 +54,7 @@
               export npm_config_offline=true
               export NPM_CONFIG_OFFLINE=true
 
-              # Install devDependencies (needed for lerna) before building
-              # mkYarnPackage only installs production deps by default
-              # Note: devDeps may not be in offline cache, but lockfile ensures determinism
-              yarn install --frozen-lockfile --production=false
-
+              # Use the package.json script: "build": "lerna run build --stream"
               yarn run build
 
               npm run build_cjs || true

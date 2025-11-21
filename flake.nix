@@ -38,7 +38,17 @@
             pname = "percy-cli";
             version = "0.0.1";
 
-            src = ./.;
+            src = builtins.path {
+              path = ./.;
+              name = "percy-cli-source";
+              filter = path: type:
+                let
+                  baseName = baseNameOf path;
+                  # Exclude git and other version control files
+                in baseName != ".git" && baseName != ".gitignore" && 
+                   baseName != ".github" && baseName != "result" &&
+                   baseName != "result-*";
+            };
 
             nativeBuildInputs = [ node yarn gsed ];
 

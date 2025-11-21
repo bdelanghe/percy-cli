@@ -23,15 +23,14 @@ jobs:
       
       - name: Copy binary
         run: |
-          mkdir -p artifacts
-          cp result/bin/percy artifacts/percy-${{ matrix.system }}
-          chmod +x artifacts/percy-${{ matrix.system }}
+          cp result/bin/percy percy-${{ matrix.system }}
+          chmod +x percy-${{ matrix.system }}
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: percy-${{ matrix.system }}
-          path: artifacts/percy-${{ matrix.system }}
+          path: percy-${{ matrix.system }}
 
   # Build macOS executables using Nix
   build-macos:
@@ -53,15 +52,14 @@ jobs:
       
       - name: Copy binary
         run: |
-          mkdir -p artifacts
-          cp result/bin/percy artifacts/percy-${{ matrix.system }}
-          chmod +x artifacts/percy-${{ matrix.system }}
+          cp result/bin/percy percy-${{ matrix.system }}
+          chmod +x percy-${{ matrix.system }}
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: percy-${{ matrix.system }}
-          path: artifacts/percy-${{ matrix.system }}
+          path: percy-${{ matrix.system }}
 
   # Sign and package macOS binaries
   sign-macos:

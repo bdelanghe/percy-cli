@@ -5,14 +5,14 @@
 { pkgs, version }:
 
 let
-  inherit (pkgs) stdenv gnused;
+  inherit (pkgs) stdenv gnused lib;
 in
 
 stdenv.mkDerivation {
   pname = "percy-cli-src-patched";
   inherit version;
 
-  src = ./.;
+  src = lib.cleanSource ./.;
   nativeBuildInputs = [ gnused ];
   dontBuild = true;
 

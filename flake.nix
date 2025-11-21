@@ -94,10 +94,14 @@
               export npm_config_offline=true
               export NPM_CONFIG_OFFLINE=true
               
-              # Ensure local binaries are on PATH (mkYarnPackage installs devDependencies here)
+              # mkYarnPackage installs dependencies, but we need devDependencies for lerna
+              # Run yarn install to ensure devDependencies are available (offline, using existing lockfile)
+              yarn install --offline --frozen-lockfile
+              
+              # Ensure local binaries are on PATH
               export PATH="$PWD/node_modules/.bin:$PATH"
               
-              # Assert lerna is available (mkYarnPackage should have installed it as devDependency)
+              # Assert lerna is available
               if ! command -v lerna >/dev/null 2>&1; then
                 echo "Error: lerna not found in node_modules/.bin" >&2
                 exit 1

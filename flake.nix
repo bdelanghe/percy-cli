@@ -32,7 +32,7 @@
           # Let Nix compute the offline cache from yarn.lock
           yarnDeps = pkgs.fetchYarnDeps {
             yarnLock = ./yarn.lock;
-            sha256 = pkgs.lib.fakeSha256; # Will be replaced with actual hash on first run
+            sha256 = "sha256-WDkPwahNIcB50PAYiDX9CNGKNCU08sou8Y0d6qTrEyM=";
           };
 
           # Layer 2: node tree build (mkYarnPackage)

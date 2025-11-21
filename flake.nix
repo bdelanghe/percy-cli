@@ -103,23 +103,29 @@
               
               # Check for expected devDependency binaries
               echo "Checking for expected devDependency binaries:" >&2
-              missing_bins=()
-              expected_bins=(babel eslint lerna karma nyc rollup tsd)
+              missing_bins=""
+              lerna_missing=0
               
-              for bin in "''${expected_bins[@]}"; do
+              for bin in babel eslint lerna karma nyc rollup tsd; do
                 if [ -f "node_modules/.bin/$bin" ]; then
                   # Check if it's executable
                   if [ -x "node_modules/.bin/$bin" ]; then
                     echo "  ✓ $bin found and executable" >&2
                   else
                     echo "  ⚠ $bin found but NOT executable" >&2
-                    missing_bins+=("$bin")
+                    missing_bins="$missing_bins $bin"
+                    if [ "$bin" = "lerna" ]; then
+                      lerna_missing=1
+                    fi
                   fi
                 elif command -v "$bin" >/dev/null 2>&1; then
                   echo "  ✓ $bin found in PATH (but not in node_modules/.bin)" >&2
                 else
                   echo "  ✗ $bin NOT found" >&2
-                  missing_bins+=("$bin")
+                  missing_bins="$missing_bins $bin"
+                  if [ "$bin" = "lerna" ]; then
+                    lerna_missing=1
+                  fi
                 fi
               done
               echo "" >&2
@@ -136,7 +142,8 @@
                 fi
               else
                 echo "✗ node_modules/lerna directory does NOT exist" >&2
-                missing_bins+=("lerna")
+                missing_bins="$missing_bins lerna"
+                lerna_missing=1
               fi
               echo "" >&2
               
@@ -190,9 +197,9 @@
               
               # Summary and exit if critical binaries are missing
               echo "=== Diagnostic Summary ===" >&2
-              if [ "''${#missing_bins[@]}" -gt 0 ]; then
-                echo "✗ Missing critical binaries: ''${missing_bins[*]}" >&2
-                if [[ " ''${missing_bins[*]} " =~ " lerna " ]]; then
+              if [ -n "$missing_bins" ]; then
+                echo "✗ Missing critical binaries:$missing_bins" >&2
+                if [ "$lerna_missing" = "1" ]; then
                   echo "" >&2
                   echo "ERROR: lerna is missing or not executable!" >&2
                   echo "This will prevent the build from proceeding." >&2

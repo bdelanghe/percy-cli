@@ -21,7 +21,8 @@ function setup_temp_dir() {
   echo "Using temporary build directory: $BUILD_TMP"
   
   # Set trap to cleanup temp directory on exit
-  trap "rm -rf '$BUILD_TMP'" EXIT INT TERM
+  # Change back to original directory first to avoid deletion issues on Windows/Git Bash
+  trap "cd '$ORIGINAL_DIR' 2>/dev/null || true; rm -rf '$BUILD_TMP'" EXIT INT TERM
 }
 
 function prepare_build() {
@@ -45,7 +46,8 @@ function prepare_build() {
   cd "$BUILD_TMP"
 
   # Remove type from package.json files in temp
-  gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' ./package.json
+  # Use simple pattern that doesn't fail if pattern is not found (matches flake.nix behavior)
+  gsed -i '/"type": "module",/d' ./package.json
 
   # Create array of package.json files
   array=($(ls -d ./packages/*/package.json))
@@ -58,11 +60,12 @@ function prepare_build() {
   done
 
   # Remove type module from package.json where present
+  # Use simple pattern that doesn't fail if pattern is not found (matches flake.nix behavior)
   for package in "${array[@]}"
   do
     if [ ! -z "$package" ]
     then
-      gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' "$package"
+      gsed -i '/"type": "module",/d' "$package"
     fi
   done
 
@@ -116,6 +119,12 @@ function build_windows() {
 }
 
 function cleanup() {
+  # Change back to original directory before removing temp directory
+  # This prevents issues on Windows/Git Bash where deleting the current directory can fail
+  if [ -n "${ORIGINAL_DIR:-}" ]; then
+    cd "$ORIGINAL_DIR" || true
+  fi
+  
   # Clean up temp directory (handled by trap, but explicit cleanup here too)
   if [ -n "${BUILD_TMP:-}" ] && [ -d "$BUILD_TMP" ]; then
     rm -rf "$BUILD_TMP"

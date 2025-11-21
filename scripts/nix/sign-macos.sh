@@ -94,9 +94,9 @@ codesign --force --verbose=4 \
   "$BINARY_PATH"
 
 # Create zip for notarization
-# Use original relative path to preserve directory structure (consistent with unsigned binary case)
+# Use -j flag to junk paths and store files without directory prefixes
 echo "Creating zip for notarization..."
-zip "$OUTPUT_ZIP" "$ORIGINAL_BINARY_PATH"
+zip -j "$OUTPUT_ZIP" "$ORIGINAL_BINARY_PATH"
 
 # Notarize
 echo "Submitting for notarization..."

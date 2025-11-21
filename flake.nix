@@ -43,10 +43,8 @@
             yarnLock = ./yarn.lock;
             offlineCache = yarnDeps;
 
-            # Add lerna as a build input so it's available during build
-            nativeBuildInputs = [ pkgs.nodePackages.lerna ];
-
-            # Make sure devDependencies are installed
+            # Keep NODE_ENV=development to ensure build tools (babel, rollup) 
+            # from devDependencies are available and behave correctly during build
             NODE_ENV = "development";
 
             buildPhase = ''
@@ -56,11 +54,15 @@
               export npm_config_offline=true
               export NPM_CONFIG_OFFLINE=true
 
-              # Use the package.json script: "build": "lerna run build --stream"
-              # lerna is now available via nativeBuildInputs
-              yarn run build
+              # Add node_modules/.bin to PATH for babel, lerna, and other build tools
+              # lerna is installed as a devDependency, so it will be available here
+              export PATH="$PWD/node_modules/.bin:$PATH"
 
-              npm run build_cjs || true
+              # Run lerna build directly (using lerna from node_modules)
+              lerna run build --stream
+
+              # Run babel build_cjs directly
+              BABEL_ENV=dev babel packages -d build || true
               if [ -d build ]; then
                 cp -R build/* packages/
               fi

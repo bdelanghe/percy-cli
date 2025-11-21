@@ -194,23 +194,8 @@ jobs:
         if: hashFiles('percy.exe') != ''
         run: node ./scripts/win-metadata-update.js
       
-      - name: Check if secrets are available
-        if: hashFiles('percy.exe') != ''
-        id: check-secrets
-        env:
-          WINDOWS_CERT: ${{secrets.WINDOWS_CERT}}
-          WINDOWS_CERT_KEY: ${{secrets.WINDOWS_CERT_KEY}}
-          WINDOWS_CERT_ID: ${{secrets.WINDOWS_CERT_ID}}
-        run: |
-          if [ -z "$WINDOWS_CERT" ] || [ -z "$WINDOWS_CERT_KEY" ] || [ -z "$WINDOWS_CERT_ID" ]; then
-            echo "has_secrets=false" >> $GITHUB_OUTPUT
-          else
-            echo "has_secrets=true" >> $GITHUB_OUTPUT
-          fi
-        shell: bash
-      
       - name: Sign binary
-        if: hashFiles('percy.exe') != '' && steps.check-secrets.outputs.has_secrets == 'true'
+        if: hashFiles('percy.exe') != ''
         uses: lando/code-sign-action@v3
         with:
           file: ./percy.exe

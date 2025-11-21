@@ -18,7 +18,7 @@ in {
 
   node    = pkgs.nodejs_20;
   pkgTool = pkgs.nodePackages.pkg;
-  # Note: lerna is NOT included here - we use the project's lerna from yarn
-  # (version 6.0.1) instead of nixpkgs lerna (8.1.2) to avoid version conflicts
+  # Note: lerna is provided via nativeBuildInputs in flake.nix using
+  # pkgs.nodePackages.lerna (version 8.1.2 from nixpkgs)
 }
 

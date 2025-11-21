@@ -43,10 +43,6 @@
             yarnLock = ./yarn.lock;
             offlineCache = yarnDeps;
 
-            # Add lerna to nativeBuildInputs as a fallback in case it's not available
-            # in node_modules/.bin (e.g., on aarch64-darwin)
-            nativeBuildInputs = [ pkgs.nodePackages.lerna ];
-
             # Keep NODE_ENV=development to ensure build tools (babel, rollup) 
             # from devDependencies are available and behave correctly during build
             NODE_ENV = "development";
@@ -60,9 +56,21 @@
               # Suppress npm deprecation warnings
               export npm_config_loglevel=error
 
+              # Explicitly install devDependencies to ensure lerna and other build tools are available
+              # mkYarnPackage should do this, but we ensure it happens with the right NODE_ENV
+              echo "Installing dependencies (including devDependencies)..."
+              yarn install --offline --frozen-lockfile --production=false
+
               # Add node_modules/.bin to PATH for babel, lerna, and other build tools
-              # lerna is installed as a devDependency, so it will be available here
               export PATH="$PWD/node_modules/.bin:$PATH"
+
+              # Verify lerna is available
+              if ! command -v lerna >/dev/null 2>&1; then
+                echo "Error: lerna command not found after yarn install" >&2
+                echo "Checking node_modules/.bin contents:" >&2
+                ls -la node_modules/.bin/ 2>&1 || true
+                exit 1
+              fi
 
               # Run lerna build directly (using lerna from node_modules)
               lerna run build --stream

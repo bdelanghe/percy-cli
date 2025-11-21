@@ -71,21 +71,24 @@
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
 
-              # Link prefetched yarn dependencies as node_modules
-              # fetchYarnDeps returns a directory structure we can use directly
-              mkdir -p node_modules
+              # Use prefetched yarn dependencies
+              # fetchYarnDeps returns packages that need to be linked properly
+              # We'll let yarn handle the linking by using the offline cache
+              export YARN_CACHE_FOLDER="$TMPDIR/yarn-cache"
+              mkdir -p "$YARN_CACHE_FOLDER"
+              
+              # Copy fetchYarnDeps output to cache (it may need unpacking)
+              # Try both possible structures
               if [ -d "${yarnDeps}/node_modules" ]; then
-                # If it has node_modules subdirectory, link that
-                cp -rL ${yarnDeps}/node_modules/* node_modules/
-              else
-                # Otherwise, link the directory contents directly
-                cp -rL ${yarnDeps}/* node_modules/
+                # Structure has node_modules subdirectory
+                cp -rL ${yarnDeps}/node_modules "$TMPDIR/" || true
               fi
+              cp -rL ${yarnDeps}/* "$YARN_CACHE_FOLDER/" 2>/dev/null || true
 
-              # Install dependencies - yarn should use existing node_modules
-              # Use --link-duplicates to handle any linking issues
-              yarn install --frozen-lockfile --offline --link-duplicates || \
-                yarn install --frozen-lockfile --link-duplicates
+              # Try installing with offline mode - if packages are in cache, it should work
+              # --check-files verifies files exist without fetching
+              yarn install --frozen-lockfile --offline --check-files || \
+                yarn install --frozen-lockfile --prefer-offline
               yarn build
 
               # Prepend import to percy.js

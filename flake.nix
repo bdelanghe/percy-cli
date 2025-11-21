@@ -80,7 +80,7 @@
           # This creates a directory of .tgz tarballs that Yarn can use offline
           yarnDeps = pkgs.fetchYarnDeps {
             yarnLock = ./yarn.lock;
-            sha256 = "sha256-WDkPwahNIcB50PAYiDX9CNGKNCU08sou8Y0d6qTrEyM=";
+            hash = "sha256-WDkPwahNIcB50PAYiDX9CNGKNCU08sou8Y0d6qTrEyM=";
           };
 
           # Layer 2: Yarn build derivation (mkYarnPackage)

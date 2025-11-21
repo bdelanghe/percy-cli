@@ -85,6 +85,21 @@
             src = patchedSrc;
             yarnLock = ./yarn.lock;
             
+            # Override configurePhase to ensure devDependencies are installed
+            # mkYarnPackage's default configurePhase may skip devDependencies
+            configurePhase = ''
+              runHook preConfigure
+              
+              export HOME="$TMPDIR/home"
+              mkdir -p "$HOME"
+              
+              # mkYarnPackage sets up yarn, but we need to ensure devDependencies are installed
+              # Install all dependencies including devDependencies (not --production)
+              yarn install --offline --frozen-lockfile
+              
+              runHook postConfigure
+            '';
+            
             # Build the project as part of mkYarnPackage
             buildPhase = ''
               export HOME="$TMPDIR/home"
@@ -93,10 +108,6 @@
               # Enforce offline npm/npx behavior (no network access for pure Nix builds)
               export npm_config_offline=true
               export NPM_CONFIG_OFFLINE=true
-              
-              # mkYarnPackage installs dependencies, but we need devDependencies for lerna
-              # Run yarn install to ensure devDependencies are available (offline, using existing lockfile)
-              yarn install --offline --frozen-lockfile
               
               # Ensure local binaries are on PATH
               export PATH="$PWD/node_modules/.bin:$PATH"

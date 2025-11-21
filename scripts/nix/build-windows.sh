@@ -92,8 +92,10 @@ function prepare_build() {
   fi
 
   # Convert ES6 code to cjs (runs in temp directory)
-  npm run build_cjs
-  cp -R ./build/* packages/
+  npm run build_cjs || true
+  if [ -d build ]; then
+    cp -R ./build/* packages/
+  fi
 }
 
 function build_windows() {

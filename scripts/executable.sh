@@ -45,8 +45,7 @@ npm run build_cjs
 cp -R ./build/* packages/
 
 # Create executables
-# Note: package.json specifies bin as ./bin/run.cjs (not run.js)
-pkg ./packages/cli/bin/run.cjs -d
+pkg ./packages/cli/bin/run.js -d
 
 # Rename executables
 mv run-linux percy && chmod +x percy

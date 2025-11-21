@@ -3,9 +3,10 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    flake-schemas.url = "github:DeterminateSystems/flake-schemas";
   };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, flake-schemas }:
     let
       systems = [
         "aarch64-linux"
@@ -22,6 +23,9 @@
         f pkgs system);
 
     in {
+      # Flake schemas for better tooling support and validation
+      schemas = flake-schemas.schemas;
+
       packages = forAllSystems (pkgs: system:
         let
           inherit (pkgs) stdenv yarn gnused;

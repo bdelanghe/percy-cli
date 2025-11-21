@@ -184,7 +184,7 @@
           nativeBuildInputs = with pkgs; [
             nodejs_20
             yarn
-            yarn2nix-moretea
+            yarn2nix
             git
             zip
             gnused

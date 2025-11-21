@@ -1,0 +1,231 @@
+name: Build Executables (Nix)
+on:
+  release:
+    types: [published]
+jobs:
+  # Build Linux executables using Nix
+  build-linux:
+    name: Build Linux with Nix (${{ matrix.system }})
+    strategy:
+      matrix:
+        system:
+          - x86_64-linux
+          - aarch64-linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v14
+      
+      - name: Build with Nix
+        run: nix build .#percy-cli --system ${{ matrix.system }}
+      
+      - name: Copy binary
+        run: |
+          mkdir -p artifacts
+          cp result/bin/percy artifacts/percy-${{ matrix.system }}
+          chmod +x artifacts/percy-${{ matrix.system }}
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: percy-${{ matrix.system }}
+          path: artifacts/percy-${{ matrix.system }}
+
+  # Build macOS executables using Nix
+  build-macos:
+    name: Build macOS with Nix (${{ matrix.system }})
+    strategy:
+      matrix:
+        system:
+          - x86_64-darwin
+          - aarch64-darwin
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v5
+      
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v14
+      
+      - name: Build with Nix
+        run: nix build .#percy-cli --system ${{ matrix.system }}
+      
+      - name: Copy binary
+        run: |
+          mkdir -p artifacts
+          cp result/bin/percy artifacts/percy-${{ matrix.system }}
+          chmod +x artifacts/percy-${{ matrix.system }}
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: percy-${{ matrix.system }}
+          path: artifacts/percy-${{ matrix.system }}
+
+  # Sign and package macOS binaries
+  sign-macos:
+    name: Sign macOS Executables (${{ matrix.system }})
+    needs: build-macos
+    runs-on: macos-14
+    strategy:
+      matrix:
+        system:
+          - x86_64-darwin
+          - aarch64-darwin
+    steps:
+      - uses: actions/checkout@v5
+      
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: percy-${{ matrix.system }}
+          path: artifacts
+      
+      - name: Check if secrets are available
+        id: check-secrets
+        env:
+          APPLE_DEV_CERT: ${{secrets.APPLE_DEV_CERT}}
+          APPLE_CERT_KEY: ${{secrets.APPLE_CERT_KEY}}
+          APPLE_ID_USERNAME: ${{secrets.APPLE_ID_USERNAME}}
+          APPLE_ID_KEY: ${{secrets.APPLE_ID_KEY}}
+          APPLE_TEAM_ID: ${{secrets.APPLE_TEAM_ID}}
+        run: |
+          if [ -z "$APPLE_DEV_CERT" ] || [ -z "$APPLE_CERT_KEY" ] || [ -z "$APPLE_ID_USERNAME" ] || [ -z "$APPLE_ID_KEY" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "has_secrets=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_secrets=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Sign and notarize macOS binary
+        if: steps.check-secrets.outputs.has_secrets == 'true'
+        run: |
+          ./scripts/sign-macos.sh artifacts/percy-${{ matrix.system }} percy-osx-${{ matrix.system }}.zip
+        env:
+          APPLE_DEV_CERT: ${{secrets.APPLE_DEV_CERT}}
+          APPLE_CERT_KEY: ${{secrets.APPLE_CERT_KEY}}
+          APPLE_ID_USERNAME: ${{secrets.APPLE_ID_USERNAME}}
+          APPLE_ID_KEY: ${{secrets.APPLE_ID_KEY}}
+          APPLE_TEAM_ID: ${{secrets.APPLE_TEAM_ID}}
+      
+      - name: Package unsigned macOS binary
+        if: steps.check-secrets.outputs.has_secrets == 'false'
+        run: |
+          zip percy-osx-${{ matrix.system }}.zip artifacts/percy-${{ matrix.system }}
+      
+      - name: Upload signed macOS asset
+        if: steps.check-secrets.outputs.has_secrets == 'true'
+        uses: softprops/action-gh-release@62c96d0c4e8a889135c1f3a25910db8dbe0e85f7
+        with:
+          files: |
+            percy-osx-${{ matrix.system }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Upload unsigned macOS asset
+        if: steps.check-secrets.outputs.has_secrets == 'false'
+        uses: softprops/action-gh-release@62c96d0c4e8a889135c1f3a25910db8dbe0e85f7
+        with:
+          files: |
+            percy-osx-${{ matrix.system }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Package and upload Linux binaries
+  package-linux:
+    name: Package Linux Executables (${{ matrix.system }})
+    needs: build-linux
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        system:
+          - x86_64-linux
+          - aarch64-linux
+    steps:
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: percy-${{ matrix.system }}
+          path: artifacts
+      
+      - name: Create Linux zip
+        run: |
+          zip percy-linux-${{ matrix.system }}.zip artifacts/percy-${{ matrix.system }}
+      
+      - name: Upload Linux asset
+        uses: softprops/action-gh-release@62c96d0c4e8a889135c1f3a25910db8dbe0e85f7
+        with:
+          files: |
+            percy-linux-${{ matrix.system }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Windows build (kept separate, using bash script)
+  build-windows:
+    name: Build Windows Executable
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v5
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 14
+      
+      - name: Install gnu-sed (via Git Bash)
+        run: choco install gnu-sed -y
+      
+      - name: Build Windows executable
+        run: |
+          # Use the Windows-specific build script
+          bash ./scripts/build-windows.sh
+        shell: bash
+      
+      - name: Upload win artifact
+        if: hashFiles('percy.exe') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-exe
+          path: percy.exe
+      
+      - name: Set up Node.js for signing
+        if: hashFiles('percy.exe') != ''
+        uses: actions/setup-node@v3
+        with:
+          node-version: 14
+      
+      - name: Install resedit
+        if: hashFiles('percy.exe') != ''
+        run: npm install resedit
+      
+      - name: Update exe metadata
+        if: hashFiles('percy.exe') != ''
+        run: node ./scripts/win-metadata-update.js
+      
+      - name: Sign binary
+        if: hashFiles('percy.exe') != ''
+        uses: lando/code-sign-action@v3
+        with:
+          file: ./percy.exe
+          certificate-data: ${{ secrets.WINDOWS_CERT }}
+          certificate-password: ${{ secrets.WINDOWS_CERT_KEY }}
+          certificate-id: ${{ secrets.WINDOWS_CERT_ID }}
+      
+      - name: Verify executable
+        if: hashFiles('percy.exe') != ''
+        run: ./percy.exe --version
+      
+      - name: Create Windows zip
+        if: hashFiles('percy.exe') != ''
+        run: |
+          powershell -Command "Compress-Archive -Path 'percy.exe' -DestinationPath 'percy-win.zip'"
+      
+      - name: Upload Windows asset
+        if: hashFiles('percy.exe') != ''
+        uses: softprops/action-gh-release@62c96d0c4e8a889135c1f3a25910db8dbe0e85f7
+        with:
+          files: |
+            percy-win.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

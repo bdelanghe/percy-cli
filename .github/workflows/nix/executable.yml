@@ -9,8 +9,8 @@ jobs:
     strategy:
       matrix:
         system:
-          - x86_64-linux
           - aarch64-linux
+          - x86_64-linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -39,8 +39,8 @@ jobs:
     strategy:
       matrix:
         system:
-          - x86_64-darwin
           - aarch64-darwin
+          - x86_64-darwin
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v5
@@ -71,8 +71,8 @@ jobs:
     strategy:
       matrix:
         system:
-          - x86_64-darwin
           - aarch64-darwin
+          - x86_64-darwin
     steps:
       - uses: actions/checkout@v5
       
@@ -139,8 +139,8 @@ jobs:
     strategy:
       matrix:
         system:
-          - x86_64-linux
           - aarch64-linux
+          - x86_64-linux
     steps:
       - name: Download Linux artifact
         uses: actions/download-artifact@v4

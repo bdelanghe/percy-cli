@@ -130,30 +130,32 @@
               npx -y pkg ./packages/cli/bin/run.js -t ${pkgTarget} -d
 
               # Find and move the resulting binary
-              # pkg creates files with names like: run, run-linux, run-macos, run-win.exe
+              # pkg creates files with names based on target:
+              # - For linux: run-linux, run-linux-arm64, or just run
+              # - For macos: run-macos, run-macos-arm64, or just run
               binary_name=""
-              if [ -f "run-${pkgTarget}" ]; then
-                binary_name="run-${pkgTarget}"
-              elif [ -f "run-linux" ] && [[ "${system}" == *"linux"* ]]; then
+              
+              # Check for architecture-specific names first
+              if [[ "${system}" == "aarch64-linux" ]] && [ -f "run-linux-arm64" ]; then
+                binary_name="run-linux-arm64"
+              elif [[ "${system}" == "aarch64-darwin" ]] && [ -f "run-macos-arm64" ]; then
+                binary_name="run-macos-arm64"
+              elif [[ "${system}" == *"linux"* ]] && [ -f "run-linux" ]; then
                 binary_name="run-linux"
-              elif [ -f "run-macos" ] && [[ "${system}" == *"darwin"* ]]; then
+              elif [[ "${system}" == *"darwin"* ]] && [ -f "run-macos" ]; then
                 binary_name="run-macos"
               elif [ -f "run" ]; then
                 binary_name="run"
               else
                 echo "Error: Could not find pkg output binary" >&2
+                echo "Looking for binary for system: ${system}, target: ${pkgTarget}" >&2
+                echo "Files in current directory:" >&2
                 ls -la
                 exit 1
               fi
 
               # Move to output with normalized name
-              if [[ "${system}" == *"darwin"* ]]; then
-                mv "$binary_name" $out/bin/percy
-              elif [[ "${system}" == *"linux"* ]]; then
-                mv "$binary_name" $out/bin/percy
-              else
-                mv "$binary_name" $out/bin/percy
-              fi
+              mv "$binary_name" $out/bin/percy
 
               chmod +x $out/bin/percy
             '';

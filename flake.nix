@@ -43,7 +43,10 @@
             yarnLock = ./yarn.lock;
             offlineCache = yarnDeps;
 
-            # Make sure devDependencies (including lerna) are installed
+            # Add lerna as a build input so it's available during build
+            nativeBuildInputs = [ pkgs.nodePackages.lerna ];
+
+            # Make sure devDependencies are installed
             NODE_ENV = "development";
 
             buildPhase = ''
@@ -54,6 +57,7 @@
               export NPM_CONFIG_OFFLINE=true
 
               # Use the package.json script: "build": "lerna run build --stream"
+              # lerna is now available via nativeBuildInputs
               yarn run build
 
               npm run build_cjs || true

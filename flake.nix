@@ -30,7 +30,7 @@
         let
           inherit (pkgs) stdenv yarn gnused;
           node = pkgs.nodejs_20;
-          lerna = pkgs.lerna;
+          lerna = pkgs.nodePackages.lerna;
           version = "0.0.1";
 
           # Map Nix system to pkg target

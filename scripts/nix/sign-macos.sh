@@ -62,7 +62,7 @@ cleanup() {
     rm -f AppleDevIDApp.p12
   fi
   # Remove keychain if it exists
-  if [ -f "$KEYCHAIN_PATH-db" ]; then
+  if [ -f "$KEYCHAIN_PATH" ]; then
     security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
   fi
 }

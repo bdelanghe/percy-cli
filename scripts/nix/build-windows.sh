@@ -37,6 +37,13 @@ function prepare_build() {
   cp babel.config.cjs "$BUILD_TMP/" 2>/dev/null || true
   cp -R node_modules "$BUILD_TMP/" 2>/dev/null || true
   
+  # Verify node_modules was copied successfully (required for build_cjs)
+  if [ ! -d "$BUILD_TMP/node_modules" ]; then
+    echo "Error: Failed to copy node_modules to temporary build directory" >&2
+    echo "The build requires node_modules to exist in $BUILD_TMP" >&2
+    exit 1
+  fi
+  
   # Copy build output if it exists
   if [ -d build ]; then
     cp -R build "$BUILD_TMP/"

@@ -70,13 +70,13 @@
               mkdir -p $HOME
 
               # Use prefetched yarn dependencies
-              # fetchYarnDeps returns a directory with the unpacked packages
-              # We copy it to node_modules to make packages available
-              cp -rL ${yarnDeps} node_modules
+              # fetchYarnDeps returns a directory that contains the unpacked packages
+              # Link it as node_modules so yarn can find them
+              ln -s ${yarnDeps} node_modules
               
               # Install dependencies using prefetched deps (offline mode)
-              # This will use the already-unpacked packages from node_modules
-              yarn install --frozen-lockfile --offline --prefer-offline
+              # The --offline flag tells yarn to use existing node_modules
+              yarn install --frozen-lockfile --offline --prefer-offline --check-files
               yarn build
 
               # Prepend import to percy.js using process substitution (no temp file)

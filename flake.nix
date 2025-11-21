@@ -98,9 +98,9 @@
               export npm_config_offline=true
               export NPM_CONFIG_OFFLINE=true
 
-              # Use npx to run lerna from node_modules (installed via yarn) instead of nixpkgs
+              # Use yarn to run lerna from node_modules (installed via yarn) instead of nixpkgs
               # This ensures we use the correct version (6.0.1) that matches package.json
-              # npx will prefer local node_modules/.bin over any system PATH entries
+              # yarn will use the local node_modules/.bin/lerna, avoiding any nixpkgs version
               if [ ! -f node_modules/.bin/lerna ]; then
                 echo "Error: lerna not found in node_modules/.bin" >&2
                 echo "Available binaries:" >&2
@@ -110,7 +110,7 @@
 
               # Ensure we use local lerna, not any system/nixpkgs version
               export PATH="$PWD/node_modules/.bin:$PATH"
-              npx --yes lerna run build --stream
+              yarn lerna run build --stream
 
               npm run build_cjs || true
               if [ -d build ]; then

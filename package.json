@@ -55,7 +55,7 @@
     "karma-mocha-reporter": "^2.2.5",
     "karma-rollup-preprocessor": "^7.0.5",
     "lerna": "^6.0.1",
-    "@nx/nx-darwin-arm64": "latest",
+    "@nx/nx-darwin-arm64": "17.3.0",
     "memfs": "^3.4.0",
     "nyc": "^15.1.0",
     "rollup": "^2.53.2",

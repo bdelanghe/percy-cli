@@ -31,9 +31,10 @@
 
           # Let Nix compute the offline cache from yarn.lock
           # Cache includes @nx/nx-darwin-arm64 that was added to yarn.lock
+          # Regenerating to ensure all dependencies (including fs-readdir-recursive) are included
           yarnDeps = pkgs.fetchYarnDeps {
             yarnLock = ./yarn.lock;
-            sha256 = "sha256-5ouUohCpHMXz9Xn9jWbNZ5QGe4xVZiFx4AzIEN9QYiQ=";
+            sha256 = pkgs.lib.fakeSha256;  # Will be replaced with actual hash
           };
 
           # Layer 2: node tree build (mkYarnPackage)
@@ -49,41 +50,26 @@
             NODE_ENV = "development";
 
             # Override configurePhase to ensure devDependencies are installed
-            # mkYarnPackage might install with --production by default
+            # mkYarnPackage's default configurePhase installs dependencies, but we need devDependencies
             configurePhase = ''
               runHook preConfigure
               
-              # mkYarnPackage's default configurePhase runs yarn install,
-              # but we need to ensure devDependencies are included
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
               
               # Verify yarn.lock is in sync with package.json
-              # This catches cases where package.json was modified but yarn install wasn't run
               echo "=== Verifying yarn.lock is in sync with package.json ===" >&2
               
-              # Check for critical dependencies that must be in yarn.lock
-              # If package.json has @nx/nx-darwin-arm64 but yarn.lock doesn't, 
-              # fetchYarnDeps won't include it in the offline cache
               if grep -q '"@nx/nx-darwin-arm64"' package.json; then
                 if ! grep -q '@nx/nx-darwin-arm64' yarn.lock; then
                   echo "ERROR: @nx/nx-darwin-arm64 is in package.json but NOT in yarn.lock!" >&2
-                  echo "" >&2
-                  echo "This means yarn.lock is out of sync with package.json." >&2
-                  echo "Run 'yarn install' to update yarn.lock, then commit the updated yarn.lock." >&2
-                  echo "" >&2
-                  echo "Why this matters:" >&2
-                  echo "  - fetchYarnDeps reads from yarn.lock, not package.json" >&2
-                  echo "  - If a dependency isn't in yarn.lock, it won't be in the offline cache" >&2
-                  echo "  - The build will fail when trying to install missing dependencies" >&2
+                  echo "Run 'yarn install' to update yarn.lock" >&2
                   exit 1
                 else
                   echo "✓ @nx/nx-darwin-arm64 found in yarn.lock" >&2
                 fi
               fi
               
-              # Check for lerna in yarn.lock (should always be present)
-              # In yarn.lock, lerna appears as "lerna@^6.0.1:" (without quotes in the pattern)
               if grep -q '"lerna"' package.json; then
                 if ! grep -q '^lerna@' yarn.lock; then
                   echo "ERROR: lerna is in package.json but NOT in yarn.lock!" >&2
@@ -97,8 +83,18 @@
               echo "=== yarn.lock verification complete ===" >&2
               echo "" >&2
               
-              # Install all dependencies including devDependencies
-              yarn install --offline --frozen-lockfile --production=false
+              # mkYarnPackage sets up the offline cache, but we need to ensure
+              # devDependencies are installed. The default install might skip them.
+              # Use yarn's offline mode with the cache that mkYarnPackage set up
+              echo "Installing dependencies (including devDependencies)..." >&2
+              
+              # Ensure we're using offline mode and installing devDependencies
+              yarn install --offline --frozen-lockfile --production=false --ignore-scripts || {
+                echo "ERROR: yarn install failed" >&2
+                echo "This might indicate missing dependencies in the offline cache." >&2
+                echo "Check if all dependencies in yarn.lock are included in fetchYarnDeps." >&2
+                exit 1
+              }
               
               runHook postConfigure
             '';

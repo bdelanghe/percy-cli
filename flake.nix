@@ -168,6 +168,9 @@
               mainProgram = "percy";
             };
           };
+
+          # Default package for `nix build` (without specifying a package name)
+          default = percy-cli;
         });
 
       # Convenience apps for local dev: `nix run .#percy-cli`

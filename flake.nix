@@ -49,6 +49,8 @@
             src = ./.;
             nativeBuildInputs = [ gnused ];
             dontBuild = true;
+            dontConfigure = true;
+
             installPhase = ''
               mkdir -p $out
               cp -R . $out
@@ -76,14 +78,6 @@
             '';
           };
 
-          # Prefetch yarn dependencies for offline cache
-          # This creates a directory of .tgz tarballs that Yarn can use offline
-          # First run with placeholder hash, Nix will tell you the real one
-          yarnDeps = pkgs.fetchYarnDeps {
-            yarnLock = ./yarn.lock;
-            hash = "sha256-WDkPwahNIcB50PAYiDX9CNGKNCU08sou8Y0d6qTrEyM=";
-          };
-
           # Layer 2: Yarn build derivation (mkYarnPackage)
           # Builds JS project with patched source, producing a complete node tree
           # This is arch-agnostic (if no native addons) and highly cache-friendly
@@ -93,7 +87,6 @@
             inherit version;
             src = patchedSrc;
             yarnLock = ./yarn.lock;
-            offlineCache = yarnDeps;
             
             # mkYarnPackage installs production dependencies by default
             # We need devDependencies (like lerna) for the build
@@ -134,16 +127,6 @@
               # Monorepo build
               lerna run build --stream
               
-              # Prepend import to percy.js BEFORE build_cjs converts it to CJS
-              # (matches build-windows.sh behavior)
-              if [ -f packages/cli/dist/percy.js ]; then
-                {
-                  echo "import { cli } from '@percy/cli';"
-                  cat packages/cli/dist/percy.js
-                } > packages/cli/dist/percy.js.new
-                mv packages/cli/dist/percy.js.new packages/cli/dist/percy.js
-              fi
-              
               npm run build_cjs || true
               if [ -d build ]; then
                 cp -R build/* packages/
@@ -170,9 +153,17 @@
 
             NODE_ENV = "production";
 
-            # CLI-specific patches: NODE_ENV injection
-            # Note: percy.js prepend is done in nodeTree buildPhase before build_cjs
+            # CLI-specific patches: percy.js prepend and NODE_ENV injection
             patchPhase = ''
+              # Prepend import to percy.js
+              if [ -f packages/cli/dist/percy.js ]; then
+                {
+                  echo "import { cli } from '@percy/cli';"
+                  cat packages/cli/dist/percy.js
+                } > packages/cli/dist/percy.js.new
+                mv packages/cli/dist/percy.js.new packages/cli/dist/percy.js
+              fi
+
               # Ensure NODE_ENV is set in run.cjs
               if [ -f packages/cli/bin/run.cjs ] && \
                  ! grep -q 'process.env.NODE_ENV = "executable";' packages/cli/bin/run.cjs; then
@@ -181,6 +172,8 @@
             '';
 
             dontBuild = true;
+            dontConfigure = true;
+
 
             installPhase = ''
               mkdir -p "$out/bin"
@@ -190,8 +183,7 @@
 
               # Binary packaging logic (also available as scripts/percy-make-binary.sh for CI)
               # Use Nix-provided pkg instead of npx -y pkg for purity (no network access)
-              # Note: package.json specifies bin as ./bin/run.cjs (not run.js)
-              pkg ./packages/cli/bin/run.cjs -t ${pkgTarget} -d
+              pkg ./packages/cli/bin/run.js -t ${pkgTarget} -d
 
               # pkg can name outputs differently; handle the common cases
               for name in run-${pkgTarget} run-linux run-macos run; do

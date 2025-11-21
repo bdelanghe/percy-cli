@@ -51,10 +51,8 @@
               export npm_config_offline=true
               export NPM_CONFIG_OFFLINE=true
 
-              # Ensure devDependencies (including lerna) are installed, using the offline cache
-              yarn install --offline --frozen-lockfile --ignore-scripts=false
-
               # Use the repo's own build entrypoint (which internally uses lerna)
+              # mkYarnPackage already handles dependency installation
               yarn run build
 
               # Preserve existing CJS/copy logic
@@ -101,7 +99,7 @@
       });
 
       devShells = forAllSystems (pkgs: system: {
-        default = import ./nix/percy-firefox.nix { inherit pkgs; };
+        default = import ./nix/dev-shell.nix { inherit pkgs; };
       });
 
       checks = forAllSystems (pkgs: system:

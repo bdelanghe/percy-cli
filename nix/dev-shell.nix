@@ -36,14 +36,29 @@ pkgs.mkShell {
       export PATH="/usr/local/bin:$PATH"
     fi
 
-    # Set Firefox binary path
-    # Try system Firefox locations (Nix Firefox not available on aarch64-darwin in nixpkgs 24.05)
+    # Set Firefox binary path:
+    #   - Nix Firefox where available (not on aarch64-darwin)
+    #   - System Firefox on macOS
+    #   - Fallback to whatever "firefox" is on PATH
+    ${if isAarch64Darwin then ''
+    # Skip Nix Firefox check on aarch64-darwin (not available)
     if [ -f "/Applications/Firefox.app/Contents/MacOS/firefox" ]; then
       export FIREFOX_BIN="/Applications/Firefox.app/Contents/MacOS/firefox"
-    elif [ -n "$(command -v firefox)" ]; then
+    elif command -v firefox >/dev/null 2>&1; then
       export FIREFOX_BIN="$(command -v firefox)"
     else
       echo "WARNING: Firefox binary not found. Some tests may fail." >&2
     fi
+    '' else ''
+    if [ -x "${pkgs.firefox}/bin/firefox" ] 2>/dev/null; then
+      export FIREFOX_BIN="${pkgs.firefox}/bin/firefox"
+    elif [ -f "/Applications/Firefox.app/Contents/MacOS/firefox" ]; then
+      export FIREFOX_BIN="/Applications/Firefox.app/Contents/MacOS/firefox"
+    elif command -v firefox >/dev/null 2>&1; then
+      export FIREFOX_BIN="$(command -v firefox)"
+    else
+      echo "WARNING: Firefox binary not found. Some tests may fail." >&2
+    fi
+    ''}
   '';
 }

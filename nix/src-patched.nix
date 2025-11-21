@@ -2,7 +2,7 @@
 # Layer 1: Patches the Percy CLI source tree to remove "type": "module" declarations
 # This must happen early so all build steps see consistent CJS semantics
 
-{ pkgs, version }:
+{ pkgs, version, src ? ../. }:
 
 let
   inherit (pkgs) stdenv gnused lib;
@@ -12,7 +12,8 @@ stdenv.mkDerivation {
   pname = "percy-cli-src-patched";
   inherit version;
 
-  src = lib.cleanSource ./.;
+  src = lib.cleanSource src;
+  sourceRoot = "source";
   nativeBuildInputs = [ gnused ];
   dontBuild = true;
 

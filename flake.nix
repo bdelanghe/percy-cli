@@ -44,6 +44,9 @@
             yarnLock = ./yarn.lock;
             offlineCache = offline;
 
+            # Provide lerna as a build-time tool (avoids needing devDependencies)
+            nativeBuildInputs = [ pkgs.nodePackages.lerna ];
+
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
@@ -51,11 +54,8 @@
               export npm_config_offline=true
               export NPM_CONFIG_OFFLINE=true
 
-              # Use the repo's own build entrypoint (which internally uses lerna)
-              # mkYarnPackage already handles dependency installation
               yarn run build
 
-              # Preserve existing CJS/copy logic
               npm run build_cjs || true
               if [ -d build ]; then
                 cp -R build/* packages/

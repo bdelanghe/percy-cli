@@ -78,10 +78,11 @@
 
           # Generate yarn offline cache first (required for mkYarnPackage)
           # This creates a fixed-output derivation with all packages from yarn.lock
+          # Use patchedSrc to ensure package.json has the name field
           yarnOfflineCache = pkgs.mkYarnModules {
             pname = "percy-cli-yarn-modules";
             inherit version;
-            packageJson = ./package.json;
+            packageJson = "${patchedSrc}/package.json";
             yarnLock = ./yarn.lock;
           };
 

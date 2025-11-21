@@ -5,7 +5,6 @@ This directory contains Nix-specific build scripts and helpers.
 ## Contents
 
 - `build-windows.sh` - Windows-specific build script for Percy CLI
-- `executable.sh` - Main executable build script (supports Linux, macOS, Windows)
 - `sign-macos.sh` - macOS signing and notarization script
 
 ## Related Files

@@ -44,6 +44,9 @@ if [ -z "$APPLE_DEV_CERT" ] || [ -z "$APPLE_CERT_KEY" ] || \
   exit 1
 fi
 
+# Save original relative path for zip command (to preserve directory structure)
+ORIGINAL_BINARY_PATH="$BINARY_PATH"
+
 # Get absolute path to binary and script directory
 BINARY_PATH=$(cd "$(dirname "$BINARY_PATH")" && pwd)/$(basename "$BINARY_PATH")
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -91,8 +94,9 @@ codesign --force --verbose=4 \
   "$BINARY_PATH"
 
 # Create zip for notarization
+# Use original relative path to preserve directory structure (consistent with unsigned binary case)
 echo "Creating zip for notarization..."
-zip "$OUTPUT_ZIP" "$BINARY_PATH"
+zip "$OUTPUT_ZIP" "$ORIGINAL_BINARY_PATH"
 
 # Notarize
 echo "Submitting for notarization..."

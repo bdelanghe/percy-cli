@@ -30,11 +30,12 @@ pkgs.mkShell {
     elif [ -f "/Applications/Firefox.app/Contents/MacOS/firefox" ]; then
       export FIREFOX_BIN="/Applications/Firefox.app/Contents/MacOS/firefox"
     else
-      echo "ERROR: Firefox binary not found. Expected one of:" >&2
+      echo "WARNING: Firefox binary not found. Expected one of:" >&2
       echo "  - Nix Firefox: ${firefox-bin}" >&2
       echo "  - System Firefox: /Applications/Firefox.app/Contents/MacOS/firefox" >&2
       echo "Please install Firefox or ensure it's available in the Nix environment." >&2
-      exit 1
+      echo "Continuing without Firefox - some tests may fail." >&2
+      # Don't set FIREFOX_BIN - let tests handle the missing binary gracefully
     fi
   '';
 }

@@ -83,6 +83,46 @@
             hash = "sha256-WDkPwahNIcB50PAYiDX9CNGKNCU08sou8Y0d6qTrEyM=";
           };
 
+          # Validation: Check that yarnDeps exists and contains expected packages
+          # This will fail early if the offline cache is missing or incomplete
+          # Run with: nix build .#packages.x86_64-darwin.yarnDepsCheck
+          yarnDepsCheck = stdenv.mkDerivation {
+            pname = "percy-cli-yarn-deps-check";
+            inherit version;
+            dontBuild = true;
+            dontUnpack = true;
+            installPhase = ''
+              echo "Validating yarnDeps offline cache..."
+              
+              # Check that yarnDeps path exists
+              if [ ! -d "${yarnDeps}" ]; then
+                echo "ERROR: yarnDeps path does not exist: ${yarnDeps}" >&2
+                exit 1
+              fi
+              
+              # Check that it contains .tgz files (at least some packages)
+              tgz_count=$(find "${yarnDeps}" -name "*.tgz" 2>/dev/null | wc -l | tr -d ' ')
+              if [ "$tgz_count" -eq 0 ]; then
+                echo "ERROR: yarnDeps cache contains no .tgz files" >&2
+                echo "This means fetchYarnDeps did not download any packages." >&2
+                echo "Possible causes:" >&2
+                echo "  1. The hash in fetchYarnDeps is incorrect" >&2
+                echo "  2. yarn.lock has changed but hash wasn't updated" >&2
+                echo "  3. fetchYarnDeps failed to fetch packages" >&2
+                exit 1
+              fi
+              
+              echo "✓ yarnDeps cache validated: found $tgz_count .tgz files"
+              echo "✓ Offline cache is ready for mkYarnPackage"
+              
+              # Create a marker file to indicate validation passed
+              mkdir -p $out
+              echo "yarnDeps validation passed" > $out/validation.txt
+              echo "Cache location: ${yarnDeps}" >> $out/validation.txt
+              echo "Package count: $tgz_count" >> $out/validation.txt
+            '';
+          };
+
           # Layer 2: Yarn build derivation (mkYarnPackage)
           # Builds JS project with patched source, producing a complete node tree
           # This is arch-agnostic (if no native addons) and highly cache-friendly
@@ -93,6 +133,28 @@
             src = patchedSrc;
             yarnLock = ./yarn.lock;
             offlineCache = yarnDeps;
+            
+            # Pre-configure validation: Verify offline cache is accessible
+            preConfigure = ''
+              echo "Pre-configure check: Verifying offline cache..."
+              
+              if [ -z "${yarnDeps}" ] || [ ! -d "${yarnDeps}" ]; then
+                echo "ERROR: offlineCache (yarnDeps) is not accessible" >&2
+                echo "Expected path: ${yarnDeps}" >&2
+                echo "This will cause 'yarn install' to fail in offline mode." >&2
+                exit 1
+              fi
+              
+              # Check for at least some packages in the cache
+              if ! find "${yarnDeps}" -name "*.tgz" | head -1 | grep -q .; then
+                echo "ERROR: offlineCache appears empty (no .tgz files found)" >&2
+                echo "This suggests fetchYarnDeps hash may be incorrect." >&2
+                echo "Run: nix build .#packages.${system}.yarnDepsCheck to validate" >&2
+                exit 1
+              fi
+              
+              echo "✓ Offline cache verified: ${yarnDeps}"
+            '';
             
             # mkYarnPackage installs production dependencies by default
             # We need devDependencies (like lerna) for the build
@@ -214,6 +276,7 @@
 
         in {
           inherit percy-cli;
+          inherit yarnDepsCheck;
           default = percy-cli;
         });
 
@@ -243,6 +306,9 @@
       # Linux packages remain defined for CI but aren't checked locally
       checks = forAllSystems (pkgs: system:
         if pkgs.stdenv.isDarwin then {
+          # Validate offline cache before attempting full build
+          yarn-deps-check = self.packages.${system}.yarnDepsCheck;
+          # Full package build
           default = self.packages.${system}.percy-cli;
         } else {}
       );

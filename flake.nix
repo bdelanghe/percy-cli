@@ -71,8 +71,10 @@
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
 
-              # Use prefetched yarn dependencies as cache
-              export YARN_CACHE_FOLDER=${yarnDeps}
+              # Copy prefetched yarn dependencies to writable cache location
+              export YARN_CACHE_FOLDER="$TMPDIR/yarn-cache"
+              mkdir -p "$YARN_CACHE_FOLDER"
+              cp -rL ${yarnDeps}/* "$YARN_CACHE_FOLDER/" 2>/dev/null || true
 
               # Offline/frozen as far as possible
               yarn install --frozen-lockfile --offline || yarn install --frozen-lockfile

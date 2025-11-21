@@ -70,8 +70,11 @@ function prepare_build() {
   echo "import { cli } from '@percy/cli';\
   $(cat ./packages/cli/dist/percy.js)" > ./packages/cli/dist/percy.js
 
-  # Modify run.cjs in temp
-  gsed -i '/Update NODE_ENV for executable/{s//\nprocess.env.NODE_ENV = "executable";/;h};${x;/./{x;q0};x;q1}' ./packages/cli/bin/run.cjs
+  # Ensure NODE_ENV is set in run.cjs (matches Nix build behavior)
+  if [ -f ./packages/cli/bin/run.cjs ] && \
+     ! grep -q 'process.env.NODE_ENV = "executable";' ./packages/cli/bin/run.cjs; then
+    gsed -i '1a process.env.NODE_ENV = "executable";' ./packages/cli/bin/run.cjs
+  fi
 
   # Convert ES6 code to cjs (runs in temp directory)
   npm run build_cjs
@@ -89,7 +92,12 @@ function build_windows() {
   # Handle Windows executable
   if [ -f run-win.exe ]; then
     mv run-win.exe percy.exe
-    mv percy.exe "$ORIGINAL_DIR/" 2>/dev/null || true
+    mv percy.exe "$ORIGINAL_DIR/"
+    # Verify the file exists at destination before reporting success
+    if [ ! -f "$ORIGINAL_DIR/percy.exe" ]; then
+      echo "Error: Failed to move executable to $ORIGINAL_DIR/" >&2
+      exit 1
+    fi
     echo "Windows executable built successfully: $ORIGINAL_DIR/percy.exe"
   else
     echo "Error: Windows executable not found after pkg build" >&2

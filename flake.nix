@@ -26,6 +26,7 @@
         let
           inherit (pkgs) stdenv yarn gnused;
           node = pkgs.nodejs_20;
+          version = "0.0.1";
 
           # Map Nix system to pkg target
           pkgTarget = {
@@ -35,55 +36,75 @@
             "aarch64-darwin" = "node20-macos-arm64";
           }.${system};
 
-          # Build node_modules as a fixed-output derivation using mkYarnPackage
-          yarnPackage = pkgs.mkYarnPackage {
-            name = "percy-cli-deps";
+          # Layer 1: Patched source derivation
+          # Removes "type": "module" early so all consumers see consistent CJS semantics
+          # This is arch-agnostic and cache-friendly
+          patchedSrc = stdenv.mkDerivation {
+            pname = "percy-cli-src-patched";
+            inherit version;
             src = ./.;
-            yarnLock = ./yarn.lock;
-            # Hash will need to be recalculated after first build
-            # Run: nix-build -A yarnPackage 2>&1 | grep got:
-            yarnNix = null;
-          };
-
-        in {
-          percy-cli = stdenv.mkDerivation {
-            pname = "percy-cli";
-            version = "0.0.1";
-
-            src = ./.;
-
-            nativeBuildInputs = [
-              node
-              yarn
-              gnused
-              yarnPackage
-            ];
-
-            NODE_ENV = "production";
-
-            patchPhase = ''
+            nativeBuildInputs = [ gnused ];
+            dontBuild = true;
+            installPhase = ''
+              mkdir -p $out
+              cp -R . $out
+              cd $out
+              
               # Remove "type": "module" from root package.json
               sed -i '/"type": "module",/d' package.json
-
+              
               # Remove from all package.json files except dom and sdk-utils
               find packages -name package.json \
                 -not -path "*/dom/*" \
                 -not -path "*/sdk-utils/*" \
                 -exec sed -i '/"type": "module",/d' {} \;
             '';
+          };
 
+          # Layer 2: Yarn build derivation (mkYarnPackage)
+          # Builds JS project with patched source, producing a complete node tree
+          # This is arch-agnostic (if no native addons) and highly cache-friendly
+          nodeTree = pkgs.mkYarnPackage {
+            pname = "percy-cli-node-tree";
+            inherit version;
+            src = patchedSrc;
+            yarnLock = ./yarn.lock;
+            # Hash will need to be recalculated after first build
+            # Run: nix-build .#nodeTree 2>&1 | grep got:
+            yarnNix = null;
+            
+            # Build the project as part of mkYarnPackage
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
-
-              # Use node_modules from mkYarnPackage derivation
-              # mkYarnPackage already built node_modules as a fixed-output derivation
-              # Symlink it into the build directory so yarn build can find dependencies
-              ln -sfn ${yarnPackage}/node_modules ./node_modules
               
-              # Build the project using the derived node_modules
               yarn build
+              npm run build_cjs
+              if [ -d build ]; then
+                cp -R build/* packages/
+              fi
+            '';
+          };
 
+        in {
+          # Layer 3: Binary packaging derivation
+          # Takes built JS tree, applies CLI-specific patches, and wraps with pkg
+          # This is per-system (pkg target varies by architecture)
+          percy-cli = stdenv.mkDerivation {
+            pname = "percy-cli";
+            inherit version;
+
+            src = nodeTree;
+
+            nativeBuildInputs = [
+              node
+              gnused
+            ];
+
+            NODE_ENV = "production";
+
+            # CLI-specific patches: percy.js prepend and NODE_ENV injection
+            patchPhase = ''
               # Prepend import to percy.js
               if [ -f packages/cli/dist/percy.js ]; then
                 {
@@ -98,20 +119,17 @@
                  ! grep -q 'process.env.NODE_ENV = "executable";' packages/cli/bin/run.cjs; then
                 sed -i '1a process.env.NODE_ENV = "executable";' packages/cli/bin/run.cjs
               fi
-
-              npm run build_cjs
-              if [ -d build ]; then
-                cp -R build/* packages/
-              fi
             '';
+
+            dontBuild = true;
 
             installPhase = ''
               mkdir -p "$out/bin"
 
-              # Ensure node_modules is accessible for pkg (symlink persists from buildPhase)
-              # Set NODE_PATH to help pkg resolve dependencies if needed
-              export NODE_PATH="${yarnPackage}/node_modules:$NODE_PATH"
+              # Ensure node_modules is accessible for pkg
+              export NODE_PATH="${nodeTree}/node_modules:$NODE_PATH"
 
+              # Binary packaging logic (also available as scripts/percy-make-binary.sh for CI)
               npx -y pkg ./packages/cli/bin/run.js -t ${pkgTarget} -d
 
               # pkg can name outputs differently; handle the common cases
@@ -124,6 +142,7 @@
               done
 
               echo "Error: pkg did not produce expected binary" >&2
+              echo "Expected one of: run-${pkgTarget}, run-linux, run-macos, run" >&2
               ls -la
               exit 1
             '';

@@ -14,61 +14,105 @@ This directory contains Nix-specific build scripts and helpers.
 
 ## Build Architecture
 
-The Nix flake uses `mkYarnPackage` to build the Percy CLI binary. This approach provides better reproducibility and simplifies dependency management compared to manual yarn installation.
+The Nix flake uses a **three-layer, cache-friendly architecture** to build the Percy CLI binary. This design maximizes Nix store and binary cache reuse while maintaining clean separation of concerns.
 
-### mkYarnPackage Approach
+### Three-Layer Architecture
 
-The build process uses `mkYarnPackage` to create a fixed-output derivation for `node_modules`. This provides several benefits:
+The build is split into three distinct layers, each with a specific purpose:
 
-1. **Fixed-output derivation**: `node_modules` is built as a deterministic, reproducible derivation
-2. **Automatic offline cache**: `mkYarnPackage` automatically sets up `yarnConfigHook` for offline installation
-3. **Simplified dependency management**: No manual cache setup or yarn install steps required
+#### Layer 1: Patched Source (`patchedSrc`)
 
-### Build Flow
+**Purpose**: Remove `"type": "module"` early so all consumers see consistent CJS semantics.
 
-1. **yarnPackage derivation** (`mkYarnPackage`):
-   - Takes the source code and `yarn.lock` file
-   - Builds `node_modules` as a fixed-output derivation
-   - Handles offline cache automatically via `yarnConfigHook`
-   - Produces a derivation with `node_modules` available at `${yarnPackage}/node_modules`
+- **Input**: Upstream source (repository root)
+- **Output**: Same tree with `"type": "module"` removed from relevant `package.json` files
+- **Characteristics**:
+  - Arch-agnostic (pure text manipulation)
+  - Cache-friendly (only changes when source changes)
+  - Pure derivation (no network, no environment dependencies)
 
-2. **percy-cli derivation**:
-   - **patchPhase**: Removes `"type": "module"` from package.json files (except dom and sdk-utils packages)
-   - **buildPhase**:
-     - Symlinks `node_modules` from `yarnPackage` into the build directory
-     - Runs `yarn build` to build the project
-     - Applies custom patches (prepends import to percy.js, injects NODE_ENV)
-     - Runs `npm run build_cjs` to convert ES6 to CommonJS
-   - **installPhase**:
-     - Uses `npx pkg` to create the binary executable
-     - Sets `NODE_PATH` to ensure pkg can resolve dependencies
-     - Copies the resulting binary to `$out/bin/percy`
+**Why early?** The `"type": "module"` removal changes how Node resolves modules, so it must be visible to:
+- Yarn during `yarn build`
+- Node during `npm run build_cjs`
+- Any runtime that loads these packages
+
+#### Layer 2: Yarn Build (`nodeTree`)
+
+**Purpose**: Build the complete JS project with dependencies and compiled output.
+
+- **Input**: `patchedSrc` (Layer 1) + `yarn.lock`
+- **Output**: Complete JS project ready for packaging (includes `node_modules`, `dist/`, built artifacts)
+- **Characteristics**:
+  - Arch-agnostic (if no native addons)
+  - Highly cache-friendly (heaviest layer, reusable across systems)
+  - Uses `mkYarnPackage` for offline, deterministic dependency resolution
+
+**Build steps**:
+- Installs dependencies via `mkYarnPackage` (offline, using `yarnConfigHook`)
+- Runs `yarn build` to compile source
+- Runs `npm run build_cjs` to convert ES6 to CommonJS
+- Copies build artifacts to packages
+
+#### Layer 3: Binary Packaging (`percy-cli`)
+
+**Purpose**: Apply CLI-specific patches and wrap with `pkg` to create platform-specific binaries.
+
+- **Input**: `nodeTree` (Layer 2)
+- **Output**: Platform-specific binary executable (`percy`)
+- **Characteristics**:
+  - Per-system (pkg target varies by architecture)
+  - Lightweight (just text edits + pkg invocation)
+  - CLI-specific mutations isolated here
+
+**Steps**:
+- **patchPhase**: Applies CLI-specific patches:
+  - Prepends `import { cli } from '@percy/cli';` to `packages/cli/dist/percy.js`
+  - Injects `process.env.NODE_ENV = "executable";` into `packages/cli/bin/run.cjs`
+- **installPhase**: Runs `pkg` to create the binary and normalizes output name
+
+### Cache-Friendly Design
+
+This layering provides maximum cache reuse:
+
+1. **Layer 1 + Layer 2 are arch-agnostic**: If there are no native addons, the same build can be reused for all `*-linux` or `*-darwin` systems via binary cache
+2. **Layer 1 + Layer 2 are stable**: Only change when `yarn.lock` or source changes
+3. **Layer 3 is cheap**: Fast per-system derivation that just wraps the pre-built JS
 
 ### Patching Strategy
 
-Custom patching is handled in separate phases:
+Patching is split across layers based on when and why it's needed:
 
-- **patchPhase** (before build): Removes `"type": "module"` from package.json files. This runs before the build and affects the source that gets built.
-- **buildPhase** (after yarn build): Applies file modifications:
-  - Prepends `import { cli } from '@percy/cli';` to `packages/cli/dist/percy.js`
-  - Injects `process.env.NODE_ENV = "executable";` into `packages/cli/bin/run.cjs`
+- **Layer 1 (patchedSrc)**: Module semantics fix
+  - Removes `"type": "module"` from package.json files
+  - Must happen early so all build steps see consistent module resolution
 
-### node_modules Derivation
+- **Layer 3 (percy-cli)**: CLI-specific packaging hacks
+  - Prepends import to `percy.js`
+  - Injects NODE_ENV in `run.cjs`
+  - These only affect the final executable, not the build process
 
-The `node_modules` tree is built once by `mkYarnPackage` and reused in the main derivation. This ensures:
-- Dependencies are installed deterministically
-- No network access is needed during the build (offline mode)
-- The same `node_modules` structure is used consistently
+### Reusable Scripts
 
-The symlink in `buildPhase` makes the derived `node_modules` available to yarn and npm commands, while `NODE_PATH` in `installPhase` ensures pkg can resolve dependencies when bundling.
+The binary packaging logic is available as `scripts/percy-make-binary.sh` for reuse in CI or non-Nix release jobs:
+
+```bash
+./scripts/percy-make-binary.sh <pkg-target> <output-path>
+```
+
+This script:
+- Runs `pkg` to create the binary
+- Handles pkg's variable output naming
+- Normalizes to a single output path
+
+Nix uses the same logic inline in `installPhase` for consistency.
 
 ### Hash Calculation
 
-When `yarn.lock` changes, the hash for `yarnPackage` needs to be recalculated. To get the new hash:
+When `yarn.lock` changes, the hash for `nodeTree` needs to be recalculated:
 
 ```bash
-nix-build .#yarnPackage 2>&1 | grep got:
+nix-build .#nodeTree 2>&1 | grep got:
 ```
 
-Then update the hash in `flake.nix` (if using `outputHash` or similar attributes).
+Then update the hash in `flake.nix` if using `outputHash` or similar attributes.
 

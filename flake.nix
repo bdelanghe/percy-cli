@@ -30,7 +30,6 @@
         let
           inherit (pkgs) stdenv yarn gnused;
           node = pkgs.nodejs_20;
-          lerna = pkgs.nodePackages.lerna;
           version = "0.0.1";
 
           # Map Nix system to pkg target
@@ -87,11 +86,8 @@
             src = patchedSrc;
             yarnLock = ./yarn.lock;
             
-            # Lerna is provided by Nix, not from node_modules
-            nativeBuildInputs = [ lerna ];
-            
             # mkYarnPackage installs production dependencies by default
-            # We need devDependencies for the build
+            # We need devDependencies (like lerna) for the build
             # Install them after mkYarnPackage's configurePhase
             # mkYarnPackage's yarnConfigHook has configured yarn to use the offline cache
             postConfigure = ''
@@ -100,6 +96,7 @@
               
               # mkYarnPackage's configurePhase has set up yarn to use the offline cache
               # Install devDependencies - yarn will use the cache automatically via yarnConfigHook
+              # This installs lerna and other devDependencies into node_modules/.bin
               yarn install --frozen-lockfile --ignore-scripts
             '';
             
@@ -112,15 +109,16 @@
               export npm_config_offline=true
               export NPM_CONFIG_OFFLINE=true
               
-              # If node_modules/.bin exists, add it to PATH for other tools
-              # But lerna comes from Nix, not from node_modules
-              if [ -d "$PWD/node_modules/.bin" ]; then
-                export PATH="$PWD/node_modules/.bin:$PATH"
-              fi
+              # Ensure local binaries (including lerna) are visible
+              # lerna is installed as a devDependency via yarn install in postConfigure
+              export PATH="$PWD/node_modules/.bin:$PATH"
               
-              # Lerna is provided by Nix via nativeBuildInputs
+              # Verify lerna is available (from node_modules/.bin, installed via yarn)
               if ! command -v lerna >/dev/null 2>&1; then
-                echo "Error: lerna not found on PATH (Nix-provided lerna missing?)" >&2
+                echo "Error: lerna not found in node_modules/.bin" >&2
+                echo "This means devDependencies weren't installed correctly." >&2
+                echo "Checking node_modules/.bin:" >&2
+                ls -la "$PWD/node_modules/.bin" 2>&1 || echo "node_modules/.bin does not exist" >&2
                 exit 1
               fi
               

@@ -170,6 +170,7 @@
             '';
 
             dontBuild = true;
+            dontConfigure = true;
 
             installPhase = ''
               mkdir -p "$out/bin"

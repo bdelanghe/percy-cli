@@ -175,6 +175,9 @@
         percy-cli = {
           type = "app";
           program = "${self.packages.${system}.percy-cli}/bin/percy";
+          meta = {
+            description = "Percy CLI executable";
+          };
         };
       });
 

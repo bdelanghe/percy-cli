@@ -117,9 +117,7 @@ function setup_temp_dir() {
 
 function prepare_build() {
   # Build in original directory (read-only operations)
-  # Skip postinstall scripts during build to avoid module format conflicts
-  # Postinstall scripts will run when packages are actually installed by users
-  PERCY_POSTINSTALL_BROWSER=false yarn install --ignore-scripts
+  yarn install
   yarn build
 
   # Copy necessary files to temp directory

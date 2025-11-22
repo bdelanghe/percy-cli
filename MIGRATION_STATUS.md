@@ -26,7 +26,7 @@ This document tracks the migration from the legacy toolchain (Lerna + Yarn + Bab
 - **Package Manager**: Bun
 - **Monorepo Tool**: Bun workspaces (native)
 - **Build Tools**: Bun bundler only (Babel and Rollup completely removed)
-- **Test Runner**: Bun test runner (Node tests), Playwright Test (browser tests)
+- **Test Runner**: Bun test runner (Node tests), Vitest + jsdom (browser tests)
 - **Nix Integration**: bun2nix (offline, reproducible builds)
 - **Lock File**: bun.lockb
 
@@ -252,12 +252,12 @@ Bun's workspace filtering uses `--filter` flag:
 5. ✅ **Native TypeScript**: No need for separate TS compilation
 6. ✅ **Offline Nix builds**: bun2nix provides reproducible, offline builds
 
-### Future Benefits (After Karma Migration)
-1. **Complete Rollup removal**: No more Rollup dependencies
-2. **Simpler test architecture**: No pre-bundling step needed
-3. **Better browser testing**: Playwright provides better debugging and tooling
-4. **Native ESM support**: No more bundling step for browser tests
-5. **Modern tooling**: Fully modernized toolchain
+### Completed Benefits (After Karma Migration)
+1. ✅ **Complete Rollup removal**: No more Rollup dependencies (Vite replaces it)
+2. ✅ **Simpler test architecture**: No pre-bundling step needed
+3. ✅ **Better browser testing**: Vitest + jsdom provides faster, simpler testing
+4. ✅ **Native ESM support**: No more bundling step for browser tests
+5. ✅ **Modern tooling**: Fully modernized toolchain
 
 ## Rollback Plan
 

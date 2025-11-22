@@ -73,24 +73,17 @@ let
   nodeTreeBase = if cfg.bunInstallStrategy == "manual-cache" then
     nodeTreeManual
   else
-    # Use bun2nix v2 API: fetchBunDeps + mkDerivation
-    # Both are available via the overlay applied in flake.nix
-    let
-      # Fetch dependencies offline from bun.nix
-      bunDeps = pkgs.bun2nix.fetchBunDeps { bunNix = bunNix; };
-    in
+    # Use bun2nix v2 API: mkDerivation with bunNix
+    # mkDerivation handles fetchBunDeps internally when given bunNix
     pkgs.bun2nix.mkDerivation {
     pname   = "percy-cli-node-tree";
     version = cfg.version;
     src     = srcPatched;
 
-    # mkDerivation uses bunDeps to set up offline cache automatically
-    inherit bunDeps;
-    
-    # Note: Bun requires network access to download package manifests
-    # Package tarballs are fetched offline via fetchBunDeps (reproducible, hashed)
-    # Only manifest metadata requires network access (small, fast downloads)
-    # This is best-effort offline: reproducible packages, manifest metadata from registry
+    # Critical: Pass bunNix so mkDerivation can prefetch deps and run bun install offline
+    # mkDerivation will handle fetchBunDeps internally and set up the offline cache
+    bunNix = bunNix;
+    packageJson = ./package.json;
     
     # Add diagnostic output before install phase
     # This helps verify what's happening during bunNodeModulesInstallPhase
@@ -183,7 +176,7 @@ let
       echo "" >&2
     '';
 
-    # mkBunDerivation automatically runs bun install with offline cache
+    # mkDerivation automatically runs bun install with offline cache (via bunNix)
     # We just need to run the build after dependencies are installed
     buildPhase = ''
       runHook preBuild

@@ -74,18 +74,7 @@ async function main({
   let testNode = node != null ? node : (!browsers && pkg.main !== pkg.browser);
   let testBrowsers = browsers != null ? browsers : (!node && pkg.browser);
 
-  if (coverage) {
-    // $ rimraf <cwd>/{.nyc_output,coverage} || true &&
-    //   nyc --silent --no-clean node <root>/test.js ... &&
-    //   nyc report --reporter <reporter>
-    let flags = flagify({ node, browsers });
-    let nycbin = path.resolve(filename, '../../node_modules/.bin/nyc');
-    let { default: rimraf } = await import('rimraf');
-
-    await new Promise(r => rimraf(path.join(cwd, '{.nyc_output,coverage}'), r));
-    await child('spawn', nycbin, ['--silent', '--no-clean', 'node', filename, ...flags]);
-    await child('spawn', nycbin, ['report', '--check-coverage', ...flagify({ reporter })]);
-  } else if (!process.send) {
+  if (!process.send) {
     // test runners assume they have control over the entire process, so give them each forks
     let flags = flagify({ coverage, karma: karmaArgs });
     let loader = url.pathToFileURL(path.resolve(filename, '../loader.js')).href;
@@ -110,6 +99,11 @@ async function main({
     
     // Bun test runner arguments
     let bunArgs = ['test'];
+    
+    // Add coverage flag if requested
+    if (coverage) {
+      bunArgs.push('--coverage');
+    }
     
     // Add test files pattern
     let testPattern = path.join(cwd, 'test/**/*.test.js');

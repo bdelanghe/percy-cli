@@ -1,10 +1,11 @@
 import { getDiskSpaceInfo, dependencies } from '../src/disk.js';
+import { vi } from 'vitest';
 
 describe('getDiskSpaceInfo', () => {
   let exec;
 
   it('returns available disk space for win32', async () => {
-    exec = jasmine.createSpy('exec').and.resolveTo({ stdout: 'FreeSpace=1234567890' });
+    exec = vi.fn().mockResolvedValue({ stdout: 'FreeSpace=1234567890' });
     const diskSpace = await getDiskSpaceInfo('win32', exec);
     expect(diskSpace).toBe('1.15 gb');
   });
@@ -12,7 +13,7 @@ describe('getDiskSpaceInfo', () => {
   it('returns available disk space for linux', async () => {
     const mockStdout = 'Filesystem     1K-blocks      Used Available Use% Mounted on\n' +
                        '/dev/sda1      999999999 888888888 1234567890  10% /';
-    exec = jasmine.createSpy('exec').and.resolveTo({ stdout: mockStdout });
+    exec = vi.fn().mockResolvedValue({ stdout: mockStdout });
     const diskSpace = await getDiskSpaceInfo('linux', exec);
     expect(diskSpace).toBe('1177.38 gb');
   });
@@ -20,13 +21,13 @@ describe('getDiskSpaceInfo', () => {
   it('returns available disk space for darwin', async () => {
     const mockStdout = 'Filesystem     1K-blocks      Used Available Use% Mounted on\n' +
                        '/dev/disk1s1   999999999 888888888 1234567890  10% /';
-    exec = jasmine.createSpy('exec').and.resolveTo({ stdout: mockStdout });
+    exec = vi.fn().mockResolvedValue({ stdout: mockStdout });
     const diskSpace = await getDiskSpaceInfo('darwin', exec);
     expect(diskSpace).toBe('1177.38 gb');
   });
 
   it('returns "N/A" when command fails', async () => {
-    exec = jasmine.createSpy('exec').and.rejectWith(new Error('Command failed'));
+    exec = vi.fn().mockRejectedValue(new Error('Command failed'));
     const diskSpace = await getDiskSpaceInfo('win32', exec);
     expect(diskSpace).toBe('N/A');
   });
@@ -40,7 +41,7 @@ describe('getDiskSpaceInfo', () => {
   it('returns "N/A" when available space is not a valid number on Linux', async () => {
     const mockStdout = 'Filesystem     1K-blocks      Used Available Use% Mounted on\n' +
                        '/dev/sda1      999999999 888888888 not-a-number  10% /';
-    exec = jasmine.createSpy('exec').and.resolveTo({ stdout: mockStdout });
+    exec = vi.fn().mockResolvedValue({ stdout: mockStdout });
     const diskSpace = await getDiskSpaceInfo('linux', exec);
     expect(diskSpace).toBe('N/A');
   });
@@ -51,7 +52,7 @@ describe('getDiskSpaceInfo', () => {
                        '/dev/sda1      999999999 888888888 1234567890  10% /';
 
     // Reliably spy on the exported dependency and mock its resolved value
-    spyOn(dependencies, 'defaultExec').and.resolveTo({ stdout: mockStdout });
+    vi.spyOn(dependencies, 'defaultExec').mockResolvedValue({ stdout: mockStdout });
 
     // Call the function WITHOUT the second argument
     const diskSpace = await getDiskSpaceInfo('linux');

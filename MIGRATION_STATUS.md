@@ -71,7 +71,7 @@ The migration is complete. The current architecture matches the target:
   - `scripts/loader.js`: Removed Babel usage, now uses Bun's native module handling
   - `scripts/test.js`: Removed babel-register.cjs reference, updated for Bun
   - `scripts/babel-register.cjs`: Deleted (no longer needed)
-- ⚠️ **Kept**: `@babel/eslint-parser` (still needed for ESLint, can be replaced later)
+- ✅ **ESLint Parser**: `@babel/eslint-parser` and `eslint-plugin-babel` removed, using ESLint's native parser
 
 #### Rollup Removal
 - ✅ **Build System**: Rollup removed from build system, replaced with Bun bundler
@@ -101,6 +101,8 @@ The migration is complete. The current architecture matches the target:
 #### Node.js Tests
 - ✅ **package.json test scripts**: Updated to use `bun test` and `bun test --coverage`
 - ✅ **Bun test runner**: Now used for Node.js tests (replaces Jasmine for Node tests)
+- ✅ **Jasmine removed**: All Jasmine dependencies removed, tests migrated to use Vitest/Bun APIs
+- ✅ **Test helpers updated**: All test helper files migrated from Jasmine to Vitest APIs
 
 ### Phase 5: Browser Testing Migration (Karma → Vitest) ✅
 
@@ -142,7 +144,8 @@ The migration is complete. The current architecture matches the target:
 - ✅ Removed all Rollup dependencies (for tests)
 - ✅ Removed `rollup.config.js`
 - ✅ Removed `karma.config.cjs`
-- ⏳ Consider replacing `@babel/eslint-parser` with alternative (optional)
+- ✅ Removed `@babel/eslint-parser` and `eslint-plugin-babel` (replaced with ESLint's native parser)
+- ✅ Removed Jasmine and jasmine-spec-reporter (replaced with Bun test runner + Vitest APIs)
 - ✅ Updated documentation
 - ⏳ Final testing and validation (pending actual test runs)
 
@@ -151,14 +154,12 @@ The migration is complete. The current architecture matches the target:
 ### What's Working
 - ✅ Bun package management and workspace commands
 - ✅ Bun bundler for Node.js and browser builds
-- ✅ Bun test runner for Node.js tests
+- ✅ Bun test runner for Node.js tests (Jasmine completely removed)
 - ✅ Vitest + jsdom for browser tests
 - ✅ bun2nix for offline, reproducible Nix builds
 - ✅ All build scripts migrated to Bun
+- ✅ ESLint using native parser (Babel ESLint parser removed)
 
-### Optional Cleanup
-- ⚠️ **Jasmine**: Still in dependencies (used by Node tests, can be kept)
-- ⚠️ **Babel ESLint parser**: `@babel/eslint-parser`, `eslint-plugin-babel` (for ESLint compatibility)
 
 ## Remaining Work
 
@@ -175,12 +176,15 @@ The migration is complete. The current architecture matches the target:
    - Run with coverage: `vitest run --coverage`
 
 3. **Fix any test failures**
-   - Most Jasmine syntax should work with Vitest (describe/it/expect)
-   - Potential fixes needed:
+   - All Jasmine APIs have been migrated to Vitest/Bun equivalents
+   - Common migrations completed:
      - `expectAsync().toBeResolvedTo()` → `await expect(...).resolves.toBe(...)`
-     - `jasmine.any(String)` → `expect.any(String)` or use Vitest's matchers
-     - Browser-specific conditionals may need adjustment (jsdom doesn't distinguish browsers)
-   - Update any remaining Jasmine-specific matchers to Vitest equivalents
+     - `jasmine.createSpy()` → `vi.fn()`
+     - `jasmine.clock()` → `vi.useFakeTimers()`
+     - `spyOn()` → `vi.spyOn()`
+     - `jasmine.any()` → `expect.any()`
+     - All Jasmine matchers → Vitest equivalents
+   - Some test files may still need updates if tests fail
 
 4. **Update CI/CD if needed**
    - Update GitHub Actions workflows to use Vitest instead of Karma

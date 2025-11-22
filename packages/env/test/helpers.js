@@ -1,9 +1,10 @@
 import cp from 'child_process';
+import { vi } from 'vitest';
 
 export function mockgit(branch = '') {
-  let spy = jasmine.createSpy('git');
+  let spy = vi.fn();
 
-  spyOn(cp, 'execSync').and.callFake(function(cmd, options) {
+  vi.spyOn(cp, 'execSync').mockImplementation(function(cmd, options) {
     if (cmd.match(/^git\b/)) {
       let result = spy(...cmd.split(' ').slice(1)) ?? '';
       if (!cmd.match(/\b(show|rev-parse)\b/)) return '';
@@ -13,7 +14,7 @@ export function mockgit(branch = '') {
     } else if (cmd.match(/^pwd\b/) || cmd.match(/^cd\b/)) {
       return '';
     } else {
-      return cp.execSync.and.originalFn.call(this, cmd, options);
+      return cp.execSync.originalImplementation?.call(this, cmd, options);
     }
   });
 

@@ -78,28 +78,61 @@ export async function mockRequests(baseUrl, defaultReply = () => [200]) {
   let { default: http } = await import(protocol === 'https:' ? 'https' : 'http');
 
   if (!vi.isMockFunction(http.request)) {
+    // Store original implementations
+    const originalRequest = http.request.bind(http);
+    const originalGet = http.get.bind(http);
+    
     vi.spyOn(http, 'request').mockImplementation((...a) => new MockRequest(null, ...a));
     vi.spyOn(http, 'get').mockImplementation((...a) => new MockRequest(null, ...a).end());
+    
+    // Store originals for later use
+    http.request.originalImplementation = originalRequest;
+    http.get.originalImplementation = originalGet;
+    
     mockRequests.spies = new Map();
   }
 
-  let any = expect.anything();
   let match = o => o.hostname === hostname && (o.path ?? o.pathname).startsWith(pathname);
   let reply = vi.fn(defaultReply);
   let spies = mockRequests.spies.get(baseUrl) ?? {};
 
-  spies.request = spies.request ?? vi.spyOn(http, 'request').mockImplementation((...args) => {
-    if (match(args[0])) {
-      return new MockRequest(reply, ...args);
-    }
-    return http.request.originalImplementation?.(...args);
-  });
-  spies.get = spies.get ?? vi.spyOn(http, 'get').mockImplementation((...args) => {
-    if (match(new URL(args[0]))) {
-      return new MockRequest(reply, ...args).end();
-    }
-    return http.get.originalImplementation?.(...args);
-  });
+  if (!spies.request) {
+    // Create a new implementation that checks if the request matches
+    const currentRequestImpl = http.request.getMockImplementation();
+    spies.request = vi.spyOn(http, 'request').mockImplementation((...args) => {
+      if (match(args[0])) {
+        return new MockRequest(reply, ...args);
+      }
+      // Call the previous implementation or original
+      return currentRequestImpl ? currentRequestImpl(...args) : http.request.originalImplementation?.(...args);
+    });
+  } else {
+    // Update existing spy to use new reply
+    spies.request.mockImplementation((...args) => {
+      if (match(args[0])) {
+        return new MockRequest(reply, ...args);
+      }
+      return http.request.originalImplementation?.(...args);
+    });
+  }
+
+  if (!spies.get) {
+    const currentGetImpl = http.get.getMockImplementation();
+    spies.get = vi.spyOn(http, 'get').mockImplementation((...args) => {
+      if (args[0] && match(new URL(args[0]))) {
+        return new MockRequest(reply, ...args).end();
+      }
+      return currentGetImpl ? currentGetImpl(...args) : http.get.originalImplementation?.(...args);
+    });
+  } else {
+    spies.get.mockImplementation((...args) => {
+      if (args[0] && match(new URL(args[0]))) {
+        return new MockRequest(reply, ...args).end();
+      }
+      return http.get.originalImplementation?.(...args);
+    });
+  }
+  
   mockRequests.spies.set(baseUrl, spies);
 
   return reply;

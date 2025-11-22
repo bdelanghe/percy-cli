@@ -16,6 +16,7 @@ import https from 'https';
 import net from 'net';
 import tls from 'tls';
 import logger from '../src/logger.js';
+import { vi } from 'vitest';
 
 describe('sdk-utils proxy', () => {
   let originalEnv;
@@ -272,7 +273,7 @@ describe('sdk-utils proxy', () => {
         expect(typeof proxy.connect).toBe('function');
 
         // Spy on tls.connect to verify it's called
-        spyOn(tls, 'connect');
+        vi.spyOn(tls, 'connect');
         proxy.connect();
         expect(tls.connect).toHaveBeenCalledWith({
           rejectUnauthorized: options.rejectUnauthorized,
@@ -369,13 +370,13 @@ describe('sdk-utils proxy', () => {
 
     it('should call super.addRequest when no proxy is configured', () => {
       const mockRequest = {
-        setHeader: jasmine.createSpy('setHeader'),
-        _implicitHeader: jasmine.createSpy('_implicitHeader'),
+        setHeader: vi.fn(),
+        _implicitHeader: vi.fn(),
         outputData: []
       };
       const options = { protocol: 'http:', hostname: 'example.com', href: 'http://example.com' };
 
-      spyOn(http.Agent.prototype, 'addRequest');
+      vi.spyOn(http.Agent.prototype, 'addRequest');
       agent.addRequest(mockRequest, options);
 
       expect(http.Agent.prototype.addRequest).toHaveBeenCalledWith(mockRequest, options);
@@ -386,8 +387,8 @@ describe('sdk-utils proxy', () => {
 
       const mockRequest = {
         path: '/api/test',
-        setHeader: jasmine.createSpy('setHeader'),
-        _implicitHeader: jasmine.createSpy('_implicitHeader'),
+        setHeader: vi.fn(),
+        _implicitHeader: vi.fn(),
         outputData: []
       };
       const options = {
@@ -398,7 +399,7 @@ describe('sdk-utils proxy', () => {
         path: '/api/test'
       };
 
-      spyOn(http.Agent.prototype, 'addRequest');
+      vi.spyOn(http.Agent.prototype, 'addRequest');
       agent.addRequest(mockRequest, options);
 
       expect(mockRequest.path).toBe('http://example.com:80/api/test');
@@ -409,8 +410,8 @@ describe('sdk-utils proxy', () => {
 
       const mockRequest = {
         path: '/api/test',
-        setHeader: jasmine.createSpy('setHeader'),
-        _implicitHeader: jasmine.createSpy('_implicitHeader'),
+        setHeader: vi.fn(),
+        _implicitHeader: vi.fn(),
         outputData: []
       };
       const options = {
@@ -419,10 +420,10 @@ describe('sdk-utils proxy', () => {
         href: 'http://example.com/api/test'
       };
 
-      spyOn(http.Agent.prototype, 'addRequest');
+      vi.spyOn(http.Agent.prototype, 'addRequest');
       agent.addRequest(mockRequest, options);
 
-      expect(mockRequest.setHeader).toHaveBeenCalledWith('Proxy-Authorization', jasmine.any(String));
+      expect(mockRequest.setHeader).toHaveBeenCalledWith('Proxy-Authorization', expect.any(String));
     });
 
     it('should use httpsAgent for https proxy', () => {
@@ -430,8 +431,8 @@ describe('sdk-utils proxy', () => {
 
       const mockRequest = {
         path: '/api/test',
-        setHeader: jasmine.createSpy('setHeader'),
-        _implicitHeader: jasmine.createSpy('_implicitHeader'),
+        setHeader: vi.fn(),
+        _implicitHeader: vi.fn(),
         outputData: [],
         agent: null
       };
@@ -441,7 +442,7 @@ describe('sdk-utils proxy', () => {
         href: 'http://example.com/api/test'
       };
 
-      spyOn(agent.httpsAgent, 'addRequest');
+      vi.spyOn(agent.httpsAgent, 'addRequest');
       agent.addRequest(mockRequest, options);
 
       expect(mockRequest.agent).toBe(agent.httpsAgent);
@@ -453,8 +454,8 @@ describe('sdk-utils proxy', () => {
 
       const mockRequest = {
         path: '/api/test',
-        setHeader: jasmine.createSpy('setHeader'),
-        _implicitHeader: jasmine.createSpy('_implicitHeader'),
+        setHeader: vi.fn(),
+        _implicitHeader: vi.fn(),
         _header: 'GET /api/test HTTP/1.1\r\nHost: example.com\r\n\r\n',
         outputData: [{
           data: 'GET /api/test HTTP/1.1\r\nHost: example.com\r\n\r\nrequest body'
@@ -466,7 +467,7 @@ describe('sdk-utils proxy', () => {
         href: 'http://example.com/api/test'
       };
 
-      spyOn(http.Agent.prototype, 'addRequest');
+      vi.spyOn(http.Agent.prototype, 'addRequest');
       agent.addRequest(mockRequest, options);
 
       expect(mockRequest.outputData[0].data).toContain('request body');
@@ -496,9 +497,9 @@ describe('sdk-utils proxy', () => {
 
     it('should call super.createConnection when no proxy is configured', () => {
       const options = { hostname: 'example.com', port: 443 };
-      const callback = jasmine.createSpy('callback');
+      const callback = vi.fn();
 
-      spyOn(https.Agent.prototype, 'createConnection');
+      vi.spyOn(https.Agent.prototype, 'createConnection');
       agent.createConnection(options, callback);
 
       expect(https.Agent.prototype.createConnection).toHaveBeenCalledWith(options, callback);
@@ -516,20 +517,20 @@ describe('sdk-utils proxy', () => {
       process.env.https_proxy = 'http://user:pass@proxy.example.com:8080';
 
       const mockSocket = {};
-      mockSocket.on = jasmine.createSpy('on').and.returnValue(mockSocket);
-      mockSocket.write = jasmine.createSpy('write');
-      mockSocket.destroy = jasmine.createSpy('destroy');
-      mockSocket.off = jasmine.createSpy('off');
+      mockSocket.on = vi.fn().mockReturnValue(mockSocket);
+      mockSocket.write = vi.fn();
+      mockSocket.destroy = vi.fn();
+      mockSocket.off = vi.fn();
 
       // Mock net.connect to return our mock socket
-      spyOn(net, 'connect').and.returnValue(mockSocket);
+      vi.spyOn(net, 'connect').mockReturnValue(mockSocket);
 
       const options = {
         protocol: 'https:',
         hostname: 'example.com',
         port: 443
       };
-      const callback = jasmine.createSpy('callback');
+      const callback = vi.fn();
 
       agent.createConnection(options, callback);
 
@@ -546,7 +547,7 @@ describe('sdk-utils proxy', () => {
       process.env.https_proxy = 'http://proxy.example.com:8080';
 
       // Spy on the logger.log method to catch the warn calls
-      const logSpy = spyOn(logger, 'log');
+      const logSpy = vi.spyOn(logger, 'log');
 
       const mockSocket = {};
       mockSocket.on = jasmine.createSpy('on').and.callFake((event, handler) => {
@@ -560,14 +561,14 @@ describe('sdk-utils proxy', () => {
       mockSocket.destroy = jasmine.createSpy('destroy');
       mockSocket.off = jasmine.createSpy('off');
 
-      spyOn(net, 'connect').and.returnValue(mockSocket);
+      vi.spyOn(net, 'connect').mockReturnValue(mockSocket);
 
       const options = {
         protocol: 'https:',
         hostname: 'example.com',
         port: 443
       };
-      const callback = jasmine.createSpy('callback');
+      const callback = vi.fn();
 
       agent.createConnection(options, callback);
 
@@ -586,33 +587,33 @@ describe('sdk-utils proxy', () => {
       process.env.https_proxy = 'http://proxy.example.com:8080';
 
       const mockSocket = {
-        on: jasmine.createSpy('on').and.callFake((event, handler) => {
+        on: vi.fn().mockImplementation((event, handler) => {
           if (event === 'data') {
             // Simulate non-200 response
             setTimeout(() => handler(Buffer.from('HTTP/1.1 407 Proxy Authentication Required\r\n\r\n')), 0);
           }
           return mockSocket;
         }),
-        write: jasmine.createSpy('write'),
-        destroy: jasmine.createSpy('destroy'),
-        off: jasmine.createSpy('off')
+        write: vi.fn(),
+        destroy: vi.fn(),
+        off: vi.fn()
       };
 
-      spyOn(net, 'connect').and.returnValue(mockSocket);
+      vi.spyOn(net, 'connect').mockReturnValue(mockSocket);
 
       const options = {
         protocol: 'https:',
         hostname: 'example.com',
         port: 443
       };
-      const callback = jasmine.createSpy('callback');
+      const callback = vi.fn();
 
       agent.createConnection(options, callback);
 
       // Wait for async data handling
       setTimeout(() => {
-        expect(callback).toHaveBeenCalledWith(jasmine.objectContaining({
-          message: jasmine.stringMatching(/Error establishing proxy connection/)
+        expect(callback).toHaveBeenCalledWith(expect.objectContaining({
+          message: expect.stringMatching(/Error establishing proxy connection/)
         }));
         done();
       }, 10);
@@ -622,27 +623,27 @@ describe('sdk-utils proxy', () => {
       process.env.https_proxy = 'http://proxy.example.com:8080';
 
       const mockSocket = {
-        on: jasmine.createSpy('on').and.callFake((event, handler) => {
+        on: vi.fn().mockImplementation((event, handler) => {
           if (event === 'data') {
             // Simulate successful 200 response
             setTimeout(() => handler(Buffer.from('HTTP/1.1 200 Connection established\r\n\r\n')), 0);
           }
           return mockSocket;
         }),
-        write: jasmine.createSpy('write'),
-        destroy: jasmine.createSpy('destroy'),
-        off: jasmine.createSpy('off')
+        write: vi.fn(),
+        destroy: vi.fn(),
+        off: vi.fn()
       };
 
-      spyOn(net, 'connect').and.returnValue(mockSocket);
-      spyOn(https.Agent.prototype, 'createConnection').and.returnValue({});
+      vi.spyOn(net, 'connect').mockReturnValue(mockSocket);
+      vi.spyOn(https.Agent.prototype, 'createConnection').mockReturnValue({});
 
       const options = {
         protocol: 'https:',
         hostname: 'example.com',
         port: 443
       };
-      const callback = jasmine.createSpy('callback');
+      const callback = vi.fn();
 
       agent.createConnection(options, callback);
 
@@ -650,7 +651,7 @@ describe('sdk-utils proxy', () => {
       setTimeout(() => {
         expect(options.socket).toBe(mockSocket);
         expect(options.servername).toBe('example.com');
-        expect(callback).toHaveBeenCalledWith(null, jasmine.any(Object));
+        expect(callback).toHaveBeenCalledWith(null, expect.any(Object));
         done();
       }, 10);
     });
@@ -659,19 +660,19 @@ describe('sdk-utils proxy', () => {
       process.env.https_proxy = 'http://proxy.example.com:8080';
 
       const mockSocket = {
-        on: jasmine.createSpy('on').and.callFake((event, handler) => {
+        on: vi.fn().mockImplementation((event, handler) => {
           if (event === 'close') {
             // Immediately call the close handler to simulate a closed connection
             handler();
           }
           return mockSocket;
         }),
-        write: jasmine.createSpy('write'),
-        destroy: jasmine.createSpy('destroy'),
-        off: jasmine.createSpy('off')
+        write: vi.fn(),
+        destroy: vi.fn(),
+        off: vi.fn()
       };
 
-      spyOn(net, 'connect').and.returnValue(mockSocket);
+      vi.spyOn(net, 'connect').mockReturnValue(mockSocket);
 
       const options = {
         protocol: 'https:',
@@ -692,19 +693,19 @@ describe('sdk-utils proxy', () => {
       process.env.https_proxy = 'http://proxy.example.com:8080';
 
       const mockSocket = {
-        on: jasmine.createSpy('on').and.callFake((event, handler) => {
+        on: vi.fn().mockImplementation((event, handler) => {
           if (event === 'data') {
             // Simulate receiving incomplete data
             handler('HTTP/1.1 200 OK\r\n');
           }
           return mockSocket;
         }),
-        write: jasmine.createSpy('write'),
-        destroy: jasmine.createSpy('destroy'),
-        off: jasmine.createSpy('off')
+        write: vi.fn(),
+        destroy: vi.fn(),
+        off: vi.fn()
       };
 
-      spyOn(net, 'connect').and.returnValue(mockSocket);
+      vi.spyOn(net, 'connect').mockReturnValue(mockSocket);
 
       const options = {
         protocol: 'https:',
@@ -712,7 +713,7 @@ describe('sdk-utils proxy', () => {
         port: 443
       };
 
-      const callback = jasmine.createSpy('callback');
+      const callback = vi.fn();
 
       agent.createConnection(options, callback);
 
@@ -826,7 +827,7 @@ describe('sdk-utils proxy', () => {
       const url = 'http://example.com'; // Use http to test ProxyHttpAgent
 
       // Spy on the main logger.log function to capture error messages
-      const logSpy = spyOn(logger, 'log');
+      const logSpy = vi.spyOn(logger, 'log');
 
       // Clear the cache to ensure we create a new agent
       proxyAgentFor.cache.clear();
@@ -853,7 +854,7 @@ describe('sdk-utils proxy', () => {
 
     it('should create PAC agent when PERCY_PAC_FILE_URL is set', () => {
       process.env.PERCY_PAC_FILE_URL = 'http://example.com/proxy.pac';
-      const logSpy = spyOn(logger, 'log');
+      const logSpy = vi.spyOn(logger, 'log');
 
       const agent = proxyAgentFor('http://example.com');
 

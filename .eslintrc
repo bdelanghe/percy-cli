@@ -1,14 +1,10 @@
-# Using @babel/eslint-parser for now (can be replaced with ESLint's native parser in future)
-parser: '@babel/eslint-parser'
+# Using ESLint's native parser
 extends: standard
-plugins:
-  - babel
 rules:
   one-var: off
   prefer-const: off
   no-extra-parens: off
-  no-unused-expressions: off
-  babel/no-unused-expressions: warn
+  no-unused-expressions: warn
   import/no-extraneous-dependencies: error
   node/no-callback-literal: off
   promise/param-names: off

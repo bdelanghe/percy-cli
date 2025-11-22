@@ -1,5 +1,6 @@
 import helpers from './helpers.js';
 import utils from '@percy/sdk-utils';
+import { vi, expect } from 'vitest';
 
 describe('SDK Utils', () => {
   beforeEach(async () => {
@@ -37,7 +38,7 @@ describe('SDK Utils', () => {
       beforeEach(async () => {
         await helpers.test('version', '1.2.3-beta.4');
         await helpers.test('build-created');
-        await expectAsync(isPercyEnabled()).toBeResolvedTo(true);
+        await expect(isPercyEnabled()).resolves.toBe(true);
       });
 
       it('contains updated percy server version information', () => {
@@ -73,38 +74,38 @@ describe('SDK Utils', () => {
     let { isPercyEnabled } = utils;
 
     it('calls the healthcheck endpoint and caches the result', async () => {
-      await expectAsync(isPercyEnabled()).toBeResolvedTo(true);
-      await expectAsync(isPercyEnabled()).toBeResolvedTo(true);
-      await expectAsync(isPercyEnabled()).toBeResolvedTo(true);
+      await expect(isPercyEnabled()).resolves.toBe(true);
+      await expect(isPercyEnabled()).resolves.toBe(true);
+      await expect(isPercyEnabled()).resolves.toBe(true);
 
       // no matter how many calls, we should only have one healthcheck request
-      await expectAsync(helpers.get('requests', r => r.url))
-        .toBeResolvedTo(['/percy/healthcheck']);
+      await expect(helpers.get('requests', r => r.url))
+        .resolves.toEqual(['/percy/healthcheck']);
     });
 
     it('disables snapshots when the healthcheck fails', async () => {
       await helpers.test('error', '/percy/healthcheck');
-      await expectAsync(isPercyEnabled()).toBeResolvedTo(false);
+      await expect(isPercyEnabled()).resolves.toBe(false);
 
-      expect(helpers.logger.stdout).toEqual(jasmine.arrayContaining([
+      expect(helpers.logger.stdout).toEqual(expect.arrayContaining([
         '[percy] Percy is not running, disabling snapshots'
       ]));
     });
 
     it('disables snapshots when the request errors', async () => {
       await helpers.test('disconnect', '/percy/healthcheck');
-      await expectAsync(isPercyEnabled()).toBeResolvedTo(false);
+      await expect(isPercyEnabled()).resolves.toBe(false);
 
-      expect(helpers.logger.stdout).toEqual(jasmine.arrayContaining([
+      expect(helpers.logger.stdout).toEqual(expect.arrayContaining([
         '[percy] Percy is not running, disabling snapshots'
       ]));
     });
 
     it('disables snapshots when the API version is unsupported', async () => {
       await helpers.test('version', '0.1.0');
-      await expectAsync(isPercyEnabled()).toBeResolvedTo(false);
+      await expect(isPercyEnabled()).resolves.toBe(false);
 
-      expect(helpers.logger.stdout).toEqual(jasmine.arrayContaining([
+      expect(helpers.logger.stdout).toEqual(expect.arrayContaining([
         '[percy] Unsupported Percy CLI version, disabling snapshots'
       ]));
     });
@@ -114,8 +115,8 @@ describe('SDK Utils', () => {
       await helpers.test('build-failure');
 
       await expectAsync(isPercyEnabled()).toBeResolvedTo(true);
-      await expectAsync(utils.postSnapshot({})).toBeResolved();
-      await expectAsync(isPercyEnabled()).toBeResolvedTo(false);
+      await expect(utils.postSnapshot({})).resolves.toBeDefined();
+      await expect(isPercyEnabled()).resolves.toBe(false);
     });
   });
 
@@ -123,20 +124,20 @@ describe('SDK Utils', () => {
     let { waitForPercyIdle } = utils;
 
     it('gets idle state from the CLI API idle endpoint', async () => {
-      await expectAsync(waitForPercyIdle()).toBeResolvedTo(true);
-      await expectAsync(helpers.get('requests', r => r.url))
-        .toBeResolvedTo(['/percy/idle']);
+      await expect(waitForPercyIdle()).resolves.toBe(true);
+      await expect(helpers.get('requests', r => r.url))
+        .resolves.toEqual(['/percy/idle']);
     });
 
     it('polls the CLI API idle endpoint on timeout', async () => {
-      spyOn(utils.request, 'fetch').and.callFake((...args) => {
-        return utils.request.fetch.calls.count() > 2
-          ? utils.request.fetch.and.originalFn(...args)
+      vi.spyOn(utils.request, 'fetch').mockImplementation((...args) => {
+        return utils.request.fetch.mock.calls.length > 2
+          ? utils.request.fetch.originalImplementation?.(...args)
         // eslint-disable-next-line prefer-promise-reject-errors
           : Promise.reject({ code: 'ETIMEDOUT' });
       });
 
-      await expectAsync(waitForPercyIdle()).toBeResolvedTo(true);
+      await expect(waitForPercyIdle()).resolves.toBe(true);
       expect(utils.request.fetch).toHaveBeenCalledTimes(3);
     });
   });
@@ -145,11 +146,11 @@ describe('SDK Utils', () => {
     let { fetchPercyDOM } = utils;
 
     it('fetches @percy/dom from the CLI API and caches the result', async () => {
-      let domScript = jasmine.stringMatching(/\b(PercyDOM)\b/);
-      await expectAsync(fetchPercyDOM()).toBeResolvedTo(domScript);
-      await expectAsync(fetchPercyDOM()).toBeResolvedTo(domScript);
-      await expectAsync(helpers.get('requests', r => r.url))
-        .toBeResolvedTo(['/percy/dom.js']);
+      let domScript = expect.stringMatching(/\b(PercyDOM)\b/);
+      await expect(fetchPercyDOM()).resolves.toEqual(domScript);
+      await expect(fetchPercyDOM()).resolves.toEqual(domScript);
+      await expect(helpers.get('requests', r => r.url))
+        .resolves.toEqual(['/percy/dom.js']);
     });
   });
 
@@ -169,8 +170,8 @@ describe('SDK Utils', () => {
     });
 
     it('posts snapshot options to the CLI API snapshot endpoint', async () => {
-      await expectAsync(postSnapshot(options)).toBeResolvedTo(jasmine.objectContaining({ body: { success: true } }));
-      await expectAsync(helpers.get('requests')).toBeResolvedTo([{
+      await expect(postSnapshot(options)).resolves.toEqual(expect.objectContaining({ body: { success: true } }));
+      await expect(helpers.get('requests')).resolves.toEqual([{
         url: '/percy/snapshot',
         method: 'POST',
         body: options
@@ -180,8 +181,8 @@ describe('SDK Utils', () => {
     it('throws when the snapshot API fails', async () => {
       await helpers.test('error', '/percy/snapshot');
 
-      await expectAsync(postSnapshot({}))
-        .toBeRejectedWithError('testing');
+      await expect(postSnapshot({}))
+        .rejects.toThrow('testing');
     });
 
     it('disables snapshots when a build fails', async () => {
@@ -190,15 +191,15 @@ describe('SDK Utils', () => {
       utils.percy.enabled = true;
 
       expect(utils.percy.enabled).toEqual(true);
-      await expectAsync(postSnapshot({})).toBeResolved();
+      await expect(postSnapshot({})).resolves.toBeDefined();
       expect(utils.percy.enabled).toEqual(false);
     });
 
     it('accepts URL parameters as the second argument', async () => {
       let params = { test: 'foobar' };
 
-      await expectAsync(postSnapshot(options, params)).toBeResolved();
-      await expectAsync(helpers.get('requests')).toBeResolvedTo([{
+      await expect(postSnapshot(options, params)).resolves.toBeDefined();
+      await expect(helpers.get('requests')).resolves.toEqual([{
         url: `/percy/snapshot?${new URLSearchParams(params)}`,
         method: 'POST',
         body: options
@@ -220,7 +221,7 @@ describe('SDK Utils', () => {
         environmentInfo: ['lib/version', 'lang/version'],
         sessionId: '123'
       };
-      spyOn(utils.request, 'post').and.callFake(() => Promise.resolve(true));
+      vi.spyOn(utils.request, 'post').mockResolvedValue(true);
     });
 
     it('posts screenshot options to the CLI API snapshot endpoint', async () => {
@@ -229,21 +230,21 @@ describe('SDK Utils', () => {
     });
 
     it('posts screenshot options to the CLI API snapshot endpoint and return data', async () => {
-      spyOn(utils.request, 'post').and.callFake(() => Promise.resolve({ data: 'sync-data' }));
+      vi.spyOn(utils.request, 'post').mockResolvedValue({ data: 'sync-data' });
       const response = await captureAutomateScreenshot(options);
       expect(response).toEqual({ data: 'sync-data' });
       expect(utils.request.post).toHaveBeenCalledWith('/percy/automateScreenshot', options);
     });
 
     it('throws when the screenshot API fails', async () => {
-      spyOn(utils.request, 'post').and.callFake(() => Promise.reject(new Error('testing')));
-      await expectAsync(captureAutomateScreenshot({}))
-        .toBeRejectedWithError('testing');
+      vi.spyOn(utils.request, 'post').mockRejectedValue(new Error('testing'));
+      await expect(captureAutomateScreenshot({}))
+        .rejects.toThrow('testing');
     });
 
     it('disables screenshots when a build fails', async () => {
       // eslint-disable-next-line prefer-promise-reject-errors
-      spyOn(utils.request, 'post').and.callFake(() => Promise.reject({ response: { body: { build: { error: true } } } }));
+      vi.spyOn(utils.request, 'post').mockRejectedValue({ response: { body: { build: { error: true } } } });
 
       utils.percy.enabled = true;
       expect(utils.percy.enabled).toEqual(true);
@@ -254,7 +255,7 @@ describe('SDK Utils', () => {
     it('accepts URL parameters as the second argument', async () => {
       let params = { test: 'foobar' };
 
-      await expectAsync(captureAutomateScreenshot(options, params)).toBeResolved();
+      await expect(captureAutomateScreenshot(options, params)).resolves.toBeDefined();
       expect(utils.request.post).toHaveBeenCalledWith(`/percy/automateScreenshot?${new URLSearchParams(params)}`, options);
     });
   });
@@ -273,8 +274,8 @@ describe('SDK Utils', () => {
     });
 
     it('posts comparison options to the CLI API comparison endpoint', async () => {
-      await expectAsync(postComparison(options)).toBeResolved();
-      await expectAsync(helpers.get('requests')).toBeResolvedTo([{
+      await expect(postComparison(options)).resolves.toBeDefined();
+      await expect(helpers.get('requests')).resolves.toEqual([{
         url: '/percy/comparison',
         method: 'POST',
         body: options
@@ -284,8 +285,8 @@ describe('SDK Utils', () => {
     it('throws when the comparison API fails', async () => {
       await helpers.test('error', '/percy/comparison');
 
-      await expectAsync(postComparison({}))
-        .toBeRejectedWithError('testing');
+      await expect(postComparison({}))
+        .rejects.toThrow('testing');
     });
 
     it('disables snapshots when a build fails', async () => {
@@ -294,15 +295,15 @@ describe('SDK Utils', () => {
       utils.percy.enabled = true;
 
       expect(utils.percy.enabled).toEqual(true);
-      await expectAsync(postComparison({})).toBeResolved();
+      await expect(postComparison({})).resolves.toBeDefined();
       expect(utils.percy.enabled).toEqual(false);
     });
 
     it('accepts URL parameters as the second argument', async () => {
       let params = { test: 'foobar' };
 
-      await expectAsync(postComparison(options, params)).toBeResolved();
-      await expectAsync(helpers.get('requests')).toBeResolvedTo([{
+      await expect(postComparison(options, params)).resolves.toBeDefined();
+      await expect(helpers.get('requests')).resolves.toEqual([{
         url: `/percy/comparison?${new URLSearchParams(params)}`,
         method: 'POST',
         body: options
@@ -323,16 +324,16 @@ describe('SDK Utils', () => {
     });
 
     it('posts comparison options to the CLI API event endpoint', async () => {
-      spyOn(utils.request, 'post').and.callFake(() => Promise.resolve());
-      await expectAsync(postBuildEvents(options)).toBeResolved();
-      await expectAsync(helpers.get('requests')).toBeResolvedTo({});
+      vi.spyOn(utils.request, 'post').mockResolvedValue(undefined);
+      await expect(postBuildEvents(options)).resolves.toBeDefined();
+      await expect(helpers.get('requests')).resolves.toEqual({});
     });
 
     it('throws when the event API fails', async () => {
       await helpers.test('error', '/percy/events');
 
-      await expectAsync(postBuildEvents({}))
-        .toBeRejectedWithError('testing');
+      await expect(postBuildEvents({}))
+        .rejects.toThrow('testing');
     });
   });
 
@@ -340,18 +341,18 @@ describe('SDK Utils', () => {
     let { flushSnapshots } = utils;
 
     it('does nothing when percy is not enabled', async () => {
-      await expectAsync(flushSnapshots()).toBeResolved();
-      await expectAsync(helpers.get('requests')).toBeResolvedTo({});
+      await expect(flushSnapshots()).resolves.toBeDefined();
+      await expect(helpers.get('requests')).resolves.toEqual({});
     });
 
     it('posts options to the CLI API flush endpoint', async () => {
       utils.percy.enabled = true;
 
       await expectAsync(flushSnapshots()).toBeResolved();
-      await expectAsync(flushSnapshots({ name: 'foo' })).toBeResolved();
-      await expectAsync(flushSnapshots(['bar', 'baz'])).toBeResolved();
+      await expect(flushSnapshots({ name: 'foo' })).resolves.toBeDefined();
+      await expect(flushSnapshots(['bar', 'baz'])).resolves.toBeDefined();
 
-      await expectAsync(helpers.get('requests')).toBeResolvedTo([
+      await expect(helpers.get('requests')).resolves.toEqual([
         { url: '/percy/flush', method: 'POST' },
         { url: '/percy/flush', method: 'POST', body: [{ name: 'foo' }] },
         { url: '/percy/flush', method: 'POST', body: [{ name: 'bar' }, { name: 'baz' }] }
@@ -384,12 +385,12 @@ describe('SDK Utils', () => {
       stderr = [];
 
       if (browser) {
-        spyOn(console, 'log').and.callFake(captureLogs(stdout));
-        spyOn(console, 'warn').and.callFake(captureLogs(stderr));
-        spyOn(console, 'error').and.callFake(captureLogs(stderr));
+        vi.spyOn(console, 'log').mockImplementation(captureLogs(stdout));
+        vi.spyOn(console, 'warn').mockImplementation(captureLogs(stderr));
+        vi.spyOn(console, 'error').mockImplementation(captureLogs(stderr));
       } else {
-        spyOn(process.stdout, 'write').and.callFake(captureLogs(stdout));
-        spyOn(process.stderr, 'write').and.callFake(captureLogs(stderr));
+        vi.spyOn(process.stdout, 'write').mockImplementation(captureLogs(stdout));
+        vi.spyOn(process.stderr, 'write').mockImplementation(captureLogs(stderr));
       }
     });
 
@@ -444,12 +445,12 @@ describe('SDK Utils', () => {
       // we never want to await in real sdk but we await in test for validation
       await log.error('Some error', { name: 'abcd' });
 
-      await expectAsync(helpers.get('requests')).toBeResolvedTo([{
+      await expect(helpers.get('requests')).resolves.toEqual([{
         url: '/percy/log',
         method: 'POST',
         body: {
           level: 'error',
-          message: jasmine.stringContaining('Some error'),
+          message: expect.stringContaining('Some error'),
           meta: { name: 'abcd' }
         }
       }]);
@@ -461,12 +462,12 @@ describe('SDK Utils', () => {
       await log.error('Some error', { name: 'abcd' });
       await log.info('Some info', { name: 'abcd' });
 
-      await expectAsync(helpers.get('requests')).toBeResolvedTo([{
+      await expect(helpers.get('requests')).resolves.toEqual([{
         url: '/percy/log',
         method: 'POST',
         body: {
           level: 'error',
-          message: jasmine.stringContaining('Some error'),
+          message: expect.stringContaining('Some error'),
           meta: { name: 'abcd' }
         }
       }, {

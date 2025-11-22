@@ -3,13 +3,14 @@ import si from 'systeminformation';
 import os from 'os';
 import logger from '@percy/logger/test/helpers';
 import { promises as fs } from 'fs';
+import { vi, expect } from 'vitest';
 
 describe('Monitoring', () => {
   let monitoring, mockExecuteMonitoring;
   let platform = 'test_platform';
 
   beforeEach(async () => {
-    spyOn(os, 'platform').and.returnValue(platform);
+    vi.spyOn(os, 'platform').mockReturnValue(platform);
     monitoring = new Monitoring();
     logger.loglevel('debug');
     process.env.PERCY_LOGLEVEL = 'debug';
@@ -22,21 +23,21 @@ describe('Monitoring', () => {
 
   describe('startMonitoring', () => {
     beforeEach(() => {
-      jasmine.clock().install();
-      mockExecuteMonitoring = spyOn(monitoring, 'executeMonitoring').and.returnValue(Promise.resolve());
+      vi.useFakeTimers();
+      mockExecuteMonitoring = vi.spyOn(monitoring, 'executeMonitoring').mockResolvedValue(undefined);
     });
 
     afterEach(() => {
-      jasmine.clock().uninstall();
+      vi.useRealTimers();
     });
 
     it('calls executeMonitoring after some interval', async () => {
       await monitoring.startMonitoring();
-      expect(mockExecuteMonitoring.calls.count()).toEqual(1);
-      jasmine.clock().tick(5002);
-      expect(mockExecuteMonitoring.calls.count()).toEqual(2);
+      expect(mockExecuteMonitoring.mock.calls.length).toEqual(1);
+      vi.advanceTimersByTime(5002);
+      expect(mockExecuteMonitoring.mock.calls.length).toEqual(2);
       expect(logger.stderr).toEqual(
-        jasmine.arrayContaining([
+        expect.arrayContaining([
           '[percy:monitoring] Started monitoring system metrics'
         ])
       );
@@ -44,10 +45,10 @@ describe('Monitoring', () => {
 
     it('early returns if monitoring is already active', async () => {
       await monitoring.startMonitoring();
-      expect(mockExecuteMonitoring.calls.count()).toEqual(1);
-      jasmine.clock().tick(1000);
+      expect(mockExecuteMonitoring.mock.calls.length).toEqual(1);
+      vi.advanceTimersByTime(1000);
       await monitoring.startMonitoring();
-      expect(mockExecuteMonitoring.calls.count()).toEqual(1);
+      expect(mockExecuteMonitoring.mock.calls.length).toEqual(1);
     });
   });
 
@@ -74,19 +75,19 @@ describe('Monitoring', () => {
 
   describe('logSystemInfo', () => {
     beforeEach(() => {
-      spyOn(fs, 'readFile').and.rejectWith(new Error('File not exists'));
-      spyOn(si, 'mem').and.returnValue(Promise.resolve({ total: 10344343324, swaptotal: 245343444244 }));
-      spyOn(os, 'arch').and.returnValue('test_arch');
-      spyOn(os, 'type').and.returnValue('test_type');
-      spyOn(os, 'release').and.returnValue('test_release');
-      spyOn(si, 'cpu').and.returnValue(Promise.resolve({ cores: 3 }));
-      spyOn(os, 'cpus').and.returnValue([{ model: 'Test CPU Model' }]);
+      vi.spyOn(fs, 'readFile').mockRejectedValue(new Error('File not exists'));
+      vi.spyOn(si, 'mem').mockResolvedValue({ total: 10344343324, swaptotal: 245343444244 });
+      vi.spyOn(os, 'arch').mockReturnValue('test_arch');
+      vi.spyOn(os, 'type').mockReturnValue('test_type');
+      vi.spyOn(os, 'release').mockReturnValue('test_release');
+      vi.spyOn(si, 'cpu').mockResolvedValue({ cores: 3 });
+      vi.spyOn(os, 'cpus').mockReturnValue([{ model: 'Test CPU Model' }]);
     });
 
     it('logs os, cpu, memory info', async () => {
-      const getDiskSpaceInfoMock = jasmine.createSpy('getDiskSpaceInfo').and.returnValue(Promise.resolve('123.45 gb'));
+      const getDiskSpaceInfoMock = vi.fn().mockResolvedValue('123.45 gb');
       await monitoring.logSystemInfo({ getDiskSpaceInfo: getDiskSpaceInfoMock });
-      expect(logger.stderr).toEqual(jasmine.arrayContaining([
+      expect(logger.stderr).toEqual(expect.arrayContaining([
         '[percy:monitoring] [Operating System] Platform: test_platform, Type: test_type, Release: test_release',
         '[percy:monitoring] [CPU] Name: Test CPU Model',
         '[percy:monitoring] [CPU] Arch: test_arch, cores: 3',
@@ -97,17 +98,17 @@ describe('Monitoring', () => {
     });
 
     it('logs error when unexpected error occurred', async () => {
-      spyOn(os, 'arch').and.throwError('err');
+      vi.spyOn(os, 'arch').mockImplementation(() => { throw new Error('err'); });
       await monitoring.logSystemInfo();
-      expect(logger.stderr).toEqual(jasmine.arrayContaining([
+      expect(logger.stderr).toEqual(expect.arrayContaining([
         '[percy:monitoring] Error logging system info: Error: err'
       ]));
     });
 
     it('logs error when getClientCPUDetails fails', async () => {
-      const getClientCPUDetailsMock = jasmine.createSpy('getClientCPUDetails').and.throwError('Test Error');
+      const getClientCPUDetailsMock = vi.fn().mockImplementation(() => { throw new Error('Test Error'); });
       await monitoring.logSystemInfo({ getClientCPUDetails: getClientCPUDetailsMock });
-      expect(logger.stderr).toEqual(jasmine.arrayContaining([
+      expect(logger.stderr).toEqual(expect.arrayContaining([
         '[percy:monitoring] Error logging system info: Error: Test Error'
       ]));
     });
@@ -117,8 +118,8 @@ describe('Monitoring', () => {
     let mockCpuUsage, mockMemUsage;
 
     beforeEach(() => {
-      mockCpuUsage = spyOn(monitoring, 'monitoringCPUUsage').and.returnValue(Promise.resolve());
-      mockMemUsage = spyOn(monitoring, 'monitorMemoryUsage').and.returnValue(Promise.resolve());
+      mockCpuUsage = vi.spyOn(monitoring, 'monitoringCPUUsage').mockResolvedValue(undefined);
+      mockMemUsage = vi.spyOn(monitoring, 'monitorMemoryUsage').mockResolvedValue(undefined);
     });
     it('calls monitoringCPUUsage and monitoringMemoryUsage and update lastExecutedAt', async () => {
       monitoring.lastExecutedAt = null;
@@ -169,7 +170,7 @@ describe('Monitoring', () => {
   describe('stopMonitoring', () => {
     let mockClearInterval;
     beforeEach(() => {
-      mockClearInterval = spyOn(global, 'clearInterval').and.returnValue(Promise.resolve());
+      mockClearInterval = vi.spyOn(global, 'clearInterval').mockReturnValue(undefined);
     });
 
     it('clear setInterval and reset all monitoring values', async () => {
@@ -192,7 +193,7 @@ describe('Monitoring', () => {
       monitoring.stopMonitoring();
       expect(mockClearInterval).toHaveBeenCalledTimes(1);
 
-      mockClearInterval.calls.reset();
+      mockClearInterval.mockClear();
       monitoring.stopMonitoring();
       expect(mockClearInterval).not.toHaveBeenCalled();
     });

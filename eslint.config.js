@@ -6,7 +6,7 @@ const standardConfig = typeof standard === 'function' ? standard() : standard
 const standardArray = Array.isArray(standardConfig) ? standardConfig : [standardConfig]
 
 export default [
-  // Ignore patterns (matching .gitignore)
+  // Global ignore patterns (matching .gitignore)
   {
     ignores: [
       '**/node_modules/**',
@@ -24,9 +24,13 @@ export default [
       'packages/sdk-utils/test/client.js'
     ]
   },
-  // Base configuration for all files
+
+  // Base configuration from eslint-config-standard
   ...standardArray,
+
+  // Root-level rules and language options for all source files
   {
+    files: ['**/*.js', '**/*.mjs'],
     languageOptions: {
       globals: {
         ...globals.node
@@ -62,6 +66,7 @@ export default [
       ]
     }
   },
+
   // Test directory overrides - disable import/no-extraneous-dependencies
   {
     files: ['**/test/**/*.js', '**/test/**/*.mjs'],
@@ -69,6 +74,7 @@ export default [
       'import/no-extraneous-dependencies': 'off'
     }
   },
+
   // Additional test overrides for packages that had jasmine env (legacy, but keeping for compatibility)
   {
     files: [

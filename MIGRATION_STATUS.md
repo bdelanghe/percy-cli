@@ -11,6 +11,7 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
 - **Tests**:
   - Node tests: Bun test runner
   - Browser-style tests: Vitest + jsdom
+- **Linting**: ESLint 9 with flat config format
 - **Nix**: bun2nix-backed offline, reproducible builds
 - **Lockfiles**: bun.lockb + bun.nix (both committed)
 
@@ -35,6 +36,7 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
 - Coverage:
   - Node: Bun test coverage
   - Browser: Vitest @vitest/coverage-v8
+- Linting: ESLint 9 (flat config format)
 - Nix: bun2nix.fetchBunDeps + bun2nix.hook
 - Lockfiles: bun.lockb + generated bun.nix
 
@@ -312,7 +314,7 @@ Vitest was chosen primarily for its Jest-compatible API (minimal test changes), 
 
 1. ✅ **Faster installs**: Bun installs 10-100x faster than Yarn
 2. ✅ **Faster builds**: Bun bundler is very fast
-3. ✅ **Simpler toolchain**: Reduced from Lerna + Yarn + Babel + Rollup + Karma + Jasmine + nyc to Bun + Vitest (10 devDependencies vs 20+)
+3. ✅ **Simpler toolchain**: Reduced from Lerna + Yarn + Babel + Rollup + Karma + Jasmine + nyc to Bun + Vitest (11 devDependencies vs 20+)
 4. ✅ **Better DX**: Faster feedback loops
 5. ✅ **Native TypeScript**: No need for separate TS compilation
 6. ✅ **Offline Nix builds**: bun2nix provides reproducible, offline builds
@@ -330,5 +332,7 @@ Vitest was chosen primarily for its Jest-compatible API (minimal test changes), 
 - [bun2nix Documentation](https://github.com/nix-community/bun2nix)
 - [Vitest Documentation](https://vitest.dev/)
 - [jsdom Documentation](https://github.com/jsdom/jsdom)
+- [ESLint 9 Migration Guide](https://eslint.org/docs/latest/use/migrate-to-9.0.0)
+- [ESLint Flat Config](https://eslint.org/docs/latest/use/configure/configuration-files-new)
 - [Nix Flakes](https://nixos.wiki/wiki/Flakes)
 - [Percy CLI Development Guide](./packages/cli/README.md)

@@ -8,7 +8,7 @@ const JOB_TIMEOUT = Number(process.env.SYNC_TIMEOUT) || 90_000;
 
 // Job is either for snapshot or comparison only
 export class WaitForJob {
-  log: ReturnType<typeof logger>;
+  log: any;
   percy: any;
   jobs: JobData[];
   type: string;
@@ -80,7 +80,7 @@ export class WaitForJob {
 
   // If there are other snapshots which can be completed in next
   // 5 seconds, calling after x seconds will reduce network call
-  getOptimalPollTime(lowestPollTime) {
+  getOptimalPollTime(lowestPollTime: number) {
     let pollTime = lowestPollTime;
     this.jobs.forEach((job) => {
       const jobPollTime = job.nextPoll;

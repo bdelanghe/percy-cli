@@ -72,50 +72,61 @@
         };
       });
 
-      apps = eachSystem (system: {
-        # Generate bun.lockb by running bun install
-        bun-install = {
-          type = "app";
-          program = toString (pkgsFor.${system}.writeShellScript "bun-install" ''
-            set -e
-            echo "Running bun install to generate bun.lockb..."
-            ${pkgsFor.${system}.bun}/bin/bun install
-            echo "✓ bun.lockb generated"
-          '');
-        };
+      apps = eachSystem (system:
+        let
+          bun = pkgsFor.${system}.bun;
+          bun2nix = pkgsFor.${system}.bun2nix;
+          # Ensure Bun is in PATH for postinstall scripts
+          bunPath = "${bun}/bin";
+        in
+        {
+          # Generate bun.lockb by running bun install
+          bun-install = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "bun-install" ''
+              set -e
+              # Add Bun to PATH so postinstall scripts can find it
+              export PATH="${bunPath}:$PATH"
+              echo "Running bun install to generate bun.lockb..."
+              ${bun}/bin/bun install
+              echo "✓ bun.lockb generated"
+            '');
+          };
 
-        # Generate bun.nix from bun.lockb
-        bun2nix-generate = {
-          type = "app";
-          program = toString (pkgsFor.${system}.writeShellScript "bun2nix-generate" ''
-            set -e
-            if [ ! -f bun.lockb ]; then
-              echo "Error: bun.lockb not found. Run 'nix run .#bun-install' first." >&2
-              exit 1
-            fi
-            echo "Generating bun.nix from bun.lockb..."
-            ${pkgsFor.${system}.bun2nix}/bin/bun2nix -o bun.nix
-            echo "✓ bun.nix generated"
-          '');
-        };
+          # Generate bun.nix from bun.lockb
+          bun2nix-generate = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "bun2nix-generate" ''
+              set -e
+              if [ ! -f bun.lockb ]; then
+                echo "Error: bun.lockb not found. Run 'nix run .#bun-install' first." >&2
+                exit 1
+              fi
+              echo "Generating bun.nix from bun.lockb..."
+              ${bun2nix}/bin/bun2nix -o bun.nix
+              echo "✓ bun.nix generated"
+            '');
+          };
 
-        # Update both lockfiles (bun install + bun2nix)
-        update-lockfiles = {
-          type = "app";
-          program = toString (pkgsFor.${system}.writeShellScript "update-lockfiles" ''
-            set -e
-            echo "Step 1: Running bun install to generate bun.lockb..."
-            ${pkgsFor.${system}.bun}/bin/bun install
-            echo "✓ bun.lockb generated"
-            echo ""
-            echo "Step 2: Generating bun.nix from bun.lockb..."
-            ${pkgsFor.${system}.bun2nix}/bin/bun2nix -o bun.nix
-            echo "✓ bun.nix generated"
-            echo ""
-            echo "✓ Both lockfiles updated. Don't forget to commit:"
-            echo "  git add bun.lockb bun.nix"
-          '');
-        };
-      });
+          # Update both lockfiles (bun install + bun2nix)
+          update-lockfiles = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "update-lockfiles" ''
+              set -e
+              # Add Bun to PATH so postinstall scripts can find it
+              export PATH="${bunPath}:$PATH"
+              echo "Step 1: Running bun install to generate bun.lockb..."
+              ${bun}/bin/bun install
+              echo "✓ bun.lockb generated"
+              echo ""
+              echo "Step 2: Generating bun.nix from bun.lockb..."
+              ${bun2nix}/bin/bun2nix -o bun.nix
+              echo "✓ bun.nix generated"
+              echo ""
+              echo "✓ Both lockfiles updated. Don't forget to commit:"
+              echo "  git add bun.lockb bun.nix"
+            '');
+          };
+        });
     };
 }

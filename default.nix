@@ -185,13 +185,13 @@ let
       mkdir -p "$HOME"
       export PATH="$PWD/node_modules/.bin:$PATH"
 
-      # Verify dependencies are installed (mkBunDerivation should have done this)
+      # Verify dependencies are installed (mkDerivation should have done this)
       if [ ! -d node_modules ]; then
-        echo "Error: node_modules not found after mkBunDerivation install phase" >&2
+        echo "Error: node_modules not found after mkDerivation install phase" >&2
         exit 1
       fi
 
-      echo "Dependencies installed successfully by mkBunDerivation from offline cache"
+      echo "Dependencies installed successfully by mkDerivation from offline cache"
       
       # Build using Bun workspace scripts (ESM output)
       # This builds all packages in the monorepo as ESM

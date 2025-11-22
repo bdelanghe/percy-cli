@@ -338,14 +338,28 @@ let
       echo "=== Build Phase Debug ===" >&2
       echo "Bun version: $(bun --version 2>&1 || echo 'failed')" >&2
       echo "Current directory: $(pwd)" >&2
-      echo "Source exists: $(test -f ./packages/cli/src/bin.js && echo 'yes' || echo 'no')" >&2
+      echo "Source bin.ts: $(test -f ./packages/cli/src/bin.ts && echo 'yes' || echo 'no')" >&2
+      echo "Dist index.js: $(test -f ./packages/cli/dist/index.js && echo 'yes' || echo 'no')" >&2
       echo "Node modules: $(test -d node_modules && echo 'yes' || echo 'no')" >&2
       
-      # Build the binary using Bun compile
+      # Create a wrapper entry point that imports from dist
+      # Bun compile needs a JS file, and we want to use the built dist files
+      cat > ./percy-entry.js << 'EOF'
+#!/usr/bin/env bun
+import { percy, checkForUpdate } from './packages/cli/dist/index.js';
+
+(async () => {
+  await checkForUpdate();
+  await percy(process.argv.slice(2));
+})();
+EOF
+      chmod +x ./percy-entry.js
+      
+      # Build the binary using Bun compile from the entry point
       # This creates a standalone executable with Bun runtime
-      echo "Running: bun build ./packages/cli/src/bin.js --compile --outfile=./percy" >&2
+      echo "Running: bun build ./percy-entry.js --compile --outfile=./percy" >&2
       set +e
-      bun build ./packages/cli/src/bin.js --compile --outfile=./percy 2>&1
+      bun build ./percy-entry.js --compile --outfile=./percy 2>&1
       BUILD_EXIT=$?
       set -e
       

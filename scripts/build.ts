@@ -109,32 +109,39 @@ async function main({ node, bundle }: ParsedArgs = argv): Promise<void> {
           fs.mkdirSync(distDir, { recursive: true });
         }
         
-        // Transpile each file with Bun
-        for (const srcFile of srcFiles) {
-          const relPath = path.relative(srcDir, srcFile);
-          // Change .ts extension to .js in output
-          const distFile = path.join(distDir, relPath).replace(/\.ts$/, '.js');
-          const distDirPath = path.dirname(distFile);
+        // Use Bun to transpile all TypeScript/JavaScript files to CommonJS
+        // Build all source files at once using --outdir
+        try {
+          // Build all .ts and .js files from src to dist using outdir
+          const entryPoints = srcFiles.filter(f => f.endsWith('.ts') || f.endsWith('.js'));
           
-          // Ensure output directory exists
-          if (!fs.existsSync(distDirPath)) {
-            fs.mkdirSync(distDirPath, { recursive: true });
-          }
-          
-          // Use Bun to transpile TypeScript/JavaScript to CommonJS
-          try {
+          if (entryPoints.length > 0) {
             await bunSpawn([
               'build',
-              srcFile,
-              '--outfile', distFile,
+              ...entryPoints,
+              '--outdir', distDir,
               '--target', 'node',
               '--format', 'cjs',
               '--minify', 'false'
             ], { cwd });
-          } catch (err) {
-            // Fallback: copy file (Bun can run ES modules natively)
-            console.log(colors.yellow(`Warning: Could not transpile ${relPath}, copying as-is`));
-            fs.copyFileSync(srcFile, distFile);
+          }
+        } catch (err) {
+          // Fallback: use tsc for transpilation if Bun build fails
+          console.log(colors.yellow('Warning: Bun build failed, falling back to tsc for transpilation'));
+          const tsconfigPath = path.join(cwd, 'tsconfig.json');
+          if (fs.existsSync(tsconfigPath)) {
+            try {
+              await new Promise<void>((resolve, reject) => {
+                const proc = spawn('tsc', ['--project', tsconfigPath, '--outDir', distDir], {
+                  stdio: 'inherit',
+                  cwd
+                });
+                proc.on('exit', (code) => (code ? reject(new Error(`tsc exited with code ${code}`)) : resolve()));
+                proc.on('error', reject);
+              });
+            } catch (tscErr) {
+              console.log(colors.yellow('Warning: tsc also failed, some files may not be transpiled'));
+            }
           }
         }
         

@@ -62,10 +62,8 @@
             null;
 
           # Offline Bun dependency cache from bun.nix
-          # Get bun2nix package with passthru attributes (hook, fetchBunDeps)
-          # The overlay may only expose the binary, so we get the full package
-          bun2nixPkg = bun2nix.packages.${system}.default;
-          bunDeps = bun2nixPkg.fetchBunDeps {
+          # Use pkgs.bun2nix from overlay - it has passthru attributes (hook, fetchBunDeps)
+          bunDeps = pkgs.bun2nix.fetchBunDeps {
             bunNix = "${srcPatched}/bun.nix";
           };
 
@@ -81,7 +79,7 @@
             nativeBuildInputs = with pkgs; [
               bun
               nodejs
-              bun2nixPkg.hook  # setup hook for offline installs (from bun2nix package passthru)
+              bun2nix.hook  # setup hook for offline installs (from overlay)
             ];
 
             # bun2nix.hook uses this to find the offline cache

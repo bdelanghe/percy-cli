@@ -18,25 +18,26 @@ let
     inherit pkgs bunNix;
   };
 
-  # Check for bun.lockb and bun.nix in source before building
+  # Check for bun.lock and bun.nix in source before building
   # These should be generated outside Nix and committed to version control
-  hasBunLockb = builtins.pathExists ./bun.lockb;
+  # Note: Bun 1.2+ uses bun.lock (text format) by default
+  hasBunLock = builtins.pathExists ./bun.lock;
   hasBunNix  = builtins.pathExists bunNix;
 
-  _ = if !hasBunLockb || !hasBunNix then
+  _ = if !hasBunLock || !hasBunNix then
     throw ''
 
       Missing Bun lock artifacts in source:
 
-        bun.lockb present: ${toString hasBunLockb}
+        bun.lock present: ${toString hasBunLock}
         bun.nix present:  ${toString hasBunNix}
 
       To fix:
-        bun install                    # Generates bun.lockb
-        bunx bun2nix -o bun.nix       # Generates bun.nix from bun.lockb
+        bun install                    # Generates bun.lock
+        bunx bun2nix -o bun.nix       # Generates bun.nix from bun.lock
         # Or use Nix app:
         nix run .#update-lockfiles
-        git add bun.lockb bun.nix
+        git add bun.lock bun.nix
 
     ''
   else

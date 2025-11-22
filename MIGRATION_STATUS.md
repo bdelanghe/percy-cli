@@ -111,12 +111,13 @@ The migration is complete. The current architecture matches the target:
 **Goal**: Replace Karma + Rollup with Vitest + jsdom for browser testing, enabling complete Rollup removal.
 
 **What Was Done**:
-1. ✅ **Installed Vitest + jsdom**: Added vitest, @vitest/ui, @vitest/coverage-v8, jsdom
+1. ✅ **Installed Vitest + jsdom**: Added vitest, @vitest/coverage-v8, jsdom
 2. ✅ **Created Vitest configuration**: `vitest.config.mts` with jsdom environment
 3. ✅ **Updated test helpers**: Adapted for Vitest (removed Karma-specific code)
-4. ✅ **Updated test infrastructure**: Modified `scripts/test.js` to use Vitest
+4. ✅ **Updated test infrastructure**: Modified `scripts/test.js` to use Vitest for browser tests and Bun for node tests
 5. ✅ **Removed Karma**: Deleted all Karma dependencies and `karma.config.cjs`
 6. ✅ **Removed Rollup**: Deleted `rollup.config.js` and rollup config from package.json files
+7. ✅ **Removed nyc**: Replaced with Vitest's built-in coverage for browser tests and Bun's coverage for node tests
 
 **Why Vitest?**
 - Modern, actively maintained
@@ -146,6 +147,12 @@ The migration is complete. The current architecture matches the target:
 - ✅ Removed `karma.config.cjs`
 - ✅ Removed `@babel/eslint-parser` and `eslint-plugin-babel` (replaced with ESLint's native parser)
 - ✅ Removed Jasmine and jasmine-spec-reporter (replaced with Bun test runner + Vitest APIs)
+- ✅ Removed `nyc` (replaced with Vitest/Bun built-in coverage)
+- ✅ Removed `cross-env` (not needed on macOS/Nix/Bun)
+- ✅ Removed `@nx/nx-darwin-arm64` (no Nx usage)
+- ✅ Removed `@vitest/ui` (not used)
+- ✅ Updated test scripts to use Vitest coverage for browser tests and Bun coverage for node tests
+- ✅ Updated ESLint configs to remove jasmine environment references
 - ✅ Updated documentation
 - ⏳ Final testing and validation (pending actual test runs)
 
@@ -159,6 +166,32 @@ The migration is complete. The current architecture matches the target:
 - ✅ bun2nix for offline, reproducible Nix builds
 - ✅ All build scripts migrated to Bun
 - ✅ ESLint using native parser (Babel ESLint parser removed)
+- ✅ Minimal dependency footprint (only actively used packages remain)
+
+### Final DevDependencies
+
+The migration resulted in a minimal, focused set of development dependencies:
+
+**ESLint Stack** (5 packages) - For code linting:
+- `eslint`
+- `eslint-config-standard`
+- `eslint-plugin-import`
+- `eslint-plugin-node`
+- `eslint-plugin-promise`
+
+**Testing Stack** (3 packages) - For test execution and coverage:
+- `vitest` - Core test runner for browser tests
+- `@vitest/coverage-v8` - Coverage collection for Vitest
+- `jsdom` - Browser-like environment for browser tests
+
+**Test Utilities** (3 packages) - For test infrastructure:
+- `gaze` - File watching for test watch mode
+- `memfs` - In-memory filesystem for test mocking
+- `tsd` - TypeScript definition testing
+
+**Total**: 11 development dependencies (down from 20+ in the legacy stack)
+
+All legacy dependencies (Karma, Rollup, Babel, Jasmine, nyc, cross-env, @nx/nx-darwin-arm64, @vitest/ui) have been removed.
 
 
 ## Remaining Work
@@ -166,14 +199,16 @@ The migration is complete. The current architecture matches the target:
 ### Verification Steps
 
 1. **Install dependencies via Nix/bun2nix**
-   - The new Vitest packages (`vitest`, `@vitest/ui`, `@vitest/coverage-v8`, `jsdom`) are in `package.json`
+   - The minimal dependency set (ESLint stack, Vitest, jsdom, test utilities) is in `package.json`
    - Run `bun install` or use Nix to install dependencies
    - Regenerate `bun.nix` if using bun2nix: `nix run .#bun2nix-generate`
 
 2. **Run tests to verify everything works**
    - Run browser tests: `bun test:browser` or `vitest run`
    - Run all tests: `bun test` (Node tests) + `bun test:browser` (browser tests)
-   - Run with coverage: `vitest run --coverage`
+   - Run with coverage: 
+     - Browser tests: `vitest run --coverage`
+     - Node tests: `bun test --coverage`
 
 3. **Fix any test failures**
    - All Jasmine APIs have been migrated to Vitest/Bun equivalents
@@ -379,8 +414,8 @@ If `bun.nix` doesn't exist or is outdated:
 #### Native module issues
 If you encounter native module issues:
 - Verify the native module is compatible with Bun
-- Check that platform-specific packages (e.g., `@nx/nx-darwin-arm64`) are included
 - Ensure Bun is using the correct Node.js version for compatibility
+- Check that all required dependencies are installed
 
 ### Nix Build System Files
 
@@ -507,12 +542,13 @@ Despite the original recommendation for Playwright, **Vitest + jsdom** was chose
 
 The migration was completed using Vitest with jsdom environment:
 
-1. **Installed Vitest + jsdom**: Added vitest, @vitest/ui, @vitest/coverage-v8, jsdom
+1. **Installed Vitest + jsdom**: Added vitest, @vitest/coverage-v8, jsdom
 2. **Created Vitest configuration**: `vitest.config.mts` with jsdom environment
 3. **Updated test helpers**: Adapted for Vitest (removed Karma-specific code)
-4. **Updated test infrastructure**: Modified `scripts/test.js` to use Vitest
+4. **Updated test infrastructure**: Modified `scripts/test.js` to use Vitest for browser tests and Bun for node tests
 5. **Removed Karma**: Deleted all Karma dependencies and `karma.config.cjs`
 6. **Removed Rollup**: Deleted `rollup.config.js` and rollup config from package.json files
+7. **Removed legacy dependencies**: Cleaned up nyc, cross-env, @nx/nx-darwin-arm64, @vitest/ui, and other unused packages
 
 ### Challenges and Solutions
 
@@ -522,9 +558,9 @@ The migration was completed using Vitest with jsdom environment:
 - **Impact**: Low - minimal test file updates needed
 
 #### 2. Coverage Collection
-- **Challenge**: Karma uses istanbul-lib-coverage, need equivalent
-- **Solution**: Use Vitest's built-in v8 coverage provider
-- **Impact**: Low - well-supported in Vitest
+- **Challenge**: Karma/nyc uses istanbul-lib-coverage, need equivalent
+- **Solution**: Use Vitest's built-in v8 coverage provider for browser tests, Bun's built-in coverage for node tests
+- **Impact**: Low - well-supported in both Vitest and Bun
 
 #### 3. Test Helpers
 - **Challenge**: Browser test helpers may need updates
@@ -570,7 +606,7 @@ Bun's workspace filtering uses `--filter` flag:
 ### Completed Benefits
 1. ✅ **Faster installs**: Bun installs 10-100x faster than Yarn
 2. ✅ **Faster builds**: Bun bundler is very fast
-3. ✅ **Simpler toolchain**: Reduced from Lerna + Yarn + Babel + Rollup + Karma to Bun + Vitest
+3. ✅ **Simpler toolchain**: Reduced from Lerna + Yarn + Babel + Rollup + Karma + Jasmine + nyc to Bun + Vitest (11 devDependencies vs 20+)
 4. ✅ **Better DX**: Faster feedback loops
 5. ✅ **Native TypeScript**: No need for separate TS compilation
 6. ✅ **Offline Nix builds**: bun2nix provides reproducible, offline builds

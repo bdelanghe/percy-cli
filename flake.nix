@@ -201,12 +201,8 @@
             type = "app";
             program = toString (pkgsFor.${system}.writeShellScript "lint" ''
               set -e
-              export PATH="''$(pwd)/node_modules/.bin:''$PATH"
-              if [ ! -f node_modules/.bin/eslint ]; then
-                echo "Error: eslint not found. Run 'nix run .#bun-install' first." >&2
-                exit 1
-              fi
-              ./node_modules/.bin/eslint --ignore-path .gitignore .
+              export PATH="${bunPath}:$PATH"
+              ${bun}/bin/bun run --filter './packages/*' lint
             '');
           };
 
@@ -224,7 +220,7 @@
             program = toString (pkgsFor.${system}.writeShellScript "test" ''
               set -e
               export PATH="${bunPath}:$PATH"
-              ${bun}/bin/bun test
+              ${bun}/bin/bun run --filter './packages/*' test
             '');
           };
 
@@ -259,7 +255,7 @@
             program = toString (pkgsFor.${system}.writeShellScript "test-coverage" ''
               set -e
               export PATH="${bunPath}:$PATH"
-              ${bun}/bin/bun test --coverage
+              ${bun}/bin/bun run --filter './packages/*' test:coverage
             '');
           };
 

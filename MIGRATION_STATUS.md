@@ -52,6 +52,11 @@ The migration is complete. The current architecture matches the target:
   - Replaced `yarn build` with `bun run build`
   - Replaced `yarn workspace` with `bun run --filter`
   - Updated cache keys from `yarn.lock` to `bun.lockb`
+- ✅ **.github/workflows/lint.yml**: Updated to use Bun instead of Yarn
+  - Added `oven-sh/setup-bun@v1` action
+  - Replaced `yarn` with `bun install`
+  - Replaced `yarn lint` with `bun run lint`
+  - Updated cache keys from `yarn.lock` to `bun.lockb`
 
 ### Phase 2: Build System Migration ✅
 
@@ -154,8 +159,10 @@ The migration is complete. The current architecture matches the target:
 - ✅ Updated test scripts to use Vitest coverage for browser tests and Bun coverage for node tests
 - ✅ Updated ESLint configs to remove jasmine environment references
 - ✅ Updated documentation
-- ✅ Removed all `yarn`` references from package.json test:coverage scripts (replaced with `node ../../scripts/test --coverage`)
-- ⏳ Final testing and validation (pending actual test runs in proper environment with Bun installed)
+- ✅ Removed all `yarn` references from package.json test:coverage scripts (replaced with `node ../../scripts/test --coverage`)
+- ✅ Added root-level scripts to package.json for centralized script management
+- ✅ Updated CI/CD workflows (test.yml and lint.yml) to use Bun
+- ⏳ Final runtime testing and validation (pending actual test runs in proper environment with Bun installed)
 
 ## Current State
 
@@ -206,7 +213,12 @@ All legacy dependencies (Karma, Rollup, Babel, Jasmine, nyc, cross-env, @nx/nx-d
    - Enables running `bun run build`, `bun test`, `bun run lint`, etc. from root
    - Centralizes script management instead of duplicating across packages
    - Matches documented commands in README
-3. ✅ **Code verification**: Build and test scripts verified to use Bun and Vitest correctly
+   - Scripts: `build`, `build:watch`, `build_cjs`, `lint`, `readme`, `test`, `test:coverage`, `test:types`, `postinstall`
+3. ✅ **CI/CD workflows updated**: 
+   - `.github/workflows/test.yml`: Already using Bun (verified)
+   - `.github/workflows/lint.yml`: Updated to use Bun instead of Yarn
+   - Both workflows now use `oven-sh/setup-bun@v1` and `bun.lockb` for caching
+4. ✅ **Code verification**: Build and test scripts verified to use Bun and Vitest correctly
    - `scripts/build.js` uses Bun bundler for both Node.js and browser builds
    - `scripts/test.js` uses Bun test runner for Node tests and Vitest for browser tests
    - `vitest.config.mts` properly configured with jsdom environment
@@ -221,14 +233,17 @@ All legacy dependencies (Karma, Rollup, Babel, Jasmine, nyc, cross-env, @nx/nx-d
    - Regenerate `bun.nix` if using bun2nix: `nix run .#bun2nix-generate`
 
 2. **Run tests to verify everything works**
+   - Run all tests: `bun test` (uses root script, delegates to packages)
    - Run browser tests: `node scripts/test --browsers` or `vitest run`
    - Run Node tests: `node scripts/test --node` or `bun test`
    - Run with coverage: 
+     - All tests: `bun test:coverage` (uses root script)
      - Browser tests: `vitest run --coverage` or `node scripts/test --browsers --coverage`
      - Node tests: `bun test --coverage` or `node scripts/test --node --coverage`
 
 3. **Verify builds**
-   - Run `bun run --filter './packages/*' build` to build all packages
+   - Run `bun run build` (uses root script, delegates to all packages)
+   - Or run `bun run --filter './packages/*' build` directly
    - Verify `dist/` directories are created in each package
 
 4. **Verify Nix builds**
@@ -246,11 +261,11 @@ All legacy dependencies (Karma, Rollup, Babel, Jasmine, nyc, cross-env, @nx/nx-d
      - All Jasmine matchers → Vitest equivalents
    - Some test files may still need updates if tests fail
 
-6. **Update CI/CD if needed**
-   - Update GitHub Actions workflows to use Vitest instead of Karma
-   - Remove any Karma-specific setup steps
-   - Ensure Vitest and jsdom are available in CI environment
-   - Update test commands to use `vitest run` for browser tests
+6. ✅ **CI/CD workflows updated**
+   - ✅ `.github/workflows/test.yml`: Updated to use Bun (already completed)
+   - ✅ `.github/workflows/lint.yml`: Updated to use Bun (just completed)
+   - Note: Test workflow uses `bun run --filter` which delegates to package scripts that use Vitest/Bun
+   - Vitest and jsdom are available via devDependencies in package.json
 
 ## Nix Build System
 
@@ -606,7 +621,9 @@ The following need to be tested to ensure they work correctly:
 3. ✅ **Build process**: Code verified - `scripts/build.js` uses Bun bundler correctly, all packages have build scripts configured
 4. ✅ **Test execution**: Code verified - `scripts/test.js` updated to use Bun test runner for Node tests and Vitest for browser tests
 5. ✅ **Package.json scripts**: All `test:coverage` scripts updated from `yarn test --coverage` to `node ../../scripts/test --coverage`
-6. ⚠️ **Runtime verification**: Needs actual test runs in environment with Bun installed (requires `nix develop` or Bun in PATH)
+6. ✅ **Root-level scripts**: Added centralized scripts to root package.json using Bun workspace filtering
+7. ✅ **CI/CD workflows**: Updated test.yml and lint.yml to use Bun instead of Yarn
+8. ⚠️ **Runtime verification**: Needs actual test runs in environment with Bun installed (requires `nix develop` or Bun in PATH)
    - Run `bun run --filter './packages/*' build` to verify builds
    - Run `bun test` to verify Node.js tests
    - Run `vitest run` or `node scripts/test --browsers` to verify browser tests

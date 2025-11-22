@@ -13,6 +13,7 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 14
+      - uses: oven-sh/setup-bun@v1
       - uses: actions/cache@v3
         with:
           path: |
@@ -22,9 +23,9 @@ jobs:
           key: >
             ${{ runner.os }}/node-14/
             ${{ hashFiles('.github/.cache-key') }}/
-            ${{ hashFiles('**/yarn.lock') }}
+            ${{ hashFiles('**/bun.lockb') }}
           restore-keys: >
             ${{ runner.os }}/node-14/
             ${{ hashFiles('.github/.cache-key') }}/
-      - run: yarn
-      - run: yarn lint
+      - run: bun install
+      - run: bun run lint

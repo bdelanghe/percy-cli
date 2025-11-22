@@ -62,8 +62,9 @@
             null;
 
           # Offline Bun dependency cache from bun.nix
-          # Use pkgs.bun2nix from overlay - it has passthru attributes (hook, fetchBunDeps)
-          bunDeps = pkgs.bun2nix.fetchBunDeps {
+          # Get bun2nix package - try overlay first, fallback to direct access
+          bun2nixPkg = pkgs.bun2nix or (builtins.getAttr "bun2nix" pkgs);
+          bunDeps = bun2nixPkg.fetchBunDeps {
             bunNix = "${srcPatched}/bun.nix";
           };
 
@@ -76,10 +77,10 @@
             version = cfg.version;
             src     = srcPatched;
 
-            nativeBuildInputs = with pkgs; [
-              bun
-              nodejs
-              bun2nix.hook  # setup hook for offline installs (from overlay)
+            nativeBuildInputs = [
+              pkgs.bun
+              pkgs.nodejs
+              bun2nixPkg.hook  # setup hook for offline installs
             ];
 
             # bun2nix.hook uses this to find the offline cache

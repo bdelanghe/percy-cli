@@ -16,7 +16,7 @@ rec {
     echo "=== Bun Cache Diagnostics ===" >&2
     echo "" >&2
     
-    # Check BUN_INSTALL_CACHE_DIR (use ${...:-} to handle unset variable)
+    # Check BUN_INSTALL_CACHE_DIR (use $${...:-} to handle unset variable)
     cache_dir="''${BUN_INSTALL_CACHE_DIR:-}"
     if [ -n "$cache_dir" ]; then
       echo "✓ BUN_INSTALL_CACHE_DIR is set: $cache_dir" >&2

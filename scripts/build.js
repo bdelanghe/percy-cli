@@ -108,6 +108,24 @@ async function main({ node, bundle } = argv) {
           }
         }
         
+        // Generate TypeScript declaration files using tsc
+        const tsconfigPath = path.join(cwd, 'tsconfig.json');
+        if (fs.existsSync(tsconfigPath)) {
+          try {
+            await new Promise((resolve, reject) => {
+              const proc = spawn('tsc', ['--project', tsconfigPath, '--emitDeclarationOnly'], {
+                stdio: 'inherit',
+                cwd
+              });
+              proc.on('exit', (code) => (code ? reject(new Error(`tsc exited with code ${code}`)) : resolve()));
+              proc.on('error', reject);
+            });
+            console.log(colors.green('✓ Type definitions generated'));
+          } catch (err) {
+            console.log(colors.yellow(`Warning: Could not generate type definitions: ${err.message}`));
+          }
+        }
+        
         console.log(colors.green('✓ Node build complete'));
       }
     }

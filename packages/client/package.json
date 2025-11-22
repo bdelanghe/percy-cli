@@ -19,11 +19,21 @@
     "test/helpers.js"
   ],
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "type": "module",
   "exports": {
-    ".": "./dist/index.js",
-    "./utils": "./dist/utils.js",
-    "./detect-proxy": "./dist/detect-proxy.js",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./utils": {
+      "types": "./dist/utils.d.ts",
+      "default": "./dist/utils.js"
+    },
+    "./detect-proxy": {
+      "types": "./dist/detect-proxy.d.ts",
+      "default": "./dist/detect-proxy.js"
+    },
     "./test/helpers": "./test/helpers.js"
   },
   "scripts": {

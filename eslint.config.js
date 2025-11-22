@@ -76,8 +76,7 @@ export default [
       parser: tsparser,
       parserOptions: {
         ecmaVersion: 2020,
-        sourceType: 'module',
-        project: './tsconfig.base.json'
+        sourceType: 'module'
       },
       globals: {
         ...globals.node

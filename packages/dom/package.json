@@ -12,6 +12,7 @@
     "tag": "beta"
   },
   "main": "dist/bundle.js",
+  "types": "./dist/index.d.ts",
   "browser": "dist/bundle.js",
   "files": [
     "dist"

@@ -21,9 +21,11 @@
     "test/helpers.js"
   ],
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "browser": "./dist/bundle.js",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "node": "./dist/index.js",
       "default": "./dist/bundle.js"
     },

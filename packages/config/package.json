@@ -16,26 +16,27 @@
   },
   "files": [
     "dist",
-    "types/index.d.ts",
     "test/helpers.js"
   ],
   "main": "./dist/index.js",
-  "types": "./types/index.d.ts",
+  "types": "./dist/index.d.ts",
   "type": "module",
   "exports": {
     ".": {
-      "types": "./types/index.d.ts",
+      "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./utils": "./dist/utils/index.js",
+    "./utils": {
+      "types": "./dist/utils/index.d.ts",
+      "default": "./dist/utils/index.js"
+    },
     "./test/helpers": "./test/helpers.js"
   },
   "scripts": {
     "build": "node ../../scripts/build",
     "lint": "eslint --ignore-path ../../.gitignore .",
     "test": "node ../../scripts/test",
-    "test:coverage": "node ../../scripts/test --coverage",
-    "test:types": "tsc --project types/tsconfig.json"
+    "test:coverage": "node ../../scripts/test --coverage"
   },
   "dependencies": {
     "@percy/logger": "1.31.5-beta.1",

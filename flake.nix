@@ -17,20 +17,19 @@
         "x86_64-darwin"
       ];
 
-      forAllSystems = f: nixpkgs.lib.genAttrs systems (system:
-        let
-          # Apply bun2nix overlay to pkgs for easier access to bun2nix functions
-          pkgs = import nixpkgs {
-            inherit system;
-            overlays = [ bun2nix.overlays.default ];
-          };
-        in
-        f pkgs system);
+      forAllSystems = f:
+        nixpkgs.lib.genAttrs systems (system:
+          let
+            # Apply bun2nix overlay to pkgs for easier access to bun2nix functions
+            pkgs = import nixpkgs {
+              inherit system;
+              overlays = [ bun2nix.overlays.default ];
+            };
+          in
+          f pkgs system);
 
-    in {
-      schemas = flake-schemas.schemas;
-
-      packages = forAllSystems (pkgs: system:
+      # Core package graph for each system
+      perSystemPackages = forAllSystems (pkgs: system:
         let
           cfg        = import ./nix/percy-config.nix { inherit pkgs; };
           srcPatched = import ./nix/src-patched.nix { inherit pkgs; version = cfg.version; };
@@ -132,17 +131,22 @@
           };
 
         in {
-          src-patched   = srcPatched;
-          node-tree     = nodeTree;
-          prepared-cli  = preparedCli;
-          percy-cli     = percyCli;
-          default       = percyCli;
+          src-patched  = srcPatched;
+          node-tree    = nodeTree;
+          prepared-cli = preparedCli;
+          percy-cli    = percyCli;
+          default      = percyCli;
         });
+
+    in {
+      schemas = flake-schemas.schemas;
+
+      packages = perSystemPackages;
 
       apps = forAllSystems (pkgs: system: {
         percy-cli = {
           type = "app";
-          program = "${self.packages.${system}.percy-cli}/bin/percy";
+          program = "${perSystemPackages.${system}.percy-cli}/bin/percy";
           meta.description = "Percy CLI executable";
         };
       });
@@ -153,15 +157,13 @@
 
       checks = forAllSystems (pkgs: system:
         let
-          percyCli = self.packages.${system}.percy-cli;
+          percyCli = perSystemPackages.${system}.percy-cli;
         in
         {
-          # Build verification checks
-          src_patched = self.packages.${system}.src-patched;
-          node_tree = self.packages.${system}.node-tree;
-          prepared_cli = self.packages.${system}.prepared-cli;
+          src_patched  = perSystemPackages.${system}."src-patched";
+          node_tree    = perSystemPackages.${system}."node-tree";
+          prepared_cli = perSystemPackages.${system}."prepared-cli";
           
-          # Binary existence and executability check
           binary_exists = pkgs.runCommand "percy-binary-exists-check" {} ''
             if [ ! -f ${percyCli}/bin/percy ]; then
               echo "ERROR: Binary not found at ${percyCli}/bin/percy"
@@ -172,25 +174,22 @@
               exit 1
             fi
             echo "✓ Binary exists and is executable"
-            touch $out
+            touch "$out"
           '';
-          
-          # Basic smoke test - check that binary runs (--version or --help)
+
           binary_smoke_test = pkgs.runCommand "percy-binary-smoke-test" {
             nativeBuildInputs = [ percyCli ];
           } ''
-            # Try --version first, fall back to --help if that doesn't work
             if ${percyCli}/bin/percy --version >/dev/null 2>&1 || \
-               ${percyCli}/bin/percy --help >/dev/null 2>&1; then
+               ${percyCli}/bin/percy --help    >/dev/null 2>&1; then
               echo "✓ Binary runs successfully"
             else
               echo "ERROR: Binary failed to run"
               exit 1
             fi
-            touch $out
+            touch "$out"
           '';
-          
-          # Default check (builds the full package)
+
           default = percyCli;
         }
       );

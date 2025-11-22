@@ -59,36 +59,29 @@ let
       pkgs.bun
       pkgs.nodejs
       pkgs.bun2nix.hook  # setup hook for offline installs (from overlay)
+      bunDeps             # pre-fetched dependencies
     ];
 
-    # bun2nix.hook uses this to find the offline cache
-    inherit bunDeps;
-
-    # The hook will run bunNodeModulesInstallPhase automatically
-    # We'll verify it worked and then proceed with the build
+    # bun2nix.hook will automatically set up the offline cache via bunDeps
+    # The hook runs bunNodeModulesInstallPhase which uses the offline cache
     buildPhase = ''
       export HOME="$TMPDIR/home"
       mkdir -p "$HOME"
 
-      # Verify that bun2nix.hook installed dependencies
+      # bun2nix.hook should have already installed dependencies in bunNodeModulesInstallPhase
+      # Verify dependencies are installed
       if [ ! -d node_modules ]; then
         echo "Error: node_modules not found after bun2nix.hook install phase" >&2
         echo "This suggests the hook's bunNodeModulesInstallPhase failed" >&2
         exit 1
       fi
 
-      echo "Dependencies installed successfully by bun2nix.hook"
+      echo "Dependencies installed successfully by bun2nix.hook from offline cache"
       export PATH="$PWD/node_modules/.bin:$PATH"
 
       # Build using Bun workspace scripts
+      # This builds all packages in the monorepo
       bun run build_cjs
-
-      # Build CJS output (via babel or existing script)
-      BABEL_ENV=dev babel packages -d build || true
-
-      if [ -d build ]; then
-        cp -R build/* packages/
-      fi
     '';
 
     installPhase = ''

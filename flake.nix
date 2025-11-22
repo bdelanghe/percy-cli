@@ -66,12 +66,52 @@
               # lerna is provided via nativeBuildInputs (Nix package)
               export PATH="$PWD/deps/percy-cli/node_modules/.bin:$PWD/node_modules/.bin:$PATH"
 
-              # Verify lerna is available (from nativeBuildInputs)
-              if ! command -v lerna >/dev/null 2>&1; then
-                echo "ERROR: lerna command not found" >&2
+              # Diagnostic: Verify node_modules structure and lerna availability
+              echo "=== Diagnostic: Checking node_modules structure ===" >&2
+              echo "Current directory: $PWD" >&2
+              
+              # Check root node_modules/.bin
+              if [ -d node_modules/.bin ]; then
+                echo "✓ node_modules/.bin exists at root" >&2
+                echo "Contents:" >&2
+                ls -1 node_modules/.bin/ 2>&1 | head -10 >&2
+              else
+                echo "⚠ node_modules/.bin not found at root" >&2
+              fi
+              
+              # Check deps/percy-cli/node_modules/.bin
+              if [ -d deps/percy-cli/node_modules/.bin ]; then
+                echo "✓ deps/percy-cli/node_modules/.bin exists" >&2
+                echo "Contents:" >&2
+                ls -1 deps/percy-cli/node_modules/.bin/ 2>&1 | head -10 >&2
+              else
+                echo "⚠ deps/percy-cli/node_modules/.bin not found" >&2
+              fi
+              
+              echo "" >&2
+              echo "=== Checking lerna availability ===" >&2
+              
+              # Check if lerna is in node_modules (from yarn install)
+              if [ -f node_modules/.bin/lerna ] || [ -f deps/percy-cli/node_modules/.bin/lerna ]; then
+                echo "✓ lerna found in node_modules/.bin (from yarn install)" >&2
+              else
+                echo "⚠ lerna not found in node_modules/.bin" >&2
+              fi
+              
+              # Check if lerna is available via PATH (from nativeBuildInputs)
+              if command -v lerna >/dev/null 2>&1; then
+                LERNA_PATH=$(command -v lerna)
+                echo "✓ lerna found in PATH at: $LERNA_PATH" >&2
+                echo "Lerna version:" >&2
+                lerna --version 2>&1 || echo "  (version check failed)" >&2
+              else
+                echo "✗ ERROR: lerna not found in PATH" >&2
                 echo "lerna should be available via nativeBuildInputs." >&2
                 exit 1
               fi
+              
+              echo "=== Diagnostic complete ===" >&2
+              echo "" >&2
 
               # Run lerna build
               lerna run build --stream

@@ -46,9 +46,8 @@
                 subsystemInfo = {
                   nodejs = 20;
                 };
-                settings = {
-                  includeDevDependencies = true;
-                };
+                # Include devDependencies - yarn-lock translator may include them by default
+                # If not, we may need to use a different approach or module
               }
             ];
           };

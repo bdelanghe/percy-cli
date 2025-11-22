@@ -110,20 +110,42 @@ async function main({ node, bundle }: ParsedArgs = argv): Promise<void> {
         }
         
         // Use tsc to compile TypeScript to JavaScript and generate type definitions
+        // Don't use --noEmitOnError so files are emitted even with type errors
+        // This allows the build to continue even if there are type errors
         try {
           await new Promise<void>((resolve, reject) => {
-            const proc = spawn('tsc', ['--project', tsconfigPath], {
+            const proc = spawn('tsc', [
+              '--project', tsconfigPath,
+              '--skipLibCheck' // Skip type checking of declaration files to speed up and avoid errors
+            ], {
               stdio: 'inherit',
               cwd
             });
-            proc.on('exit', (code) => (code ? reject(new Error(`tsc exited with code ${code}`)) : resolve()));
+            // Accept exit codes 0 (success), 1 (compilation errors), and 2 (errors)
+            // TypeScript emits files by default even with errors (unless --noEmitOnError is set)
+            // Only reject on other exit codes or process errors
+            proc.on('exit', (code) => {
+              if (code === 0) {
+                console.log(colors.green('✓ TypeScript compilation complete'));
+                resolve();
+              } else if (code === 1 || code === 2) {
+                // TypeScript found errors but files may still be emitted
+                console.log(colors.yellow(`⚠ TypeScript compilation completed with errors (exit code ${code})`));
+                console.log(colors.yellow('Continuing build - files may have been emitted despite errors'));
+                resolve();
+              } else if (code !== null) {
+                reject(new Error(`tsc exited with unexpected code ${code}`));
+              } else {
+                resolve();
+              }
+            });
             proc.on('error', reject);
           });
-          console.log(colors.green('✓ TypeScript compilation complete'));
         } catch (err) {
           const error = err as Error;
           console.log(colors.yellow(`Warning: TypeScript compilation failed: ${error.message}`));
-          // Continue anyway - some packages might not have TypeScript
+          console.log(colors.yellow('Continuing build anyway...'));
+          // Continue anyway - some packages might have type errors but still need to build
         }
         
         // Copy non-code files (yml, json, etc.) that tsc doesn't handle

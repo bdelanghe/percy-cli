@@ -4,11 +4,9 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
     flake-schemas.url = "github:DeterminateSystems/flake-schemas";
-    dream2nix.url = "github:nix-community/dream2nix";
-    dream2nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, flake-schemas, dream2nix }:
+  outputs = { self, nixpkgs, flake-schemas }:
     let
       systems = [
         "aarch64-linux"

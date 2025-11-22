@@ -54,11 +54,11 @@ async function main({ node, bundle } = argv) {
       console.log(colors.yellow('No src directory found, skipping...'));
     } else {
       // Use Bun's transpiler to convert src to dist
-      // Bun handles modern JS natively and can output CommonJS
-      const srcFiles = getAllFiles(srcDir).filter(f => f.endsWith('.js'));
+      // Bun handles TypeScript natively and can output CommonJS
+      const srcFiles = getAllFiles(srcDir).filter(f => f.endsWith('.ts') || f.endsWith('.js'));
       
       if (srcFiles.length === 0) {
-        console.log(colors.yellow('No .js files found in src, skipping...'));
+        console.log(colors.yellow('No .ts or .js files found in src, skipping...'));
       } else {
         // Ensure dist directory exists
         if (!fs.existsSync(distDir)) {
@@ -68,7 +68,8 @@ async function main({ node, bundle } = argv) {
         // Transpile each file with Bun
         for (const srcFile of srcFiles) {
           const relPath = path.relative(srcDir, srcFile);
-          const distFile = path.join(distDir, relPath);
+          // Change .ts extension to .js in output
+          const distFile = path.join(distDir, relPath).replace(/\.ts$/, '.js');
           const distDirPath = path.dirname(distFile);
           
           // Ensure output directory exists
@@ -76,7 +77,7 @@ async function main({ node, bundle } = argv) {
             fs.mkdirSync(distDirPath, { recursive: true });
           }
           
-          // Use Bun to transpile to CommonJS (since type:module is removed)
+          // Use Bun to transpile TypeScript/JavaScript to CommonJS
           try {
             await bunSpawn([
               'build',
@@ -93,10 +94,10 @@ async function main({ node, bundle } = argv) {
           }
         }
         
-        // Copy non-JS files
+        // Copy non-code files (yml, json, etc.)
         const allFiles = getAllFiles(srcDir);
         for (const file of allFiles) {
-          if (!file.endsWith('.js')) {
+          if (!file.endsWith('.js') && !file.endsWith('.ts')) {
             const relPath = path.relative(srcDir, file);
             const distFile = path.join(distDir, relPath);
             const distDirPath = path.dirname(distFile);
@@ -119,7 +120,7 @@ async function main({ node, bundle } = argv) {
     if (!pkg.browser) {
       console.log(colors.yellow('No browser field in package.json, skipping...'));
     } else {
-      const inputFile = pkg.rollup?.input || 'src/index.js';
+      const inputFile = pkg.rollup?.input || (fs.existsSync(path.join(cwd, 'src/index.ts')) ? 'src/index.ts' : 'src/index.js');
       const outputFile = pkg.browser;
       const bundleName = pkg.rollup?.output?.name || pkg.name.replace(/[^a-zA-Z0-9]/g, '');
       

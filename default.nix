@@ -31,7 +31,7 @@ let
         bunx bun2nix -o bun.nix       # Generates bun.nix from bun.lock
         # Or use Nix app:
         nix run .#update-lockfiles
-        git add bun.lock bun.nix
+        git add bun.lockb bun.nix
 
     ''
   else
@@ -43,51 +43,46 @@ let
     version = cfg.version;
   };
 
-  # Offline Bun dependency cache from bun.nix
-  # Use pkgs.bun2nix from overlay (tag 2.0.1 should have passthru attributes)
-  # Use the bunNix parameter passed from flake.nix
-  bunDeps = pkgs.bun2nix.fetchBunDeps {
-    bunNix = bunNix;
-  };
-
   # Layer 2: node tree build using bun2nix
-  # Use stdenv.mkDerivation with bun2nix.hook for offline installs
-  nodeTree = pkgs.stdenv.mkDerivation {
+  # Use mkBunDerivation which automatically handles offline cache setup
+  # mkBunDerivation will fetch dependencies from bun.nix internally
+  nodeTree = pkgs.bun2nix.mkBunDerivation {
     pname   = "percy-cli-node-tree";
     version = cfg.version;
     src     = srcPatched;
 
-    nativeBuildInputs = [
-      pkgs.bun
-      pkgs.nodejs
-      pkgs.bun2nix.hook  # setup hook for offline installs (from overlay)
-    ];
+    # mkBunDerivation uses bunNix to fetch and set up the offline cache automatically
+    bunNix = bunNix;
 
-    # bun2nix.hook uses this to find the offline cache
-    inherit bunDeps;
+    # mkBunDerivation automatically runs bun install with offline cache
+    # We just need to run the build after dependencies are installed
     buildPhase = ''
+      runHook preBuild
+      
       export HOME="$TMPDIR/home"
       mkdir -p "$HOME"
+      export PATH="$PWD/node_modules/.bin:$PATH"
 
-      # bun2nix.hook should have already installed dependencies in bunNodeModulesInstallPhase
-      # Verify dependencies are installed
+      # Verify dependencies are installed (mkBunDerivation should have done this)
       if [ ! -d node_modules ]; then
-        echo "Error: node_modules not found after bun2nix.hook install phase" >&2
-        echo "This suggests the hook's bunNodeModulesInstallPhase failed" >&2
+        echo "Error: node_modules not found after mkBunDerivation install phase" >&2
         exit 1
       fi
 
-      echo "Dependencies installed successfully by bun2nix.hook from offline cache"
-      export PATH="$PWD/node_modules/.bin:$PATH"
-
+      echo "Dependencies installed successfully by mkBunDerivation from offline cache"
+      
       # Build using Bun workspace scripts (ESM output)
       # This builds all packages in the monorepo as ESM
       bun run build
+      
+      runHook postBuild
     '';
 
     installPhase = ''
+      runHook preInstall
       mkdir -p "$out"
       cp -R . "$out"
+      runHook postInstall
     '';
   };
 

@@ -21,6 +21,7 @@
     "node_modules",
     "dist",
     "**/*.test.js",
+    "**/*.test.ts",
     "**/*.test-d.ts",
     "test"
   ]

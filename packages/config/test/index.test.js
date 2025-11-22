@@ -3,10 +3,13 @@ import { resetPercyConfig, mockfs, fs } from './helpers.js';
 import PercyConfig from '@percy/config';
 
 describe('PercyConfig', () => {
+  let mockfsCleanup;
+
   beforeEach(async () => {
     await resetPercyConfig(true);
     await logger.mock();
-    await mockfs();
+    const vol = await mockfs();
+    mockfsCleanup = vol.cleanup;
 
     PercyConfig.addSchema({
       test: {
@@ -20,6 +23,12 @@ describe('PercyConfig', () => {
         }
       }
     });
+  });
+
+  afterEach(() => {
+    if (mockfsCleanup) {
+      mockfsCleanup();
+    }
   });
 
   describe('.addSchema()', () => {

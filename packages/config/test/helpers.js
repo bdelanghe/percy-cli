@@ -1,8 +1,6 @@
 import fs from 'fs';
 import os from 'os';
-import url from 'url';
 import path from 'path';
-import Module from 'module';
 import { vi } from 'vitest';
 
 // Reset various global @percy/config internals for testing
@@ -23,116 +21,83 @@ const FS_CLASSES = [
   'ReadStream', 'WriteStream'
 ];
 
-// Used to bypass mocking internal package files
-const INTERNAL_FILE_REG = new RegExp(
-  '(/|\\\\)(packages)\\1((?:(?!\\1).)+?)\\1' +
-    '(src|dist|test|package\\.json)(\\1|$)'
-);
-
-// Used to mock javascript modules
-const JS_FILE_REG = /\.(c|m)?js$/;
-
-// Mock and spy on fs methods using an in-memory filesystem
+// Mock and spy on fs methods using a temporary directory
 export async function mockfs({
-  // set `true` to allow mocking files within `node_modules` (may cause dynamic import issues)
-  $modules = false,
   // list of filepaths or function matchers to allow direct access to the real filesystem
   $bypass = [],
   // initial flat map of files and/or directories to create
   ...initial
 } = {}) {
-  let memfs = await import('memfs');
-  let vol = new memfs.Volume();
+  // Create a temporary directory for test files
+  const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'percy-config-test-'));
+  const originalCwd = process.cwd();
+  
+  // Change to test directory
+  process.chdir(testDir);
+
+  // Create initial files/directories
+  for (const [filepath, content] of Object.entries(initial)) {
+    const fullPath = path.resolve(testDir, filepath);
+    const dir = path.dirname(fullPath);
+    
+    if (content === null) {
+      // Directory
+      fs.mkdirSync(fullPath, { recursive: true });
+    } else {
+      // File
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(fullPath, content);
+    }
+  }
 
   // automatically cleanup mock imports
   global.__MOCK_IMPORTS__?.clear();
 
-  // when .js files are created, also mock the module for importing
-  vi.spyOn(vol, 'writeFileSync').mockImplementation((...args) => {
-    if (JS_FILE_REG.test(args[0])) mockFileModule(...args);
-    return vol.writeFileSync.originalImplementation?.apply(vol, args);
-  });
-
-  // initial volume contents include the cwd and tmpdir
-  vol.fromJSON({
-    [process.cwd()]: null,
-    [os.tmpdir()]: null,
-    ...initial
-  });
-
-  let bypass = [
-    // bypass babel config for runtime registration
-    path.resolve(url.fileURLToPath(import.meta.url), '../../../../babel.config.cjs'),
-    // bypass descriptors that don't exist in the current volume
-    p => typeof p === 'number' && !vol.fds[p],
-    // bypass node_modules by default to avoid dynamic import issues
-    p => !$modules && p.includes?.('node_modules'),
-    // bypass internal package files to avoid dynamic import issues
-    p => p.match?.(INTERNAL_FILE_REG) && !vol.existsSync(p),
-    // additional bypass matches
-    ...$bypass
-  ];
-
-  // spies on fs methods and calls in-memory methods unless bypassed
-  let installFakes = (og, fake) => {
-    for (let k in og) {
-      if (k in fake && typeof og[k] === 'function' && !FS_CLASSES.includes(k)) {
-        vi.spyOn(og, k).mockImplementation((...args) => bypass.some(p => (
-          typeof p === 'function' ? p(...args) : (p === args[0])
-        )) ? og[k].originalImplementation?.(...args) : fake[k](...args));
+  // Spy on fs methods to track calls (for test assertions)
+  // We don't mock them, just track them - tests use real filesystem in temp dir
+  const spies = {};
+  const installSpies = (fsObj) => {
+    for (const k in fsObj) {
+      if (typeof fsObj[k] === 'function' && !FS_CLASSES.includes(k)) {
+        if (!spies[k]) {
+          spies[k] = vi.spyOn(fsObj, k);
+        }
       }
     }
   };
 
-  // mock and install fs methods using the in-memory filesystem
-  let mock = memfs.createFsFromVolume(vol);
-  installFakes(fs.promises, mock.promises);
-  installFakes(fs, mock);
+  installSpies(fs);
+  installSpies(fs.promises);
 
-  // allow tests access to the in-memory filesystem
-  fs.$bypass = bypass;
-  fs.$vol = vol;
-  return vol;
-}
-
-// Mock module loading to avoid node using internal C++ fs bindings
-function mockFileModule(filepath, content = '') {
-  if (!vi.isMockFunction(Module._load)) {
-    vi.spyOn(Module, '_load').mockImplementation((...args) => {
-      return Module._load.originalImplementation?.(...args);
-    });
-    vi.spyOn(Module, '_resolveFilename').mockImplementation((...args) => {
-      return Module._resolveFilename.originalImplementation?.(...args);
-    });
-  }
-
-  let mod = new Module();
-  let fp = mod.filename = path.resolve(filepath);
-  let any = { asymmetricMatch: () => true };
-
-  let matchFilepath = {
-    asymmetricMatch: f => path.resolve(f) === fp ||
-      fp.endsWith(path.join('node_modules', f))
+  // Store cleanup function
+  const cleanup = () => {
+    // Restore original cwd
+    process.chdir(originalCwd);
+    // Clean up temp directory
+    try {
+      fs.rmSync(testDir, { recursive: true, force: true });
+    } catch (err) {
+      // Ignore cleanup errors
+    }
+    // Restore spies
+    Object.values(spies).forEach(spy => spy.mockRestore());
   };
 
-  // Store original implementations for matching
-  let originalResolveFilename = Module._resolveFilename.originalImplementation || Module._resolveFilename;
-  let originalLoad = Module._load.originalImplementation || Module._load;
-  
-  vi.spyOn(Module, '_resolveFilename').mockImplementation((f, ...rest) => {
-    if (matchFilepath.asymmetricMatch(f)) {
-      return fp;
-    }
-    return originalResolveFilename(f, ...rest);
-  });
-  
-  vi.spyOn(Module, '_load').mockImplementation((f, ...rest) => {
-    if (matchFilepath.asymmetricMatch(f)) {
-      mod.loaded = mod.loaded || (mod._compile(content, fp), true);
-      return mod.exports;
-    }
-    return originalLoad(f, ...rest);
-  });
+  // Attach cleanup to fs for afterEach hooks
+  fs.$cleanup = cleanup;
+  fs.$testDir = testDir;
+
+  return {
+    cleanup,
+    testDir,
+    // For compatibility with old code that accessed vol
+    fromJSON: () => {},
+    writeFileSync: fs.writeFileSync,
+    readFileSync: fs.readFileSync,
+    existsSync: fs.existsSync,
+    mkdirSync: fs.mkdirSync,
+    rmSync: fs.rmSync
+  };
 }
 
 // export fs for convenience

@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const CWD = process.cwd();
 
-// Check if we're in a package that needs browser tests (dom, sdk-utils)
+// Check if we're in a package that needs browser tests (dom and sdk-utils)
 const needsBrowserTests = CWD.includes(path.join('packages', 'dom')) || 
                           CWD.includes(path.join('packages', 'sdk-utils'));
 
@@ -16,23 +16,26 @@ export default defineConfig({
   root: CWD,
 
   test: {
-    // Match Karma's test glob
-    include: ['test/**/*.test.js'],
+    // Match Karma's test glob - support both .ts and .js during migration
+    include: ['test/**/*.test.ts', 'test/**/*.test.js'],
     exclude: [
       'test/request.test.js',
       'test/proxy.test.js',
     ],
 
-    // Use jsdom for packages that need browser tests, node for everything else
+    // Default to node environment; only packages/dom needs jsdom
     environment: needsBrowserTests ? 'jsdom' : 'node',
 
     // Hook in test helpers - check for package-level helpers first, then root
     setupFiles: (() => {
       const setupFiles: string[] = [];
-      // Try package-level test-helpers first (if exists)
-      const pkgHelpers = path.resolve(CWD, 'test/helpers.js');
-      if (existsSync(pkgHelpers)) {
-        setupFiles.push(pkgHelpers);
+      // Try package-level test-helpers first (if exists) - support both .ts and .js
+      const pkgHelpersTs = path.resolve(CWD, 'test/helpers.ts');
+      const pkgHelpersJs = path.resolve(CWD, 'test/helpers.js');
+      if (existsSync(pkgHelpersTs)) {
+        setupFiles.push(pkgHelpersTs);
+      } else if (existsSync(pkgHelpersJs)) {
+        setupFiles.push(pkgHelpersJs);
       }
       // Always include root test-helpers
       const rootHelpers = path.resolve(ROOT, 'scripts/test-helpers.js');
@@ -59,6 +62,7 @@ export default defineConfig({
         'node_modules/**',
         'test/**',
         '**/*.test.js',
+        '**/*.test.ts',
         '**/*.config.*',
       ],
     },

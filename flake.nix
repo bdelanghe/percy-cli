@@ -141,15 +141,6 @@
           };
 
           # Build scripts
-          build-cjs = {
-            type = "app";
-            program = toString (pkgsFor.${system}.writeShellScript "build-cjs" ''
-              set -e
-              export PATH="${bunPath}:$PATH"
-              ${bun}/bin/bun run --filter './packages/*' build --node
-            '');
-          };
-
           build = {
             type = "app";
             program = toString (pkgsFor.${system}.writeShellScript "build" ''

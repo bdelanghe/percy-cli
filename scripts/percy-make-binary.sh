@@ -2,39 +2,39 @@
 set -euo pipefail
 
 # scripts/percy-make-binary.sh
-# Reusable binary packaging script for Percy CLI
+# Reusable binary compilation script for Percy CLI
 # Can be used in Nix builds or CI release jobs
 #
-# Usage: ./scripts/percy-make-binary.sh <pkg-target> <output-path>
-# Example: ./scripts/percy-make-binary.sh node20-linux-x64 ./percy
+# Usage: ./scripts/percy-make-binary.sh <output-path>
+# Example: ./scripts/percy-make-binary.sh ./percy
+#
+# Note: Bun compile builds for the current platform. For cross-platform builds,
+# run this script on each target platform or use Bun's cross-compilation features.
 
-if [ $# -ne 2 ]; then
-  echo "Usage: $0 <pkg-target> <output-path>" >&2
-  echo "Example: $0 node20-linux-x64 ./percy" >&2
+if [ $# -ne 1 ]; then
+  echo "Usage: $0 <output-path>" >&2
+  echo "Example: $0 ./percy" >&2
   exit 1
 fi
 
-target="$1"
-outbin="$2"
+outbin="$1"
 
 # Ensure output directory exists
 mkdir -p "$(dirname "$outbin")"
 
-# Run pkg to create the binary
-# Note: package.json specifies bin as ./bin/run.cjs (not run.js)
-bunx pkg ./packages/cli/bin/run.cjs -t "$target" -d
+# Use Bun compile to create a standalone binary
+# This compiles for the current platform (OS/arch)
+bun build ./packages/cli/src/bin.js --compile --outfile="$outbin"
 
-# pkg can name outputs differently; handle the common cases
-for name in "run-$target" run-linux run-macos run; do
-  if [ -f "$name" ]; then
-    mv "$name" "$outbin"
-    chmod +x "$outbin"
-    exit 0
-  fi
-done
+# Verify the binary was created
+if [ ! -f "$outbin" ]; then
+  echo "Error: Bun compile did not produce expected binary at $outbin" >&2
+  ls -la "$(dirname "$outbin")"
+  exit 1
+fi
 
-echo "Error: pkg did not produce expected binary" >&2
-echo "Expected one of: run-$target, run-linux, run-macos, run" >&2
-ls -la
-exit 1
+# Ensure executable permissions
+chmod +x "$outbin"
+
+echo "Binary compiled successfully: $outbin"
 

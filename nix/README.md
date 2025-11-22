@@ -101,6 +101,19 @@ This creates a standalone executable that includes:
 
 The compiled binary is platform-specific and must be built for each target architecture.
 
+The binary packaging logic is available as `scripts/percy-make-binary.sh` for reuse in CI or non-Nix release jobs:
+
+```bash
+./scripts/percy-make-binary.sh <output-path>
+```
+
+This script:
+- Compiles the CLI using `bun build --compile`
+- Handles output path normalization
+- Sets executable permissions
+
+Note: Bun compile builds for the current platform. For cross-platform builds, run the script on each target platform or use Bun's cross-compilation features if available.
+
 ### Lockfile Updates
 
 When dependencies change, `bun.lockb` should be updated:

@@ -51,7 +51,19 @@ let
 
   # Verify bunDeps is built (for diagnostics)
   # This ensures the cache derivation exists before we try to use it
+  # By referencing it here, we make it a build dependency that can be inspected
   _verifyBunDeps = diagnostics.bunDeps;
+  
+  # Diagnostic derivation to verify bunDeps structure
+  # Build with: nix build .#bun-deps-verify
+  bunDepsVerify = pkgs.writeText "bun-deps-verify" ''
+    bunDeps derivation path: ${diagnostics.bunDeps}
+    bunDeps store path: ${toString diagnostics.bunDeps}
+    
+    To inspect bunDeps contents:
+      nix-store -qR ${toString diagnostics.bunDeps} | head -20
+      ls -la ${toString diagnostics.bunDeps}
+  '';
 
   # Layer 2: node tree build using bun2nix
   # Choose installation strategy based on config
@@ -68,6 +80,54 @@ let
 
     # mkBunDerivation uses bunNix to fetch and set up the offline cache automatically
     bunNix = bunNix;
+
+    # Add diagnostic output before install phase
+    # This helps verify what's happening during bunNodeModulesInstallPhase
+    preInstall = ''
+      echo "" >&2
+      echo "=== Pre-Install Diagnostics ===" >&2
+      
+      # Check if BUN_INSTALL_CACHE_DIR is set (should be set by bunSetInstallCacheDir phase)
+      if [ -n "$BUN_INSTALL_CACHE_DIR" ]; then
+        echo "✓ BUN_INSTALL_CACHE_DIR is set: $BUN_INSTALL_CACHE_DIR" >&2
+        if [ -d "$BUN_INSTALL_CACHE_DIR" ]; then
+          echo "✓ Cache directory exists" >&2
+          cache_files=$(find "$BUN_INSTALL_CACHE_DIR" -type f 2>/dev/null | wc -l || echo "0")
+          echo "  Cache contains $cache_files files" >&2
+          
+          # Check for expected Bun cache structure
+          if find "$BUN_INSTALL_CACHE_DIR" -type d -name "registry.npmjs.org" 2>/dev/null | grep -q .; then
+            echo "✓ Found registry.npmjs.org structure in cache" >&2
+          else
+            echo "⚠ Warning: registry.npmjs.org structure not found in cache" >&2
+            echo "  Cache structure may differ from expected format" >&2
+          fi
+          
+          # Show first few cache entries for debugging
+          echo "  First 5 cache entries:" >&2
+          find "$BUN_INSTALL_CACHE_DIR" -type f 2>/dev/null | head -5 | sed 's/^/    /' >&2 || true
+        else
+          echo "✗ Cache directory does not exist: $BUN_INSTALL_CACHE_DIR" >&2
+        fi
+      else
+        echo "✗ BUN_INSTALL_CACHE_DIR is not set" >&2
+        echo "  This suggests bunSetInstallCacheDir phase may not have run" >&2
+      fi
+      
+      # Check current directory and lockfile
+      echo "" >&2
+      echo "Current directory: $(pwd)" >&2
+      if [ -f bun.lock ]; then
+        echo "✓ bun.lock found" >&2
+      elif [ -f bun.lockb ]; then
+        echo "⚠ bun.lockb found (legacy format)" >&2
+      else
+        echo "✗ No bun lockfile found" >&2
+      fi
+      
+      echo "=== End Pre-Install Diagnostics ===" >&2
+      echo "" >&2
+    '';
 
     # Add diagnostic output after install phase completes
     # This helps verify what happened during bunNodeModulesInstallPhase
@@ -91,11 +151,18 @@ let
         echo "✓ node_modules directory exists" >&2
         node_count=$(find node_modules -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l || echo "0")
         echo "  Found $node_count top-level packages" >&2
+        
+        # Check if key packages are present
+        for pkg in "@percy/cli" "typescript" "vitest"; do
+          if [ -d "node_modules/$pkg" ] || find node_modules -type d -name "$pkg" 2>/dev/null | grep -q .; then
+            echo "  ✓ Found $pkg" >&2
+          fi
+        done
       else
         echo "✗ node_modules directory not found" >&2
       fi
       
-      echo "=== End Diagnostics ===" >&2
+      echo "=== End Post-Install Diagnostics ===" >&2
       echo "" >&2
     '';
 

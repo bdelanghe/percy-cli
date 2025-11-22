@@ -43,9 +43,6 @@
                 paths.projectRootFile = "package.json";
                 name = "percy-cli";
                 translator = "yarn-lock";
-                subsystemInfo = {
-                  nodejs = 20;
-                };
                 # Include devDependencies - yarn-lock translator may include them by default
                 # If not, we may need to use a different approach or module
               }

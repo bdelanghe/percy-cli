@@ -7,8 +7,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const CWD = process.cwd();
 
-// Check if we're in the dom package (needs jsdom)
-const isDomPackage = CWD.includes(path.join('packages', 'dom'));
+// Check if we're in a package that needs browser tests (dom, sdk-utils)
+const needsBrowserTests = CWD.includes(path.join('packages', 'dom')) || 
+                          CWD.includes(path.join('packages', 'sdk-utils'));
 
 // Match Karma's basePath behavior - config is per-package (process.cwd() when run from package)
 export default defineConfig({
@@ -22,8 +23,8 @@ export default defineConfig({
       'test/proxy.test.js',
     ],
 
-    // Use jsdom only for dom package, node for everything else
-    environment: isDomPackage ? 'jsdom' : 'node',
+    // Use jsdom for packages that need browser tests, node for everything else
+    environment: needsBrowserTests ? 'jsdom' : 'node',
 
     // Hook in test helpers - check for package-level helpers first, then root
     setupFiles: (() => {

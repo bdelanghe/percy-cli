@@ -7,13 +7,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v5
+    - uses: oven-sh/setup-bun@v1
     - uses: actions/setup-node@v3
       with:
         node-version: 14
         registry-url: 'https://registry.npmjs.org'
-    - run: yarn
-    - run: yarn build
-    - name: lerna publish
-      run: yarn lerna publish from-package --yes
+    - run: bun install
+    - run: bun run build
+    - name: Publish packages
+      run: |
+        for dir in packages/*/; do
+          if [ -f "$dir/package.json" ]; then
+            cd "$dir"
+            # Only publish if package.json has a version (not private)
+            if ! grep -q '"private":\s*true' package.json 2>/dev/null; then
+              npm publish --access public || echo "Skipping $dir (version may already exist)"
+            fi
+            cd - > /dev/null
+          fi
+        done
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

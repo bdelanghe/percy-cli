@@ -16,7 +16,6 @@ const argv = parse(process.argv.slice(2), {
   configuration: { 'strip-aliased': true },
   alias: { node: 'n', browsers: 'b', coverage: 'c', reporter: 'r' },
   boolean: ['node', 'browsers', 'coverage'],
-  array: ['karma.browsers', 'karma.reporters'],
   string: ['reporter']
 });
 
@@ -66,8 +65,7 @@ async function main({
   node,
   browsers,
   coverage,
-  reporter,
-  karma: karmaArgs
+  reporter
 } = argv) {
   // determine arg defaults based on package.json values
   let pkg = JSON.parse(fs.readFileSync(path.join(cwd, 'package.json')));
@@ -76,7 +74,7 @@ async function main({
 
   if (!process.send) {
     // test runners assume they have control over the entire process, so give them each forks
-    let flags = flagify({ coverage, karma: karmaArgs });
+    let flags = flagify({ coverage });
     let loader = url.pathToFileURL(path.resolve(filename, '../loader.js')).href;
     let opts = { execArgv: ['--loader', loader, ...process.execArgv] };
 

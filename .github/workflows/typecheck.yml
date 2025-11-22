@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v1
       - uses: actions/setup-node@v3
         with:
           node-version: 14
@@ -22,9 +23,9 @@ jobs:
           key: >
             ${{ runner.os }}/node-14/
             ${{ hashFiles('.github/.cache-key') }}/
-            ${{ hashFiles('**/yarn.lock') }}
+            ${{ hashFiles('**/bun.lockb') }}
           restore-keys: >
             ${{ runner.os }}/node-14/
             ${{ hashFiles('.github/.cache-key') }}/
-      - run: yarn
-      - run: yarn test:types
+      - run: bun install
+      - run: bun run test:types

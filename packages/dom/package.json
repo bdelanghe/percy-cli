@@ -23,6 +23,7 @@
     "test:coverage": "node ../../scripts/test --coverage"
   },
   "devDependencies": {
-    "interactor.js": "^2.0.0-beta.10"
+    "interactor.js": "^2.0.0-beta.10",
+    "jsdom": "^25.0.0"
   }
 }

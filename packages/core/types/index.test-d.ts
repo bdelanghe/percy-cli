@@ -1,4 +1,4 @@
-import { expectType, expectError } from 'tsd';
+import { expectType, expectError } from './tsd-helpers';
 import Percy, { PercyOptions, PercyConfigOptions } from '@percy/core';
 
 // PercyOptions

@@ -35,7 +35,7 @@
     "lint": "eslint --ignore-path ../../.gitignore .",
     "test": "node ../../scripts/test",
     "test:coverage": "node ../../scripts/test --coverage",
-    "test:types": "tsd"
+    "test:types": "tsc --project types/tsconfig.json"
   },
   "dependencies": {
     "@percy/logger": "1.31.5-beta.1",
@@ -44,6 +44,7 @@
     "yaml": "^2.0.0"
   },
   "devDependencies": {
-    "json-schema-typed": "^7.0.3"
+    "json-schema-typed": "^7.0.3",
+    "memfs": "^3.5.0"
   }
 }

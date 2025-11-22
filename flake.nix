@@ -31,78 +31,64 @@
           cfg        = import ./nix/percy-config.nix { inherit pkgs; };
           srcPatched = import ./nix/src-patched.nix { inherit pkgs; version = cfg.version; };
 
-          # Layer 2: node tree build using dream2nix
-          # Use dream2nix to build node_modules with all dependencies including devDependencies
-          # According to dream2nix docs: https://dream2nix.dev/guides/getting-started/
-          # evalModules returns a package derivation directly
-          # We need to create a module that imports nodejs-node-modules-v3 to get node_modules
-          dream2nixNodeModules = dream2nix.lib.evalModules {
-            packageSets.nixpkgs = pkgs;
-            modules = [
-              # Import nodejs-node-modules-v3 module to get node_modules
-              dream2nix.modules.dream2nix.nodejs-node-modules-v3
-              {
-                paths.projectRoot = srcPatched;
-                paths.package = srcPatched;
-                paths.projectRootFile = "package.json";
-                name = "percy-cli-node-modules";
-                # dream2nix will auto-detect translator from yarn.lock
-              }
-            ];
+          # Layer 2: node tree build using mkYarnPackage
+          # Note: After attempting dream2nix integration, we're reverting to mkYarnPackage
+          # as it's more straightforward for this use case. Dream2nix integration can be
+          # revisited later with a better understanding of its API for accessing node_modules.
+          
+          # Let Nix compute the offline cache from yarn.lock
+          yarnDeps = pkgs.fetchYarnDeps {
+            yarnLock = ./yarn.lock;
+            sha256 = "sha256-5ouUohCpHMXz9Xn9jWbNZ5QGe4xVZiFx4AzIEN9QYiQ=";
           };
 
-          # Extract node_modules from dream2nix build
-          # The nodejs-node-modules-v3 module should provide nodeModules in the package
-          # Try accessing it from the package's public output
-          nodeModules = dream2nixNodeModules.public.nodeModules or dream2nixNodeModules;
-
-          # Build the complete node tree with source and dependencies
-          nodeTree = pkgs.stdenv.mkDerivation {
+          # Build node_modules using mkYarnPackage with devDependencies
+          # The key is to ensure NODE_ENV=development and use the correct structure
+          nodeTree = pkgs.mkYarnPackage {
             pname = "percy-cli-node-tree";
             inherit (cfg) version;
-            
             src = srcPatched;
-            
-            nativeBuildInputs = with pkgs; [
-              nodejs_20
-            ];
+            yarnLock = ./yarn.lock;
+            offlineCache = yarnDeps;
+
+            # Keep NODE_ENV=development to ensure devDependencies are installed
+            NODE_ENV = "development";
 
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
 
-              # Copy source
-              cp -R $src/* .
-              chmod -R u+w .
+              export npm_config_offline=true
+              export NPM_CONFIG_OFFLINE=true
+              export npm_config_loglevel=error
 
-              # Link node_modules from dream2nix
-              ln -sfn ${nodeModules}/node_modules node_modules
-
+              # mkYarnPackage structures: source is in deps/percy-cli/
               # Add node_modules/.bin to PATH for build tools
-              export PATH="$PWD/node_modules/.bin:$PATH"
+              export PATH="$PWD/deps/percy-cli/node_modules/.bin:$PWD/node_modules/.bin:$PATH"
 
               # Diagnostic: Verify lerna is available
               echo "=== Checking lerna availability ===" >&2
               echo "Current directory: $PWD" >&2
               
-              if [ ! -f node_modules/.bin/lerna ]; then
-                echo "✗ ERROR: lerna not found in node_modules/.bin" >&2
-                echo "Checking node_modules structure:" >&2
-                if [ -d node_modules/.bin ]; then
-                  echo "node_modules/.bin contents:" >&2
-                  ls -1 node_modules/.bin/ 2>&1 | head -20 >&2
-                else
-                  echo "node_modules/.bin does not exist" >&2
-                fi
-                exit 1
+              LERNA_FOUND=0
+              if [ -f deps/percy-cli/node_modules/.bin/lerna ]; then
+                echo "✓ lerna found in deps/percy-cli/node_modules/.bin" >&2
+                LERNA_FOUND=1
+              elif [ -f node_modules/.bin/lerna ]; then
+                echo "✓ lerna found in node_modules/.bin" >&2
+                LERNA_FOUND=1
               fi
               
-              echo "✓ lerna found in node_modules/.bin" >&2
-              
-              # Verify lerna is executable
-              if ! command -v lerna >/dev/null 2>&1; then
-                echo "✗ ERROR: lerna not found in PATH" >&2
-                echo "PATH includes: $PATH" >&2
+              if [ "$LERNA_FOUND" = "0" ]; then
+                echo "✗ ERROR: lerna not found in node_modules/.bin" >&2
+                echo "This suggests devDependencies were not installed." >&2
+                echo "Checking node_modules structure:" >&2
+                if [ -d deps/percy-cli/node_modules/.bin ]; then
+                  echo "deps/percy-cli/node_modules/.bin contents:" >&2
+                  ls -1 deps/percy-cli/node_modules/.bin/ 2>&1 | head -20 >&2
+                else
+                  echo "deps/percy-cli/node_modules/.bin does not exist" >&2
+                fi
                 exit 1
               fi
               
@@ -117,14 +103,6 @@
               if [ -d build ]; then
                 cp -R build/* packages/
               fi
-            '';
-
-            installPhase = ''
-              mkdir -p $out
-              # Copy everything except node_modules (which is a symlink)
-              find . -mindepth 1 -maxdepth 1 ! -name node_modules -exec cp -R {} $out/ \;
-              # Create node_modules symlink in output
-              ln -sfn ${nodeModules}/node_modules $out/node_modules
             '';
           };
 

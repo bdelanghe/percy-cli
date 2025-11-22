@@ -103,7 +103,7 @@
                 exit 1
               fi
               echo "Generating bun.nix from bun.lockb..."
-              ${bun2nix}/bin/bun2nix -o bun.nix
+              ${bun2nix}/bin/bun2nix -l bun.lockb -o bun.nix
               echo "✓ bun.nix generated"
             '');
           };
@@ -120,7 +120,7 @@
               echo "✓ bun.lockb generated"
               echo ""
               echo "Step 2: Generating bun.nix from bun.lockb..."
-              ${bun2nix}/bin/bun2nix -o bun.nix
+              ${bun2nix}/bin/bun2nix -l bun.lockb -o bun.nix
               echo "✓ bun.nix generated"
               echo ""
               echo "✓ Both lockfiles updated. Don't forget to commit:"

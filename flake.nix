@@ -84,6 +84,7 @@
           bun2nix = pkgsFor.${system}.bun2nix;
           nodejs = pkgsFor.${system}.nodejs;
           git = pkgsFor.${system}.git;
+          typescript = pkgsFor.${system}.nodePackages.typescript;
           # Ensure Bun is in PATH for postinstall scripts
           bunPath = "${bun}/bin";
         in
@@ -262,6 +263,56 @@
               set -e
               export PATH="${bunPath}:$PATH"
               ${bun}/bin/bun run --filter './packages/*' test:types
+            '');
+          };
+
+          # Comprehensive type checking, building, and linting
+          check = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "check" ''
+              set -e
+              export PATH="${bunPath}:$PATH"
+              
+              echo "🔍 Running comprehensive checks..."
+              echo ""
+              
+              # Step 1: Build all packages (generates .d.ts files)
+              echo "📦 Step 1: Building all packages and generating type definitions..."
+              ${bun}/bin/bun run --filter './packages/*' build
+              echo "✓ Build complete"
+              echo ""
+              
+              # Step 2: Type check all packages
+              echo "🔎 Step 2: Running TypeScript type checks..."
+              failed_packages=()
+              for pkg in packages/*/; do
+                pkg_name=$(basename "$pkg")
+                tsconfig="$pkg/tsconfig.json"
+                if [ -f "$tsconfig" ]; then
+                  echo "  Checking $pkg_name..."
+                  if ! ${typescript}/bin/tsc --project "$tsconfig" --noEmit 2>&1; then
+                    failed_packages+=("$pkg_name")
+                  else
+                    echo "    ✓ $pkg_name"
+                  fi
+                fi
+              done
+              
+              if [ ${#failed_packages[@]} -gt 0 ]; then
+                echo ""
+                echo "❌ Type check failed for: ${failed_packages[*]}"
+                exit 1
+              fi
+              echo "✓ Type checks passed"
+              echo ""
+              
+              # Step 3: Lint all packages
+              echo "🧹 Step 3: Running linters..."
+              ${bun}/bin/bun run --filter './packages/*' lint
+              echo "✓ Linting complete"
+              echo ""
+              
+              echo "✅ All checks passed!"
             '');
           };
 

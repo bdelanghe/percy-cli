@@ -22,13 +22,21 @@ export const MOCK_IMPORTS = global.__MOCK_IMPORTS__ = global.__MOCK_IMPORTS__ ||
 
 // matches and rewrites internal imports into absolute src paths
 export const LOADER_ALIAS = {
-  find: /^@percy\/([^/]+)(?:\/(.+))?$|(^[./]+?)\/dist\/(.+\.js)$/,
+  find: /^@percy\/([^/]+)(?:\/(.+))?$|(^[./]+?)\/dist\/(.+\.(js|ts))$/,
   replace: (specifier, name, subpath, rel, filename) => {
-    if (rel) return `${rel}/src/${filename}`;
-    if (!subpath) return path.resolve(ROOT, `./packages/${name}/src/index.js`);
+    if (rel) {
+      // Change .js to .ts in src path if it's a dist import
+      const srcFile = filename.replace(/\.js$/, '.ts');
+      return `${rel}/src/${srcFile}`;
+    }
+    if (!subpath) return path.resolve(ROOT, `./packages/${name}/src/index.ts`);
     let pkg = JSON.parse(fs.readFileSync(path.join(ROOT, `./packages/${name}/package.json`)));
-    let alias = pkg.exports?.[`./${subpath}`].replace('./dist', './src');
-    if (alias) return path.resolve(ROOT, `./packages/${name}/${alias}`);
+    let alias = pkg.exports?.[`./${subpath}`]?.replace('./dist', './src');
+    if (alias) {
+      // Change .js to .ts in the alias path
+      alias = alias.replace(/\.js$/, '.ts');
+      return path.resolve(ROOT, `./packages/${name}/${alias}`);
+    }
     return specifier;
   }
 };
@@ -53,7 +61,11 @@ export async function resolve(specifier, context, defaultResolve) {
     let pkgRoot = url.fileURLToPath(context.parentURL.replace(/(packages\/[^/]+\/).+$/, '$1'));
     let pkgJSON = JSON.parse(fs.readFileSync(path.resolve(pkgRoot, 'package.json')));
     let alias = pkgJSON.imports[specifier]?.node?.replace('./dist', './src');
-    if (alias) specifier = path.resolve(pkgRoot, alias);
+    if (alias) {
+      // Change .js to .ts in the alias path
+      alias = alias.replace(/\.js$/, '.ts');
+      specifier = path.resolve(pkgRoot, alias);
+    }
   } else {
     specifier = specifier.replace(LOADER_ALIAS.find, LOADER_ALIAS.replace);
   }

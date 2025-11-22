@@ -1,4 +1,31 @@
 import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Helper to safely import logger, handling both built and source scenarios
+async function getLogger() {
+  try {
+    // Try importing from dist first (production/after build)
+    const { logger } = await import('@percy/logger');
+    return logger('core:post-install');
+  } catch (distError) {
+    // If dist doesn't exist, try importing from source using file path
+    try {
+      const __dirname = path.dirname(fileURLToPath(import.meta.url));
+      const loggerPath = path.resolve(__dirname, '../../logger/src/index.ts');
+      if (fs.existsSync(loggerPath)) {
+        const loggerModule = await import(`file://${loggerPath}`);
+        return loggerModule.default('core:post-install');
+      }
+    } catch (srcError) {
+      // Fall back to console if both fail
+    }
+    // Fallback to console logger
+    return {
+      error: (...args) => console.error('[core:post-install]', ...args)
+    };
+  }
+}
 
 try {
   if (!['false', '0', undefined].includes(process.env.PERCY_POSTINSTALL_BROWSER)) {
@@ -12,9 +39,7 @@ try {
     }));
   }
 } catch (error) {
-  const { logger } = await import('@percy/logger');
-  const log = logger('core:post-install');
-
+  const log = await getLogger();
   log.error('Encountered an error while installing Chromium');
   log.error(error);
 }

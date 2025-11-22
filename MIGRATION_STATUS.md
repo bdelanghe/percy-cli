@@ -16,7 +16,7 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
 - Build: Bun bundler (no Babel, no Rollup)
 - Tests:
   - Node tests: `bun test`
-  - Browser-style tests: Vitest + jsdom
+  - Browser-style tests: Vitest Browser Mode (Playwright)
 - Linting: ESLint 9 with flat config
 - Nix: bun2nix-backed offline, reproducible builds
 - Lockfiles: `bun.lockb` + `bun.nix` (both committed)
@@ -41,7 +41,7 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
 - Build: `bun build` (ESM output + browser bundles where needed)
 - Tests:
   - Node: `bun test`
-  - Browser: Vitest (`jsdom` environment)
+  - Browser: Vitest Browser Mode (Playwright - Chromium, Firefox, WebKit)
 - Coverage:
   - Node: `bun test --coverage`
   - Browser: `vitest run --coverage` (v8 provider)
@@ -101,9 +101,9 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
   - Migrated from Jasmine to Bun's test runner.
   - Removed Jasmine dependencies and config.
 - Browser-style tests:
-  - Migrated from Karma + Rollup to Vitest + jsdom.
-  - Added `vitest`, `@vitest/coverage-v8`, `jsdom`.
-  - `vitest.config.mts` uses `jsdom` environment.
+  - Migrated from Karma + Rollup to Vitest Browser Mode (Playwright).
+  - Added `vitest`, `@vitest/coverage-v8`, `@vitest/browser-playwright`.
+  - `vitest.config.mts` uses Browser Mode with Playwright provider (Chromium, Firefox, WebKit).
   - Updated test helpers to Vitest APIs.
   - Removed Karma config and dependencies.
 - Coverage:
@@ -128,10 +128,10 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
 ### 6. Dependency Scoping + TypeScript Setup
 
 - **Dependency scoping and simplification**:
-  - `jsdom`: Removed from root, only in `packages/dom/devDependencies` (only package that needs DOM environment)
+  - `jsdom`: **Removed entirely** - replaced with Vitest Browser Mode using Playwright (real browser testing)
   - `memfs`: **Removed entirely** - replaced with temporary directories and Vitest spies (simpler, no external dependency)
-  - Updated `vitest.config.mts` to default to `node` environment, `jsdom` only for `packages/dom`
-  - Removed `sdk-utils` from jsdom check (doesn't actually need DOM environment)
+  - Updated `vitest.config.mts` to use Browser Mode for `packages/dom` (Playwright with Chromium, Firefox, WebKit)
+  - Removed `sdk-utils` from browser test check (doesn't actually need DOM environment)
 - **TypeScript migration preparation**:
   - Added `typescript` to root devDependencies
   - Created `tsconfig.base.json` as base configuration for future TypeScript migration
@@ -167,7 +167,7 @@ Minimal, root-level devDependencies:
 
 **Package-specific devDependencies** (scoped to packages that need them):
 
-- `packages/dom`: `jsdom` – DOM environment for DOM package tests only
+- None – Browser Mode uses root-level `@vitest/browser-playwright` dependency
 
 Total: 5 root dev dependencies (down from 20+ in the original stack, down from 5 after aggressive scoping and simplification).
 
@@ -530,12 +530,13 @@ The migration is functionally complete. The following items are optional or pend
    - Potential fixes needed:
      - `expectAsync().toBeResolvedTo()` → `await expect(...).resolves.toBe(...)`
      - `jasmine.any(String)` → `expect.any(String)` or use Vitest's matchers
-     - Browser-specific conditionals may need adjustment (jsdom doesn't distinguish browsers)
+     - Browser-specific conditionals work with real browsers (Chromium, Firefox, WebKit detection available)
 
 4. **Update CI/CD if needed**
    - Ensure GitHub Actions workflows use Vitest instead of Karma
    - Remove any Karma-specific setup steps
-   - Ensure Vitest and jsdom are available in CI environment
+   - Ensure Vitest and Playwright browsers are available in CI environment
+   - Install Playwright browsers: `npx playwright install` or add to CI setup
 
 ---
 
@@ -565,8 +566,8 @@ The following have been verified through code inspection and configuration revie
    - Root `package.json` has centralized scripts using `bun run --filter './packages/*'`
    - All scripts use correct Bun workspace filtering patterns
 7. ✅ **Browser tests**: Configuration verified
-   - `vitest.config.mts` properly configured with jsdom environment
-   - Test helpers updated for Vitest APIs
+   - `vitest.config.mts` properly configured with Browser Mode (Playwright)
+   - Test helpers updated for Vitest APIs and real browser detection
 8. ✅ **Coverage collection**: Configuration verified
    - Node tests: `bun test --coverage` configured
    - Browser tests: `vitest run --coverage` configured with v8 provider
@@ -596,7 +597,7 @@ The following require actual test runs in an environment with Bun installed:
 - ✅ Test scripts verified to use Bun test runner and Vitest
 - ✅ CI/CD workflows updated (test.yml and lint.yml use Bun)
 - ✅ Nix build configuration updated (bun2nix properly wired)
-- ✅ Vitest configuration verified (jsdom environment)
+- ✅ Vitest configuration verified (Browser Mode with Playwright)
 - ✅ All file structure verified (17 packages, dist directories exist)
 
 **Remaining Runtime Verification**:
@@ -646,7 +647,7 @@ All changes are in version control, so rollback is straightforward. Use `git rev
 
 ## Historical Reference: Karma Migration
 
-This section documents the original migration plan from Karma to modern browser testing. The migration was completed using **Vitest + jsdom** instead of the originally recommended Playwright.
+This section documents the original migration plan from Karma to modern browser testing. The migration was initially completed using **Vitest + jsdom**, and later upgraded to **Vitest Browser Mode with Playwright** for real browser testing.
 
 ### Original Problem
 
@@ -683,15 +684,17 @@ The project was using Karma 6.0.2 with Rollup for browser-based testing. This se
 - Built-in coverage
 - Good Bun integration potential
 - **Vite replaces Rollup**: Vite is the engine, providing Rollup capabilities without direct Rollup dependency
+- **Real browser testing**: Uses Playwright to run tests in actual browsers (Chromium, Firefox, WebKit)
+- **More accurate**: Real browser context provides better confidence than DOM simulation
 
 **Cons:**
-- Browser mode is relatively new (less mature than Playwright)
+- Browser mode is relatively new (less mature than Playwright's native test runner)
 - May have compatibility issues with some browser APIs
-- Less mature than Playwright for browser testing
+- Requires Playwright browser installation
 
 **Migration Complexity:** Medium (test rewrite needed, but similar to Jest)
 
-**Note:** Vitest was chosen because it provides Jest-compatible API (easier migration from Jasmine), better Bun integration, and Vite replaces Rollup entirely.
+**Note:** Vitest Browser Mode was chosen because it provides Jest-compatible API (easier migration from Jasmine), better Bun integration, Vite replaces Rollup entirely, and enables real browser testing via Playwright.
 
 #### Option 3: Web Test Runner (@web/test-runner)
 **Pros:**
@@ -718,16 +721,17 @@ The project was using Karma 6.0.2 with Rollup for browser-based testing. This se
 
 **Migration Complexity:** Medium-High
 
-### Why Vitest Was Chosen
+### Why Vitest Browser Mode Was Chosen
 
-Despite the original recommendation for Playwright, **Vitest + jsdom** was chosen because:
+**Vitest Browser Mode with Playwright** was chosen because:
 
 1. **Easier migration**: Jest-compatible API means existing Jasmine tests require minimal changes
 2. **Better Bun integration**: Vitest works seamlessly with Bun
 3. **Vite replaces Rollup**: Complete Rollup removal possible (Vite uses Rollup internally)
-4. **Faster execution**: jsdom doesn't require browser startup
+4. **Real browser testing**: Tests run in actual browsers (Chromium, Firefox, WebKit) for accurate results
 5. **Native ESM support**: No pre-bundling step needed
 6. **Unified test runner**: Can use Vitest for both Node and browser tests
+7. **Multi-browser support**: Automatically tests across multiple browsers for better coverage
 
 ### Vite Replaces Rollup for Browser Tests
 
@@ -755,14 +759,15 @@ Despite the original recommendation for Playwright, **Vitest + jsdom** was chose
 
 ### Implementation Approach
 
-The migration was completed using Vitest with jsdom environment:
+The migration was completed using Vitest Browser Mode with Playwright:
 
-1. **Installed Vitest + jsdom**: Added vitest, @vitest/ui, @vitest/coverage-v8, jsdom
-2. **Created Vitest configuration**: `vitest.config.mts` with jsdom environment
-3. **Updated test helpers**: Adapted for Vitest (removed Karma-specific code)
+1. **Installed Vitest Browser Mode**: Added vitest, @vitest/coverage-v8, @vitest/browser-playwright
+2. **Created Vitest configuration**: `vitest.config.mts` with Browser Mode (Playwright provider with Chromium, Firefox, WebKit)
+3. **Updated test helpers**: Adapted for Vitest and real browser detection (removed Karma-specific code, updated browser detection)
 4. **Updated test infrastructure**: Modified `scripts/test.js` to use Vitest
 5. **Removed Karma**: Deleted all Karma dependencies and `karma.config.cjs`
 6. **Removed Rollup**: Deleted `rollup.config.js` and rollup config from package.json files
+7. **Removed jsdom**: Replaced with real browser testing via Playwright
 
 ### Challenges and Solutions
 
@@ -782,9 +787,9 @@ The migration was completed using Vitest with jsdom environment:
 - **Impact**: Low - helper functions updated easily
 
 #### 4. Browser Compatibility
-- **Challenge**: jsdom doesn't distinguish between browsers
-- **Solution**: Most tests work with jsdom; browser-specific tests can be handled separately if needed
-- **Impact**: Low - jsdom covers most browser testing needs
+- **Challenge**: Need to test across multiple browsers (Chromium, Firefox, WebKit)
+- **Solution**: Browser Mode automatically runs tests in all configured browsers; browser detection available via navigator.userAgent
+- **Impact**: Low - real browsers provide accurate testing, browser-specific behavior can be tested explicitly
 
 ---
 
@@ -806,7 +811,8 @@ The migration was completed using Vitest with jsdom environment:
 - Bun: https://bun.sh/docs
 - bun2nix: https://github.com/nix-community/bun2nix
 - Vitest: https://vitest.dev/
-- jsdom: https://github.com/jsdom/jsdom
+- Vitest Browser Mode: https://vitest.dev/guide/browser/
+- Playwright: https://playwright.dev/
 - ESLint 9 migration: https://eslint.org/docs/latest/use/migrate-to-9.0.0
 - ESLint flat config: https://eslint.org/docs/latest/use/configure/configuration-files-new
 - Nix flakes: https://nixos.wiki/wiki/Flakes

@@ -2,14 +2,14 @@ import { defineConfig } from 'vitest/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
+import { playwright } from '@vitest/browser-playwright';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const CWD = process.cwd();
 
-// Check if we're in a package that needs browser tests (dom and sdk-utils)
-const needsBrowserTests = CWD.includes(path.join('packages', 'dom')) || 
-                          CWD.includes(path.join('packages', 'sdk-utils'));
+// Check if we're in a package that needs browser tests (dom package uses Browser Mode)
+const needsBrowserTests = CWD.includes(path.join('packages', 'dom'));
 
 // Match Karma's basePath behavior - config is per-package (process.cwd() when run from package)
 export default defineConfig({
@@ -23,8 +23,19 @@ export default defineConfig({
       'test/proxy.test.js',
     ],
 
-    // Default to node environment; only packages/dom needs jsdom
-    environment: needsBrowserTests ? 'jsdom' : 'node',
+    // Default to node environment; packages/dom uses Browser Mode
+    environment: needsBrowserTests ? undefined : 'node',
+
+    // Browser Mode configuration for packages/dom
+    browser: {
+      enabled: needsBrowserTests,
+      provider: needsBrowserTests ? playwright() : undefined,
+      instances: needsBrowserTests ? [
+        { browser: 'chromium' },
+        { browser: 'firefox' },
+        { browser: 'webkit' },
+      ] : undefined,
+    },
 
     // Hook in test helpers - check for package-level helpers first, then root
     setupFiles: (() => {

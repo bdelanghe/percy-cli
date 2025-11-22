@@ -1,10 +1,10 @@
 /* eslint-disable import/no-extraneous-dependencies */
 import { expect } from 'vitest';
 
-// Vitest: Set default timeout (Vitest uses testTimeout in config, but we can also set it here)
+// Vitest Browser Mode: Set default timeout (Vitest uses testTimeout in config, but we can also set it here)
 // The timeout is set in vitest.config.mts, but we keep this for compatibility
 
-// Vitest: Add custom matchers using expect.extend()
+// Vitest Browser Mode: Add custom matchers using expect.extend()
 expect.extend({
   // If any property within the path is not defined, it will show a failure rather than error
   // about accessing a property of an undefined value.
@@ -32,12 +32,12 @@ expect.extend({
 });
 
 // dump logs for failed tests when debugging
-// Vitest/jsdom: process.env is available in jsdom environment
+// Vitest Browser Mode: process.env is available in browser context via Vite's define
 const { DUMP_FAILED_TEST_LOGS } = process.env;
 
-// Vitest: Handle failed test logs via afterEach hook
+// Vitest Browser Mode: Handle failed test logs via afterEach hook
 if (process.env.DUMP_FAILED_TEST_LOGS) {
-  // Vitest doesn't have the same reporter API, so we use afterEach
+  // Vitest Browser Mode doesn't have the same reporter API, so we use afterEach
   // This will be called after each test
   if (typeof afterEach !== 'undefined') {
     afterEach(async () => {
@@ -46,7 +46,7 @@ if (process.env.DUMP_FAILED_TEST_LOGS) {
       try {
         const logger = (await import('@percy/logger/test/helpers')).logger;
         if (logger) {
-          // In Vitest, we'd need to check test status differently
+          // In Vitest Browser Mode, we'd need to check test status differently
           // For now, just dump if logger has errors
           logger.dump();
         }

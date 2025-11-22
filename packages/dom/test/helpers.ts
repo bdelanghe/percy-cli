@@ -129,19 +129,28 @@ export function createShadowEl(tag = 0) {
 }
 
 export function getTestBrowser() {
-  // In jsdom, we don't have real browser detection
-  // Default to Chrome since jsdom supports Shadow DOM (Chrome feature)
-  // Tests can override via environment variable if needed
-  if (typeof process !== 'undefined' && process.env.TEST_BROWSER === 'firefox') {
+  // Detect browser from navigator.userAgent in real browser context
+  const userAgent = navigator.userAgent.toLowerCase();
+  
+  // Check for Firefox
+  if (userAgent.includes('firefox')) {
     return firefoxBrowser;
   }
-  // jsdom's userAgent might include 'node' or similar, so default to Chrome
+  
+  // Check for WebKit/Safari (includes both Safari and WebKit-based browsers)
+  if (userAgent.includes('webkit') && !userAgent.includes('chrome')) {
+    // WebKit is used for Safari, but we'll treat it as Chrome-like for Shadow DOM support
+    // Safari supports Shadow DOM, so we can use Chrome browser constant
+    return chromeBrowser;
+  }
+  
+  // Default to Chrome/Chromium (includes Edge, Chrome, Chromium)
   return chromeBrowser;
 }
 
 export const platforms = (() => {
-  // jsdom supports Shadow DOM, so enable shadow platform tests
-  // This matches Chrome behavior which was the primary test target
+  // Real browsers support Shadow DOM, so enable shadow platform tests
+  // All modern browsers (Chromium, Firefox, WebKit) support Shadow DOM
   return ['plain', 'shadow'];
 })();
 

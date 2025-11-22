@@ -51,12 +51,13 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
 
 ### 2. Build System (Babel/Rollup → Bun)
 - Replaced Babel + Rollup build logic with bun build:
-  - Node builds: bun build → CommonJS output (for pkg).
+  - Node builds: bun build → ESM output (native module format).
   - Browser bundles: bun build → iife format where needed.
 - Removed:
   - All Babel deps (@babel/*, babel plugins) and babel.config.*.
   - All Rollup deps (core + plugins) and rollup.config.js.
 - Updated build scripts (scripts/build.js, etc.) to use Bun.
+- Binary compilation: Migrated from `pkg` to `bun build --compile` for native binaries.
 
 ### 3. Nix Integration (bun2nix)
 - Integrated bun2nix from nix-community:
@@ -64,10 +65,10 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
   - bun2nix.fetchBunDeps used to fetch dependencies offline.
   - bun2nix.hook wired into builds so bun install is offline.
 - Introduced layered Nix packages:
-  1. src-patched: removes "type": "module" where needed for CJS.
-  2. node-tree: runs bun install --frozen-lockfile and bun run build_cjs.
-  3. prepared-cli: applies pkg-specific patches.
-  4. percy-cli: final pkg binary.
+  1. src-patched: removes "type": "module" where needed for CJS compatibility.
+  2. node-tree: runs bun install --frozen-lockfile and bun run build (ESM output).
+  3. percy-cli: compiles native binary using `bun build --compile`.
+- Removed pkg-based binary packaging in favor of Bun's native compile feature.
 - Added Nix apps:
   - nix run .#bun-install → generate bun.lockb
   - nix run .#bun2nix-generate → generate bun.nix
@@ -190,14 +191,12 @@ The build follows a multi-layer architecture:
    - Uses `bun2nix` to fetch dependencies offline from `bun.nix`
    - Uses Bun to install dependencies from `bun.lockb` using offline cache
    - Includes all devDependencies
-   - Runs `bun run build_cjs` to compile the CLI package and its dependencies using Bun's workspace support
+   - Runs `bun run build` to compile all packages as ESM using Bun's workspace support
 
-3. **Layer 3: Prepared CLI** (`nix/prepared-cli.nix`)
-   - Applies CLI-specific patches for pkg packaging
-   - Patches `percy.js` imports and `NODE_ENV`
-
-4. **Layer 4: Binary** (`nix/pkg-wrapper.nix`)
-   - Uses `pkg` to create platform-specific binaries
+3. **Layer 3: Bun-Compiled Binary** (`default.nix` - percyCli)
+   - Uses `bun build --compile` to create a standalone native binary
+   - Compiles `packages/cli/src/bin.js` into a platform-specific executable
+   - Self-contained binary with Bun runtime embedded
    - Supports: x86_64-linux, aarch64-linux, x86_64-darwin, aarch64-darwin
 
 ### How bun2nix Works

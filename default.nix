@@ -1,5 +1,5 @@
 # default.nix
-# Main package definition for Percy CLI built with pkg via Nix
+# Main package definition for Percy CLI built with Bun compile via Nix
 
 { pkgs, bunNix }:
 
@@ -77,9 +77,9 @@ let
       echo "Dependencies installed successfully by bun2nix.hook from offline cache"
       export PATH="$PWD/node_modules/.bin:$PATH"
 
-      # Build using Bun workspace scripts
-      # This builds all packages in the monorepo
-      bun run build_cjs
+      # Build using Bun workspace scripts (ESM output)
+      # This builds all packages in the monorepo as ESM
+      bun run build
     '';
 
     installPhase = ''
@@ -88,22 +88,37 @@ let
     '';
   };
 
-  # Layer 3: prepared CLI tree (patched for pkg)
-  preparedCli = import ./nix/prepared-cli.nix {
-    inherit pkgs nodeTree;
+  # Layer 3: Bun-compiled binary
+  percyCli = pkgs.stdenv.mkDerivation {
+    pname   = "percy-cli";
     version = cfg.version;
-  };
+    src     = nodeTree;
 
-  pkgWrapper = import ./nix/pkg-wrapper.nix { inherit pkgs; };
+    nativeBuildInputs = [
+      pkgs.bun
+    ];
 
-  # Layer 4: pkg-wrapped CLI binary
-  percyCli = pkgWrapper {
-    pname       = "percy-cli";
-    version     = cfg.version;
-    pkgTarget   = cfg.pkgTargetFor system;
-    preparedCli = preparedCli;
-    entrypoint  = "./packages/cli/bin/run.cjs";
-    binaryName  = "percy";
+    buildPhase = ''
+      export HOME="$TMPDIR/home"
+      mkdir -p "$HOME"
+      export PATH="$PWD/node_modules/.bin:$PATH"
+
+      # Build the binary using Bun compile
+      # This creates a standalone executable with Bun runtime
+      bun build ./packages/cli/src/bin.js --compile --outfile=./percy
+    '';
+
+    installPhase = ''
+      mkdir -p "$out/bin"
+      cp ./percy "$out/bin/percy"
+      chmod +x "$out/bin/percy"
+    '';
+
+    meta = {
+      description = "Percy CLI - standalone binary compiled with Bun";
+      mainProgram = "percy";
+      license = pkgs.lib.licenses.mit;
+    };
   };
 
 in

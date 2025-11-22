@@ -33,7 +33,6 @@ The build is split into three distinct layers, each with a specific purpose:
 
 **Why early?** The `"type": "module"` removal changes how Node resolves modules, so it must be visible to:
 - Bun during `bun run build`
-- Node during `bun run build_cjs`
 - Any runtime that loads these packages
 
 #### Layer 2: Bun Build (`nodeTree`)
@@ -41,7 +40,7 @@ The build is split into three distinct layers, each with a specific purpose:
 **Purpose**: Build the complete JS project with dependencies and compiled output.
 
 - **Input**: `patchedSrc` (Layer 1) + `bun.lockb` (or generates it)
-- **Output**: Complete JS project ready for packaging (includes `node_modules`, `dist/`, built artifacts)
+- **Output**: Complete JS project ready for compilation (includes `node_modules`, `dist/`, built artifacts)
 - **Characteristics**:
   - Arch-agnostic (if no native addons)
   - Highly cache-friendly (heaviest layer, reusable across systems)
@@ -49,26 +48,23 @@ The build is split into three distinct layers, each with a specific purpose:
 
 **Build steps**:
 - Installs dependencies via Bun (offline, using local registry server with offline cache)
-- Runs `bun run build` to compile source using Bun's bundler
-- Runs `bun run build_cjs` to convert ES6 to CommonJS for the CLI package and its dependencies
-- Copies build artifacts to packages
+- Runs `bun run build` to compile source using Bun's bundler (ESM output)
+- Builds all packages in the monorepo as ESM modules
 
-#### Layer 3: Binary Packaging (`percy-cli`)
+#### Layer 3: Bun-Compiled Binary (`percy-cli`)
 
-**Purpose**: Apply CLI-specific patches and wrap with `pkg` to create platform-specific binaries.
+**Purpose**: Compile the CLI into a standalone native binary using Bun's compile feature.
 
 - **Input**: `nodeTree` (Layer 2)
-- **Output**: Platform-specific binary executable (`percy`)
+- **Output**: Platform-specific native binary executable (`percy`)
 - **Characteristics**:
-  - Per-system (pkg target varies by architecture)
-  - Lightweight (just text edits + pkg invocation)
-  - CLI-specific mutations isolated here
+  - Per-system (compiled for target architecture)
+  - Self-contained (includes Bun runtime)
+  - True native binary (not a Node.js wrapper)
 
 **Steps**:
-- **patchPhase**: Applies CLI-specific patches:
-  - Prepends `import { cli } from '@percy/cli';` to `packages/cli/dist/percy.js`
-  - Injects `process.env.NODE_ENV = "executable";` into `packages/cli/bin/run.cjs`
-- **installPhase**: Runs `pkg` to create the binary and normalizes output name
+- **buildPhase**: Runs `bun build --compile` on `packages/cli/src/bin.js` to create a standalone executable
+- **installPhase**: Copies the compiled binary to `$out/bin/percy` and sets executable permissions
 
 ### Cache-Friendly Design
 
@@ -86,25 +82,24 @@ Patching is split across layers based on when and why it's needed:
   - Removes `"type": "module"` from package.json files
   - Must happen early so all build steps see consistent module resolution
 
-- **Layer 3 (percy-cli)**: CLI-specific packaging hacks
-  - Prepends import to `percy.js`
-  - Injects NODE_ENV in `run.cjs`
-  - These only affect the final executable, not the build process
+- **Layer 3 (percy-cli)**: Binary compilation
+  - Uses Bun's native `--compile` feature to create a standalone executable
+  - No additional patching needed - Bun handles bundling and runtime embedding
 
-### Reusable Scripts
+### Binary Compilation
 
-The binary packaging logic is available as `scripts/percy-make-binary.sh` for reuse in CI or non-Nix release jobs:
+The binary is compiled using Bun's native `--compile` feature:
 
 ```bash
-./scripts/percy-make-binary.sh <pkg-target> <output-path>
+bun build ./packages/cli/src/bin.js --compile --outfile=./percy
 ```
 
-This script:
-- Runs `pkg` to create the binary
-- Handles pkg's variable output naming
-- Normalizes to a single output path
+This creates a standalone executable that includes:
+- All bundled JavaScript code
+- Bun runtime embedded in the binary
+- No external Node.js or Bun installation required
 
-Nix uses the same logic inline in `installPhase` for consistency.
+The compiled binary is platform-specific and must be built for each target architecture.
 
 ### Lockfile Updates
 

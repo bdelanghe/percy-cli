@@ -1,23 +1,15 @@
 # nix/percy-config.nix
-# Configuration for Percy CLI build: versions, tools, and system mappings
+# Configuration for Percy CLI build: versions and tools
 
 { pkgs }:
 
 let
   version = "0.0.1";
 
-  pkgTargetFor = system: {
-    "x86_64-linux"   = "node20-linux-x64";
-    "aarch64-linux"  = "node20-linux-arm64";
-    "x86_64-darwin"  = "node20-macos-x64";
-    "aarch64-darwin" = "node20-macos-arm64";
-  }.${system};
-
 in {
-  inherit version pkgTargetFor;
+  inherit version;
 
-  node    = pkgs.nodejs_20;
-  pkgTool = pkgs.nodePackages.pkg;
-  # Note: Bun is used for package management and builds (replaces lerna/yarn)
+  # Note: Bun is used for package management, builds, and binary compilation
+  # The binary is compiled with `bun build --compile` which creates a standalone executable
 }
 

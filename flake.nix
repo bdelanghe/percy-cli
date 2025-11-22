@@ -56,11 +56,44 @@
               REGISTRY_PORT=4873
               REGISTRY_URL="http://localhost:$REGISTRY_PORT"
               
-              # Start simple HTTP server to serve offline cache
-              cd ${offlineCacheFiles.offline_cache}
-              python3 -m http.server $REGISTRY_PORT > /dev/null 2>&1 &
+              # Create minimal registry server that maps npm URLs to yarnpkg cache filenames
+              cat > "$TMPDIR/registry-server.py" <<'PYEOF'
+import http.server
+import socketserver
+import os
+import re
+import sys
+
+CACHE_DIR = sys.argv[1]
+PORT = int(sys.argv[2])
+
+class Handler(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=CACHE_DIR, **kwargs)
+    
+    def do_GET(self):
+        # Convert npm registry URL to yarnpkg cache filename
+        # /@scope/name/-/name-version.tgz -> _scope_name___name-version.tgz
+        if self.path.endswith('.tgz'):
+            match = re.match(r'/(@[^/]+/)?([^/]+)/-/\2-([^/]+)\.tgz$', self.path)
+            if match:
+                scope = (match.group(1) or '').replace('@', '').replace('/', '_')
+                name = match.group(2)
+                version = match.group(3)
+                filename = ('_' + scope + '_' if scope else '') + name + '___' + name + '-' + version + '.tgz'
+                self.path = '/' + filename
+        return super().do_GET()
+    
+    def log_message(self, *args):
+        pass
+
+with socketserver.TCPServer(("", PORT), Handler) as httpd:
+    httpd.serve_forever()
+PYEOF
+              
+              # Start registry server
+              python3 "$TMPDIR/registry-server.py" ${offlineCacheFiles.offline_cache} $REGISTRY_PORT > /dev/null 2>&1 &
               REGISTRY_PID=$!
-              cd - > /dev/null
               
               # Ensure server is killed on exit
               trap "kill $REGISTRY_PID 2>/dev/null || true" EXIT

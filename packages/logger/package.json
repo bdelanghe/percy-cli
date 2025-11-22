@@ -30,6 +30,6 @@
     "build": "node ../../scripts/build",
     "lint": "eslint --ignore-path ../../.gitignore .",
     "test": "node ../../scripts/test",
-    "test:coverage": "yarn test --coverage"
+    "test:coverage": "node ../../scripts/test --coverage"
   }
 }

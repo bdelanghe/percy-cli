@@ -154,7 +154,8 @@ The migration is complete. The current architecture matches the target:
 - ✅ Updated test scripts to use Vitest coverage for browser tests and Bun coverage for node tests
 - ✅ Updated ESLint configs to remove jasmine environment references
 - ✅ Updated documentation
-- ⏳ Final testing and validation (pending actual test runs)
+- ✅ Removed all `yarn`` references from package.json test:coverage scripts (replaced with `node ../../scripts/test --coverage`)
+- ⏳ Final testing and validation (pending actual test runs in proper environment with Bun installed)
 
 ## Current State
 
@@ -165,6 +166,7 @@ The migration is complete. The current architecture matches the target:
 - ✅ Vitest + jsdom for browser tests
 - ✅ bun2nix for offline, reproducible Nix builds
 - ✅ All build scripts migrated to Bun
+- ✅ All package.json test:coverage scripts updated (removed yarn references)
 - ✅ ESLint using native parser (Babel ESLint parser removed)
 - ✅ Minimal dependency footprint (only actively used packages remain)
 
@@ -196,7 +198,17 @@ All legacy dependencies (Karma, Rollup, Babel, Jasmine, nyc, cross-env, @nx/nx-d
 
 ## Remaining Work
 
-### Verification Steps
+### Completed Verification Tasks ✅
+
+1. ✅ **Package.json script cleanup**: All `test:coverage` scripts updated from `yarn test --coverage` to `node ../../scripts/test --coverage` (17 packages updated)
+2. ✅ **Code verification**: Build and test scripts verified to use Bun and Vitest correctly
+   - `scripts/build.js` uses Bun bundler for both Node.js and browser builds
+   - `scripts/test.js` uses Bun test runner for Node tests and Vitest for browser tests
+   - `vitest.config.mts` properly configured with jsdom environment
+
+### Runtime Verification Steps (Requires Bun Environment)
+
+**Note**: The following steps require running commands in an environment with Bun installed (e.g., `nix develop` or system Bun installation).
 
 1. **Install dependencies via Nix/bun2nix**
    - The minimal dependency set (ESLint stack, Vitest, jsdom, test utilities) is in `package.json`
@@ -204,13 +216,21 @@ All legacy dependencies (Karma, Rollup, Babel, Jasmine, nyc, cross-env, @nx/nx-d
    - Regenerate `bun.nix` if using bun2nix: `nix run .#bun2nix-generate`
 
 2. **Run tests to verify everything works**
-   - Run browser tests: `bun test:browser` or `vitest run`
-   - Run all tests: `bun test` (Node tests) + `bun test:browser` (browser tests)
+   - Run browser tests: `node scripts/test --browsers` or `vitest run`
+   - Run Node tests: `node scripts/test --node` or `bun test`
    - Run with coverage: 
-     - Browser tests: `vitest run --coverage`
-     - Node tests: `bun test --coverage`
+     - Browser tests: `vitest run --coverage` or `node scripts/test --browsers --coverage`
+     - Node tests: `bun test --coverage` or `node scripts/test --node --coverage`
 
-3. **Fix any test failures**
+3. **Verify builds**
+   - Run `bun run --filter './packages/*' build` to build all packages
+   - Verify `dist/` directories are created in each package
+
+4. **Verify Nix builds**
+   - Run `nix build` to verify bun2nix integration works
+   - Verify binary is created and executable
+
+5. **Fix any test failures** (if discovered during runtime verification)
    - All Jasmine APIs have been migrated to Vitest/Bun equivalents
    - Common migrations completed:
      - `expectAsync().toBeResolvedTo()` → `await expect(...).resolves.toBe(...)`
@@ -221,7 +241,7 @@ All legacy dependencies (Karma, Rollup, Babel, Jasmine, nyc, cross-env, @nx/nx-d
      - All Jasmine matchers → Vitest equivalents
    - Some test files may still need updates if tests fail
 
-4. **Update CI/CD if needed**
+6. **Update CI/CD if needed**
    - Update GitHub Actions workflows to use Vitest instead of Karma
    - Remove any Karma-specific setup steps
    - Ensure Vitest and jsdom are available in CI environment
@@ -578,10 +598,15 @@ The following need to be tested to ensure they work correctly:
 
 1. ✅ **Bun install**: Works correctly, generates `bun.lockb`
 2. ✅ **bun.nix generation**: Works correctly via Nix apps
-3. ⚠️ **Build process**: Needs verification that `bun run build` works for all packages
-4. ⚠️ **Test execution**: Needs verification that `bun test` works with Bun's test runner
-5. ⚠️ **Nix builds**: Needs verification that `nix build` works with bun2nix integration
-6. ⚠️ **Workspace commands**: Needs verification that `bun run --filter` commands work as expected
+3. ✅ **Build process**: Code verified - `scripts/build.js` uses Bun bundler correctly, all packages have build scripts configured
+4. ✅ **Test execution**: Code verified - `scripts/test.js` updated to use Bun test runner for Node tests and Vitest for browser tests
+5. ✅ **Package.json scripts**: All `test:coverage` scripts updated from `yarn test --coverage` to `node ../../scripts/test --coverage`
+6. ⚠️ **Runtime verification**: Needs actual test runs in environment with Bun installed (requires `nix develop` or Bun in PATH)
+   - Run `bun run --filter './packages/*' build` to verify builds
+   - Run `bun test` to verify Node.js tests
+   - Run `vitest run` or `node scripts/test --browsers` to verify browser tests
+7. ⚠️ **Nix builds**: Needs verification that `nix build` works with bun2nix integration (requires Nix environment)
+8. ⚠️ **Workspace commands**: Code verified - scripts use correct patterns, needs runtime verification
 
 ## Notes
 

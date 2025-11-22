@@ -36,7 +36,7 @@
     "build": "node ../../scripts/build",
     "lint": "eslint --ignore-path ../../.gitignore .",
     "test": "percy exec --testing -- node ../../scripts/test",
-    "test:coverage": "yarn test --coverage"
+    "test:coverage": "percy exec --testing -- node ../../scripts/test --coverage"
   },
   "dependencies": {
     "pac-proxy-agent": "^7.0.2"

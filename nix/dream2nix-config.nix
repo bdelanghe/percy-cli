@@ -5,6 +5,7 @@
 
 {
   imports = [
+    dream2nix.modules.dream2nix.core
     dream2nix.modules.dream2nix.mkDerivation
   ];
 

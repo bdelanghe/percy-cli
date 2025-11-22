@@ -4,9 +4,11 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
     flake-schemas.url = "github:DeterminateSystems/flake-schemas";
+    dream2nix.url = "github:nix-community/dream2nix";
+    dream2nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, flake-schemas }:
+  outputs = { self, nixpkgs, flake-schemas, dream2nix }:
     let
       systems = [
         "aarch64-linux"
@@ -29,66 +31,77 @@
           cfg        = import ./nix/percy-config.nix { inherit pkgs; };
           srcPatched = import ./nix/src-patched.nix { inherit pkgs; version = cfg.version; };
 
-          # Let Nix compute the offline cache from yarn.lock
-          # Cache includes @nx/nx-darwin-arm64 that was added to yarn.lock
-          yarnDeps = pkgs.fetchYarnDeps {
-            yarnLock = ./yarn.lock;
-            sha256 = "sha256-5ouUohCpHMXz9Xn9jWbNZ5QGe4xVZiFx4AzIEN9QYiQ=";
+          # Layer 2: node tree build using dream2nix
+          # Use dream2nix to build node_modules with all dependencies including devDependencies
+          dream2nixLib = dream2nix.lib.${system};
+          
+          # Build the package using dream2nix evalModules
+          dream2nixEval = dream2nixLib.evalModules {
+            modules = [
+              {
+                paths.projectRoot = srcPatched;
+                paths.package = srcPatched;
+                paths.packageJson = "${srcPatched}/package.json";
+                paths.lockFile = "${srcPatched}/yarn.lock";
+                name = "percy-cli";
+                translator = "yarn-lock";
+                subsystemInfo = {
+                  nodejs = 20;
+                };
+                settings = {
+                  includeDevDependencies = true;
+                };
+              }
+            ];
           };
 
-          # Layer 2: node tree build (mkYarnPackage)
-          nodeTree = pkgs.mkYarnPackage {
+          # Extract node_modules from dream2nix build
+          # The structure is: dream2nixEval.packages.<name>.public.nodeModules
+          dream2nixPackage = dream2nixEval.packages."percy-cli";
+          nodeModules = dream2nixPackage.public.nodeModules;
+
+          # Build the complete node tree with source and dependencies
+          nodeTree = pkgs.stdenv.mkDerivation {
             pname = "percy-cli-node-tree";
             inherit (cfg) version;
+            
             src = srcPatched;
-            yarnLock = ./yarn.lock;
-            offlineCache = yarnDeps;
-
-            # Keep NODE_ENV=development to ensure build tools (babel, rollup, lerna)
-            # from devDependencies are available and behave correctly during build
-            # mkYarnPackage should install devDependencies when NODE_ENV=development
-            NODE_ENV = "development";
+            
+            nativeBuildInputs = with pkgs; [
+              nodejs_20
+            ];
 
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
 
-              export npm_config_offline=true
-              export NPM_CONFIG_OFFLINE=true
-              # Suppress npm deprecation warnings
-              export npm_config_loglevel=error
+              # Copy source
+              cp -R $src/* .
+              chmod -R u+w .
 
-              # Add node_modules/.bin to PATH for babel, lerna, and other build tools
-              # mkYarnPackage structures things: source is in deps/percy-cli/
-              # lerna should be installed by mkYarnPackage from devDependencies
-              export PATH="$PWD/deps/percy-cli/node_modules/.bin:$PWD/node_modules/.bin:$PATH"
+              # Link node_modules from dream2nix
+              ln -sfn ${nodeModules}/node_modules node_modules
 
-              # Diagnostic: Verify lerna is available (installed by mkYarnPackage)
+              # Add node_modules/.bin to PATH for build tools
+              export PATH="$PWD/node_modules/.bin:$PATH"
+
+              # Diagnostic: Verify lerna is available
               echo "=== Checking lerna availability ===" >&2
               echo "Current directory: $PWD" >&2
               
-              # Check for lerna in node_modules/.bin (mkYarnPackage should have installed it)
-              LERNA_FOUND=0
-              if [ -f deps/percy-cli/node_modules/.bin/lerna ]; then
-                echo "✓ lerna found in deps/percy-cli/node_modules/.bin" >&2
-                LERNA_FOUND=1
-              elif [ -f node_modules/.bin/lerna ]; then
-                echo "✓ lerna found in node_modules/.bin" >&2
-                LERNA_FOUND=1
-              fi
-              
-              if [ "$LERNA_FOUND" = "0" ]; then
+              if [ ! -f node_modules/.bin/lerna ]; then
                 echo "✗ ERROR: lerna not found in node_modules/.bin" >&2
-                echo "This suggests mkYarnPackage did not install devDependencies." >&2
                 echo "Checking node_modules structure:" >&2
-                if [ -d deps/percy-cli/node_modules/.bin ]; then
-                  echo "deps/percy-cli/node_modules/.bin contents:" >&2
-                  ls -1 deps/percy-cli/node_modules/.bin/ 2>&1 | head -10 >&2
+                if [ -d node_modules/.bin ]; then
+                  echo "node_modules/.bin contents:" >&2
+                  ls -1 node_modules/.bin/ 2>&1 | head -20 >&2
                 else
-                  echo "deps/percy-cli/node_modules/.bin does not exist" >&2
+                  echo "node_modules/.bin does not exist" >&2
                 fi
                 exit 1
               fi
+              
+              echo "✓ lerna found in node_modules/.bin" >&2
               
               # Verify lerna is executable
               if ! command -v lerna >/dev/null 2>&1; then
@@ -108,6 +121,14 @@
               if [ -d build ]; then
                 cp -R build/* packages/
               fi
+            '';
+
+            installPhase = ''
+              mkdir -p $out
+              # Copy everything except node_modules (which is a symlink)
+              find . -mindepth 1 -maxdepth 1 ! -name node_modules -exec cp -R {} $out/ \;
+              # Create node_modules symlink in output
+              ln -sfn ${nodeModules}/node_modules $out/node_modules
             '';
           };
 
@@ -151,11 +172,47 @@
       });
 
       checks = forAllSystems (pkgs: system:
-        if pkgs.stdenv.isDarwin then {
+        let
+          percyCli = self.packages.${system}.percy-cli;
+        in
+        {
+          # Build verification checks
           src_patched = self.packages.${system}.src-patched;
-          node_tree   = self.packages.${system}.node-tree;
-          default     = self.packages.${system}.percy-cli;
-        } else {}
+          node_tree = self.packages.${system}.node-tree;
+          prepared_cli = self.packages.${system}.prepared-cli;
+          
+          # Binary existence and executability check
+          binary_exists = pkgs.runCommand "percy-binary-exists-check" {} ''
+            if [ ! -f ${percyCli}/bin/percy ]; then
+              echo "ERROR: Binary not found at ${percyCli}/bin/percy"
+              exit 1
+            fi
+            if [ ! -x ${percyCli}/bin/percy ]; then
+              echo "ERROR: Binary is not executable"
+              exit 1
+            fi
+            echo "✓ Binary exists and is executable"
+            touch $out
+          '';
+          
+          # Basic smoke test - check that binary runs (--version or --help)
+          binary_smoke_test = pkgs.runCommand "percy-binary-smoke-test" {
+            nativeBuildInputs = [ percyCli ];
+          } ''
+            # Try --version first, fall back to --help if that doesn't work
+            if ${percyCli}/bin/percy --version >/dev/null 2>&1 || \
+               ${percyCli}/bin/percy --help >/dev/null 2>&1; then
+              echo "✓ Binary runs successfully"
+            else
+              echo "ERROR: Binary failed to run"
+              exit 1
+            fi
+            touch $out
+          '';
+          
+          # Default check (builds the full package)
+          default = percyCli;
+        }
       );
     };
 }

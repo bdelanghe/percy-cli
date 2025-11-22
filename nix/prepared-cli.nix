@@ -13,7 +13,7 @@ stdenv.mkDerivation {
   inherit version;
 
   src = nodeTree;
-  sourceRoot = "libexec/percy-cli-node-tree";
+  sourceRoot = ".";
 
   nativeBuildInputs = [ gnused ];
 

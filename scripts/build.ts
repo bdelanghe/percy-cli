@@ -215,12 +215,15 @@ function handleError(err: Error & { exitCode?: number }): void {
 }
 
 // run everything and maybe watch for changes
-main().catch(handleError).then(() => {
-  if (argv.watch) {
-    import('./watch.js').then(w => w.watch(() => main().catch(handleError))).catch(() => {
-      console.error(colors.red('Watch mode not available: watch.js not found'));
-      process.exit(1);
-    });
-  }
-});
+main()
+  .then(() => {
+    if (argv.watch) {
+      import('./watch.js').then(w => w.watch(() => main().catch(handleError))).catch(() => {
+        console.error(colors.red('Watch mode not available: watch.js not found'));
+        process.exit(1);
+      });
+    }
+    // If not in watch mode, the script will exit naturally with code 0
+  })
+  .catch(handleError);
 

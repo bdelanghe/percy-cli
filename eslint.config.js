@@ -1,9 +1,6 @@
-import standard from 'eslint-config-standard'
+import js from '@eslint/js'
+import pluginImport from 'eslint-plugin-import'
 import globals from 'globals'
-
-// eslint-config-standard may export a function or array
-const standardConfig = typeof standard === 'function' ? standard() : standard
-const standardArray = Array.isArray(standardConfig) ? standardConfig : [standardConfig]
 
 export default [
   // Global ignore patterns (matching .gitignore)
@@ -25,8 +22,8 @@ export default [
     ]
   },
 
-  // Base configuration from eslint-config-standard
-  ...standardArray,
+  // ESLint recommended rules
+  js.configs.recommended,
 
   // Root-level rules and language options for all source files
   {
@@ -36,14 +33,15 @@ export default [
         ...globals.node
       }
     },
+    plugins: {
+      import: pluginImport
+    },
     rules: {
+      // Core ESLint rules (matching previous standard-style preferences)
       'one-var': 'off',
       'prefer-const': 'off',
       'no-extra-parens': 'off',
       'no-unused-expressions': 'warn',
-      'import/no-extraneous-dependencies': 'error',
-      'n/no-callback-literal': 'off', // eslint-plugin-n replaces eslint-plugin-node
-      'promise/param-names': 'off',
       semi: ['error', 'always'],
       'multiline-ternary': 'off',
       'yield-star-spacing': ['error', 'after'],
@@ -63,7 +61,9 @@ export default [
           asyncArrow: 'always',
           named: 'never'
         }
-      ]
+      ],
+      // Import plugin rules (only one we actually use)
+      'import/no-extraneous-dependencies': 'error'
     }
   },
 

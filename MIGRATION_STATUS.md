@@ -108,48 +108,47 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
   - Removed `build:binary` script from root package.json (Bun --compile experimental path)
   - Canonical binary is now Nix-wrapped Node CLI only
 
-### 6. Dev Dependencies Modernization (ESLint 9 Upgrade)
+### 6. Dev Dependencies Modernization (ESLint 9 Upgrade + Aggressive Simplification)
 - **ESLint 7.x → 9.x**: Aggressive upgrade to latest ESLint with flat config migration
   - Migrated from `.eslintrc` YAML format to `eslint.config.js` flat config format
   - Removed all 17 test directory `.eslintrc` files (consolidated into root flat config)
   - Replaced `eslint-plugin-node` with `eslint-plugin-n` (ESLint 9 compatible)
   - Added `globals` package for ESLint 9 flat config support
-- **ESLint plugins updated**:
-  - `eslint-config-standard`: `^16.0.2` → `^17.1.0`
-  - `eslint-plugin-import`: `^2.23.4` → `^2.31.0`
-  - `eslint-plugin-promise`: `^5.1.0` → `^6.6.0`
+- **ESLint simplification (brutalist approach)**:
+  - **Removed**: `eslint-config-standard`, `eslint-plugin-n`, `eslint-plugin-promise` (unused or only used to disable rules)
+  - **Kept**: `eslint-plugin-import` (only plugin actually used - `import/no-extraneous-dependencies`)
+  - **Replaced**: StandardJS config with ESLint's built-in `@eslint/js` recommended config + minimal custom rules
+  - Result: Minimal ESLint setup with only essential rules
 - **Test stack updated**:
   - `vitest`: `^2.0.0` → `^2.1.0`
   - `@vitest/coverage-v8`: `^2.0.0` → `^2.1.0`
-  - `jsdom`: `^24.0.0` → `^25.0.0`
-  - `tsd`: `^0.31.2` → `^0.32.0`
+  - `jsdom`: `^24.0.0` → `^25.0.0` (used in vitest.config.mts)
+  - `tsd`: `^0.31.2` → `^0.32.0` (used for .test-d.ts files)
 - **Utilities updated**:
-  - `memfs`: `^3.4.0` → `^3.5.0`
+  - `memfs`: `^3.4.0` → `^3.5.0` (used in packages/config/test/helpers.js)
 
 ## Current devDependencies (Root)
 
-At the root, the devDependencies are intentionally minimal:
+At the root, the devDependencies are intentionally minimal (aggressive simplification):
 
-**Linting**
+**Linting** (minimal setup)
+- @eslint/js ^9.0.0 (ESLint's built-in recommended config)
 - eslint ^9.0.0 (flat config format)
-- eslint-config-standard ^17.1.0
-- eslint-plugin-import ^2.31.0
-- eslint-plugin-n ^17.0.0 (replaces eslint-plugin-node for ESLint 9 compatibility)
-- eslint-plugin-promise ^6.6.0
+- eslint-plugin-import ^2.31.0 (only plugin used - for `import/no-extraneous-dependencies`)
 - globals ^15.0.0 (required for ESLint 9 flat config)
 
 **Testing**
 - vitest ^2.1.0 (browser tests)
 - @vitest/coverage-v8 ^2.1.0 (coverage for Vitest)
-- jsdom ^25.0.0 (browser-like environment)
+- jsdom ^25.0.0 (browser-like environment, used in vitest.config.mts)
 
 **Test utilities**
-- memfs ^3.5.0 (in-memory filesystem for tests)
-- tsd ^0.32.0 (TypeScript definition tests)
+- memfs ^3.5.0 (in-memory filesystem for tests, used in packages/config/test/helpers.js)
+- tsd ^0.32.0 (TypeScript definition tests, used for .test-d.ts files)
 
-**Total**: 11 development dependencies (down from 20+ in the legacy stack)
+**Total**: 9 development dependencies (down from 20+ in the legacy stack, down from 11 after ESLint 9 upgrade)
 
-**Note**: ESLint 9 uses the new "flat config" format (`eslint.config.js`) instead of the legacy `.eslintrc` format. All test directory `.eslintrc` files have been consolidated into the root flat config with file pattern overrides.
+**Note**: ESLint 9 uses the new "flat config" format (`eslint.config.js`) instead of the legacy `.eslintrc` format. All test directory `.eslintrc` files have been consolidated into the root flat config with file pattern overrides. The ESLint setup uses a "brutalist" minimal approach: ESLint's built-in recommended config + only the `import/no-extraneous-dependencies` rule from eslint-plugin-import. StandardJS config and unused plugins (eslint-plugin-n, eslint-plugin-promise) were removed.
 
 ## How to Use
 
@@ -588,7 +587,7 @@ The migration was completed using Vitest with jsdom environment:
 
 1. ✅ **Faster installs**: Bun installs 10-100x faster than Yarn
 2. ✅ **Faster builds**: Bun bundler is very fast
-3. ✅ **Simpler toolchain**: Reduced from Lerna + Yarn + Babel + Rollup + Karma + Jasmine + nyc to Bun + Vitest (11 devDependencies vs 20+)
+3. ✅ **Simpler toolchain**: Reduced from Lerna + Yarn + Babel + Rollup + Karma + Jasmine + nyc to Bun + Vitest (9 devDependencies vs 20+)
 4. ✅ **Better DX**: Faster feedback loops
 5. ✅ **Native TypeScript**: No need for separate TS compilation
 6. ✅ **Offline Nix builds**: bun2nix provides reproducible, offline builds
@@ -599,6 +598,7 @@ The migration was completed using Vitest with jsdom environment:
 11. ✅ **Modern tooling**: Fully modernized toolchain
 12. ✅ **ESLint 9 flat config**: Modern configuration format, better performance, consolidated configs
 13. ✅ **Up-to-date dev dependencies**: All dev tools on latest stable versions
+14. ✅ **Brutalist ESLint setup**: Minimal config using only ESLint core + one essential plugin (import/no-extraneous-dependencies)
 
 ## Related Documentation
 

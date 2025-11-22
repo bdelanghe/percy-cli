@@ -4,9 +4,11 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
     flake-schemas.url = "github:DeterminateSystems/flake-schemas";
+    dream2nix.url = "github:nix-community/dream2nix";
+    dream2nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, flake-schemas }:
+  outputs = { self, nixpkgs, flake-schemas, dream2nix }:
     let
       systems = [
         "aarch64-linux"
@@ -29,80 +31,29 @@
           cfg        = import ./nix/percy-config.nix { inherit pkgs; };
           srcPatched = import ./nix/src-patched.nix { inherit pkgs; version = cfg.version; };
 
-          # Layer 2: node tree build using mkYarnPackage
-          # Note: After attempting dream2nix integration, we're reverting to mkYarnPackage
-          # as it's more straightforward for this use case. Dream2nix integration can be
-          # revisited later with a better understanding of its API for accessing node_modules.
-          
-          # Let Nix compute the offline cache from yarn.lock
-          yarnDeps = pkgs.fetchYarnDeps {
-            yarnLock = ./yarn.lock;
-            sha256 = "sha256-5ouUohCpHMXz9Xn9jWbNZ5QGe4xVZiFx4AzIEN9QYiQ=";
+          # Layer 2: node tree build using dream2nix
+          # Let dream2nix handle the entire Node.js build including devDependencies
+          # This is cleaner than mkYarnPackage + manual build orchestration
+          dream2nixPackage = dream2nix.lib.evalModules {
+            packageSets.nixpkgs = pkgs;
+            modules = [
+              (import ./nix/dream2nix-config.nix {
+                inherit dream2nix;
+                srcPatched = srcPatched;
+              })
+              {
+                paths.projectRoot = srcPatched;
+                paths.package = srcPatched;
+                paths.projectRootFile = "package.json";
+                name = "percy-cli";
+                # dream2nix will auto-detect translator from yarn.lock
+              }
+            ];
           };
 
-          # Build node_modules using mkYarnPackage with devDependencies
-          # The key is to ensure NODE_ENV=development and use the correct structure
-          nodeTree = pkgs.mkYarnPackage {
-            pname = "percy-cli-node-tree";
-            inherit (cfg) version;
-            src = srcPatched;
-            yarnLock = ./yarn.lock;
-            offlineCache = yarnDeps;
-
-            # Keep NODE_ENV=development to ensure devDependencies are installed
-            NODE_ENV = "development";
-
-            buildPhase = ''
-              export HOME="$TMPDIR/home"
-              mkdir -p "$HOME"
-
-              export npm_config_offline=true
-              export NPM_CONFIG_OFFLINE=true
-              export npm_config_loglevel=error
-
-              # mkYarnPackage structures: source is in deps/percy-cli/
-              # Add node_modules/.bin to PATH for build tools
-              export PATH="$PWD/deps/percy-cli/node_modules/.bin:$PWD/node_modules/.bin:$PATH"
-
-              # Diagnostic: Verify lerna is available
-              echo "=== Checking lerna availability ===" >&2
-              echo "Current directory: $PWD" >&2
-              
-              LERNA_FOUND=0
-              if [ -f deps/percy-cli/node_modules/.bin/lerna ]; then
-                echo "✓ lerna found in deps/percy-cli/node_modules/.bin" >&2
-                LERNA_FOUND=1
-              elif [ -f node_modules/.bin/lerna ]; then
-                echo "✓ lerna found in node_modules/.bin" >&2
-                LERNA_FOUND=1
-              fi
-              
-              if [ "$LERNA_FOUND" = "0" ]; then
-                echo "✗ ERROR: lerna not found in node_modules/.bin" >&2
-                echo "This suggests devDependencies were not installed." >&2
-                echo "Checking node_modules structure:" >&2
-                if [ -d deps/percy-cli/node_modules/.bin ]; then
-                  echo "deps/percy-cli/node_modules/.bin contents:" >&2
-                  ls -1 deps/percy-cli/node_modules/.bin/ 2>&1 | head -20 >&2
-                else
-                  echo "deps/percy-cli/node_modules/.bin does not exist" >&2
-                fi
-                exit 1
-              fi
-              
-              echo "✓ lerna is available and ready to use" >&2
-              echo "" >&2
-
-              # Run lerna build
-              lerna run build --stream
-
-              # Run babel build_cjs directly
-              BABEL_ENV=dev babel packages -d build || true
-              if [ -d build ]; then
-                cp -R build/* packages/
-              fi
-            '';
-          };
+          # Extract the built package from dream2nix
+          # dream2nix handles: node_modules install (with devDependencies) + lerna build + babel
+          nodeTree = dream2nixPackage.packages."percy-cli" or dream2nixPackage;
 
           # Layer 3: prepared CLI tree (patched for pkg)
           preparedCli = import ./nix/prepared-cli.nix {

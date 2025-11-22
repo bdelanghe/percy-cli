@@ -11,7 +11,7 @@
   "scripts": {
     "build": "bun run --filter './packages/*' build",
     "build:watch": "bun run --filter './packages/*' build --watch",
-    "build_cjs": "bun run --filter './packages/*' build --node",
+    "build_cjs": "bun run --filter '@percy/cli...' build --node",
     "lint": "bun run --filter './packages/*' lint",
     "readme": "bun run --filter './packages/*' readme",
     "test": "bun run --filter './packages/*' test",

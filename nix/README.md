@@ -50,7 +50,7 @@ The build is split into three distinct layers, each with a specific purpose:
 **Build steps**:
 - Installs dependencies via Bun (offline, using local registry server with offline cache)
 - Runs `bun run build` to compile source using Bun's bundler
-- Runs `bun run build_cjs` to convert ES6 to CommonJS if needed
+- Runs `bun run build_cjs` to convert ES6 to CommonJS for the CLI package and its dependencies
 - Copies build artifacts to packages
 
 #### Layer 3: Binary Packaging (`percy-cli`)

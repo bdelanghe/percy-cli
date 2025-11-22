@@ -63,25 +63,20 @@ let
     # bun2nix.hook uses this to find the offline cache
     inherit bunDeps;
 
-    # Disable the hook's automatic install phase and do it manually
-    # This gives us more control over the install process
-    dontBunInstall = true;
-
+    # The hook will run bunNodeModulesInstallPhase automatically
+    # We'll verify it worked and then proceed with the build
     buildPhase = ''
       export HOME="$TMPDIR/home"
       mkdir -p "$HOME"
 
-      # Set up offline cache from bunDeps
-      # The bun2nix hook should have set BUN_INSTALL_CACHE, but we'll ensure it's set
-      export BUN_INSTALL_CACHE="${bunDeps}"
+      # Verify that bun2nix.hook installed dependencies
+      if [ ! -d node_modules ]; then
+        echo "Error: node_modules not found after bun2nix.hook install phase" >&2
+        echo "This suggests the hook's bunNodeModulesInstallPhase failed" >&2
+        exit 1
+      fi
 
-      echo "Installing dependencies from bun2nix cache at: $BUN_INSTALL_CACHE"
-      echo "Cache contents:"
-      ls -la "$BUN_INSTALL_CACHE" | head -20 || true
-
-      # Install dependencies using the offline cache
-      bun install --frozen-lockfile --no-save --backend=symlink
-
+      echo "Dependencies installed successfully by bun2nix.hook"
       export PATH="$PWD/node_modules/.bin:$PATH"
 
       # Build using Bun workspace scripts

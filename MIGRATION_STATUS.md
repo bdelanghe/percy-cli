@@ -190,7 +190,7 @@ The build follows a multi-layer architecture:
    - Uses `bun2nix` to fetch dependencies offline from `bun.nix`
    - Uses Bun to install dependencies from `bun.lockb` using offline cache
    - Includes all devDependencies
-   - Runs `bun run build_cjs` to compile all packages using Bun's workspace support
+   - Runs `bun run build_cjs` to compile the CLI package and its dependencies using Bun's workspace support
 
 3. **Layer 3: Prepared CLI** (`nix/prepared-cli.nix`)
    - Applies CLI-specific patches for pkg packaging

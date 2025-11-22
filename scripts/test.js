@@ -14,8 +14,8 @@ process.env.NODE_ENV = 'test';
 // borrow yargs-parser to process command arguments
 const argv = parse(process.argv.slice(2), {
   configuration: { 'strip-aliased': true },
-  alias: { node: 'n', browsers: 'b', coverage: 'c', reporter: 'r', watch: 'w' },
-  boolean: ['node', 'browsers', 'coverage', 'watch'],
+  alias: { node: 'n', browsers: 'b', coverage: 'c', reporter: 'r' },
+  boolean: ['node', 'browsers', 'coverage'],
   array: ['karma.browsers', 'karma.reporters'],
   string: ['reporter']
 });
@@ -137,10 +137,8 @@ async function main({
 // handle errors
 function handleError(err) {
   if (!err.exitCode) console.error(err);
-  if (!argv.watch) process.exit(err.exitCode || 1);
+  process.exit(err.exitCode || 1);
 }
 
-// run everything and maybe watch for changes
-main().catch(handleError).then(() => argv.watch && (
-  import('./watch').then(w => w.watch(() => main().catch(handleError)))
-));
+// run everything
+main().catch(handleError);

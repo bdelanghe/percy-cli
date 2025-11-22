@@ -124,22 +124,13 @@ The migration is complete. The current architecture matches the target:
 6. ✅ **Removed Rollup**: Deleted `rollup.config.js` and rollup config from package.json files
 7. ✅ **Removed nyc**: Replaced with Vitest's built-in coverage for browser tests and Bun's coverage for node tests
 
-**Why Vitest?**
-- Modern, actively maintained
-- Jest-compatible API (easy migration from Jasmine)
-- Vite replaces Rollup (simpler architecture)
-- Good Bun integration
-- Built-in coverage support
-- Faster execution (no browser startup)
-- Native ESM support
-
 **Benefits Achieved**:
 - ✅ Complete Rollup removal
 - ✅ Simpler architecture (no pre-bundling step)
 - ✅ Better performance (no browser startup)
 - ✅ Modern tooling
 - ✅ Native ESM support
-- ✅ Unified test runner (can use Vitest for both Node and browser tests)
+- ✅ Split test architecture: Bun test for Node tests, Vitest for browser tests
 
 ### Phase 6: Final Cleanup ✅
 
@@ -194,12 +185,11 @@ The migration resulted in a minimal, focused set of development dependencies:
 - `@vitest/coverage-v8` - Coverage collection for Vitest
 - `jsdom` - Browser-like environment for browser tests
 
-**Test Utilities** (3 packages) - For test infrastructure:
-- `gaze` - File watching for test watch mode
+**Test Utilities** (2 packages) - For test infrastructure:
 - `memfs` - In-memory filesystem for test mocking
 - `tsd` - TypeScript definition testing
 
-**Total**: 11 development dependencies (down from 20+ in the legacy stack)
+**Total**: 10 development dependencies (down from 20+ in the legacy stack)
 
 All legacy dependencies (Karma, Rollup, Babel, Jasmine, nyc, cross-env, @nx/nx-darwin-arm64, @vitest/ui) have been removed.
 
@@ -266,6 +256,28 @@ All legacy dependencies (Karma, Rollup, Babel, Jasmine, nyc, cross-env, @nx/nx-d
    - ✅ `.github/workflows/lint.yml`: Updated to use Bun (just completed)
    - Note: Test workflow uses `bun run --filter` which delegates to package scripts that use Vitest/Bun
    - Vitest and jsdom are available via devDependencies in package.json
+   - All workflows now use `bun.lockb` for caching instead of `yarn.lock`
+
+### Verification Summary
+
+**Code-Level Verification**: ✅ Complete
+- All package.json scripts updated (17 packages)
+- Root-level scripts added for centralized management
+- Build and test scripts verified to use Bun/Vitest
+- CI/CD workflows updated to use Bun
+- All yarn references removed from package scripts
+
+**Runtime Verification**: ⏳ Pending
+- Requires Bun environment (`nix develop` or system Bun installation)
+- Needs actual test runs to verify everything works end-to-end
+- Nix builds need verification in Nix environment
+
+**Next Steps**:
+1. Run `nix develop` or install Bun system-wide
+2. Run `bun install` to install dependencies
+3. Run `bun run build` to verify builds
+4. Run `bun test` to verify tests
+5. Run `nix build` to verify Nix integration
 
 ## Nix Build System
 
@@ -552,7 +564,7 @@ Despite the original recommendation for Playwright, **Vitest + jsdom** was chose
 3. **Vite replaces Rollup**: Complete Rollup removal possible (Vite uses Rollup internally)
 4. **Faster execution**: jsdom doesn't require browser startup
 5. **Native ESM support**: No pre-bundling step needed
-6. **Unified test runner**: Can use Vitest for both Node and browser tests
+6. **Split test architecture**: Bun test handles Node tests, Vitest handles browser tests (each optimized for its environment)
 
 ### Vite Replaces Rollup for Browser Tests
 

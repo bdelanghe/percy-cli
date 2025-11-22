@@ -1,9 +1,31 @@
 import standard from 'eslint-config-standard'
 import globals from 'globals'
 
+// eslint-config-standard may export a function or array
+const standardConfig = typeof standard === 'function' ? standard() : standard
+const standardArray = Array.isArray(standardConfig) ? standardConfig : [standardConfig]
+
 export default [
+  // Ignore patterns (matching .gitignore)
+  {
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/build/**',
+      '**/coverage/**',
+      '**/.nyc_output/**',
+      '**/.local-chromium/**',
+      '**/.DS_Store',
+      '**/.releases/**',
+      '**/.secrets/**',
+      '**/result/**',
+      '**/packs/**',
+      'packages/logger/test/client.js',
+      'packages/sdk-utils/test/client.js'
+    ]
+  },
   // Base configuration for all files
-  ...(Array.isArray(standard) ? standard : [standard]),
+  ...standardArray,
   {
     languageOptions: {
       globals: {

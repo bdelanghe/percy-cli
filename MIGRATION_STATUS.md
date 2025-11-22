@@ -106,27 +106,48 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
   - Removed `build:binary` script from root package.json (Bun --compile experimental path)
   - Canonical binary is now Nix-wrapped Node CLI only
 
+### 6. Dev Dependencies Modernization (ESLint 9 Upgrade)
+- **ESLint 7.x → 9.x**: Aggressive upgrade to latest ESLint with flat config migration
+  - Migrated from `.eslintrc` YAML format to `eslint.config.js` flat config format
+  - Removed all 17 test directory `.eslintrc` files (consolidated into root flat config)
+  - Replaced `eslint-plugin-node` with `eslint-plugin-n` (ESLint 9 compatible)
+  - Added `globals` package for ESLint 9 flat config support
+- **ESLint plugins updated**:
+  - `eslint-config-standard`: `^16.0.2` → `^17.1.0`
+  - `eslint-plugin-import`: `^2.23.4` → `^2.31.0`
+  - `eslint-plugin-promise`: `^5.1.0` → `^6.6.0`
+- **Test stack updated**:
+  - `vitest`: `^2.0.0` → `^2.1.0`
+  - `@vitest/coverage-v8`: `^2.0.0` → `^2.1.0`
+  - `jsdom`: `^24.0.0` → `^25.0.0`
+  - `tsd`: `^0.31.2` → `^0.32.0`
+- **Utilities updated**:
+  - `memfs`: `^3.4.0` → `^3.5.0`
+
 ## Current devDependencies (Root)
 
 At the root, the devDependencies are intentionally minimal:
 
 **Linting**
-- eslint
-- eslint-config-standard
-- eslint-plugin-import
-- eslint-plugin-node
-- eslint-plugin-promise
+- eslint ^9.0.0 (flat config format)
+- eslint-config-standard ^17.1.0
+- eslint-plugin-import ^2.31.0
+- eslint-plugin-n ^17.0.0 (replaces eslint-plugin-node for ESLint 9 compatibility)
+- eslint-plugin-promise ^6.6.0
+- globals ^15.0.0 (required for ESLint 9 flat config)
 
 **Testing**
-- vitest (browser tests)
-- @vitest/coverage-v8 (coverage for Vitest)
-- jsdom (browser-like environment)
+- vitest ^2.1.0 (browser tests)
+- @vitest/coverage-v8 ^2.1.0 (coverage for Vitest)
+- jsdom ^25.0.0 (browser-like environment)
 
 **Test utilities**
-- memfs (in-memory filesystem for tests)
-- tsd (TypeScript definition tests)
+- memfs ^3.5.0 (in-memory filesystem for tests)
+- tsd ^0.32.0 (TypeScript definition tests)
 
-**Total**: 10 development dependencies (down from 20+ in the legacy stack)
+**Total**: 11 development dependencies (down from 20+ in the legacy stack)
+
+**Note**: ESLint 9 uses the new "flat config" format (`eslint.config.js`) instead of the legacy `.eslintrc` format. All test directory `.eslintrc` files have been consolidated into the root flat config with file pattern overrides.
 
 ## How to Use
 
@@ -300,6 +321,8 @@ Vitest was chosen primarily for its Jest-compatible API (minimal test changes), 
 9. ✅ **Better browser testing**: Vitest + jsdom provides faster, simpler testing
 10. ✅ **Native ESM support**: No more bundling step for browser tests
 11. ✅ **Modern tooling**: Fully modernized toolchain
+12. ✅ **ESLint 9 flat config**: Modern configuration format, better performance, consolidated configs
+13. ✅ **Up-to-date dev dependencies**: All dev tools on latest stable versions
 
 ## Related Documentation
 

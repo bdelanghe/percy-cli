@@ -334,15 +334,69 @@ let
       mkdir -p "$HOME"
       export PATH="$PWD/node_modules/.bin:$PATH"
 
+      # Debug: Check environment
+      echo "=== Build Phase Debug ===" >&2
+      echo "Bun version: $(bun --version 2>&1 || echo 'failed')" >&2
+      echo "Current directory: $(pwd)" >&2
+      echo "Source exists: $(test -f ./packages/cli/src/bin.js && echo 'yes' || echo 'no')" >&2
+      echo "Node modules: $(test -d node_modules && echo 'yes' || echo 'no')" >&2
+      
       # Build the binary using Bun compile
       # This creates a standalone executable with Bun runtime
-      bun build ./packages/cli/src/bin.js --compile --outfile=./percy
+      echo "Running: bun build ./packages/cli/src/bin.js --compile --outfile=./percy" >&2
+      set +e
+      bun build ./packages/cli/src/bin.js --compile --outfile=./percy 2>&1
+      BUILD_EXIT=$?
+      set -e
+      
+      echo "Build exit code: $BUILD_EXIT" >&2
+      echo "Files after build:" >&2
+      ls -lah ./ | head -10 >&2 || true
+      
+      # Verify the binary was created and is not empty
+      if [ ! -f ./percy ]; then
+        echo "Error: Bun compile did not produce ./percy" >&2
+        echo "Searching for any percy files:" >&2
+        find . -name "*percy*" -type f 2>/dev/null | head -10 >&2 || true
+        exit 1
+      fi
+      
+      BINARY_SIZE=$(stat -f%z ./percy 2>/dev/null || stat -c%s ./percy 2>/dev/null || echo "0")
+      if [ "$BINARY_SIZE" -eq 0 ]; then
+        echo "Error: Binary ./percy is empty (0 bytes)" >&2
+        echo "File info:" >&2
+        ls -lah ./percy >&2
+        file ./percy >&2 || true
+        echo "Checking for other output files:" >&2
+        find . -name "percy*" -o -name "*.exe" 2>/dev/null | head -10 >&2 || true
+        exit 1
+      fi
+      
+      echo "Binary created successfully: $(ls -lh ./percy)" >&2
+      echo "Binary size: $BINARY_SIZE bytes" >&2
     '';
 
     installPhase = ''
       mkdir -p "$out/bin"
+      
+      # Verify binary exists before copying
+      if [ ! -f ./percy ] || [ ! -s ./percy ]; then
+        echo "Error: Binary ./percy is missing or empty in installPhase" >&2
+        ls -la ./
+        exit 1
+      fi
+      
       cp ./percy "$out/bin/percy"
       chmod +x "$out/bin/percy"
+      
+      # Verify the copy succeeded
+      if [ ! -f "$out/bin/percy" ] || [ ! -s "$out/bin/percy" ]; then
+        echo "Error: Failed to copy binary to $out/bin/percy" >&2
+        ls -la "$out/bin/"
+        exit 1
+      fi
+      
+      echo "Binary installed successfully: $out/bin/percy ($(stat -f%z "$out/bin/percy" 2>/dev/null || stat -c%s "$out/bin/percy" 2>/dev/null) bytes)"
     '';
 
     meta = {

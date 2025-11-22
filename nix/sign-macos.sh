@@ -2,7 +2,7 @@
 set -e -o pipefail
 
 # Standalone macOS signing and notarization script
-# Usage: ./scripts/nix/sign-macos.sh <binary-path> [output-zip-name]
+# Usage: ./nix/sign-macos.sh <binary-path> [output-zip-name]
 #
 # Environment variables required:
 #   APPLE_DEV_CERT - Base64-encoded .p12 certificate
@@ -50,7 +50,7 @@ ORIGINAL_BINARY_PATH="$BINARY_PATH"
 # Get absolute path to binary and script directory
 BINARY_PATH=$(cd "$(dirname "$BINARY_PATH")" && pwd)/$(basename "$BINARY_PATH")
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENTITLEMENTS="$SCRIPT_DIR/../files/entitlement.plist"
+ENTITLEMENTS="$SCRIPT_DIR/../scripts/files/entitlement.plist"
 
 # Define keychain path (use standard location, defined early for cleanup function)
 KEYCHAIN_PATH="$HOME/Library/Keychains/percy.keychain"

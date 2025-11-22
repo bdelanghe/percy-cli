@@ -3,6 +3,7 @@ import os from 'os';
 import url from 'url';
 import path from 'path';
 import Module from 'module';
+import { vi } from 'vitest';
 
 // Reset various global @percy/config internals for testing
 export async function resetPercyConfig(all) {
@@ -47,9 +48,9 @@ export async function mockfs({
   global.__MOCK_IMPORTS__?.clear();
 
   // when .js files are created, also mock the module for importing
-  spyOn(vol, 'writeFileSync').and.callFake((...args) => {
+  vi.spyOn(vol, 'writeFileSync').mockImplementation((...args) => {
     if (JS_FILE_REG.test(args[0])) mockFileModule(...args);
-    return vol.writeFileSync.and.originalFn.apply(vol, args);
+    return vol.writeFileSync.originalImplementation?.apply(vol, args);
   });
 
   // initial volume contents include the cwd and tmpdir
@@ -76,9 +77,9 @@ export async function mockfs({
   let installFakes = (og, fake) => {
     for (let k in og) {
       if (k in fake && typeof og[k] === 'function' && !FS_CLASSES.includes(k)) {
-        spyOn(og, k).and.callFake((...args) => bypass.some(p => (
+        vi.spyOn(og, k).mockImplementation((...args) => bypass.some(p => (
           typeof p === 'function' ? p(...args) : (p === args[0])
-        )) ? og[k].and.originalFn(...args) : fake[k](...args));
+        )) ? og[k].originalImplementation?.(...args) : fake[k](...args));
       }
     }
   };

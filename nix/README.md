@@ -1,191 +1,220 @@
-# Nix Build System for Percy CLI
+# Nix Build Scripts
 
-This directory contains Nix-specific build configuration for building the Percy CLI binary using Bun.
+This directory contains Nix-specific build scripts and helpers.
 
-## Overview
+## Contents
 
-The build uses Bun to manage Node.js dependencies and build the Percy CLI monorepo. The Nix integration uses `bun2nix` (from nix-community) to provide offline, reproducible builds. Bun reads `bun.lockb` and installs dependencies from a pre-fetched offline cache, providing fast, reproducible builds with native workspace support.
+- `build-windows.sh` - Windows-specific build script for Percy CLI
+- `sign-macos.sh` - macOS signing and notarization script
 
-## Architecture
+## Related Files
 
-The build follows a multi-layer architecture:
+- `flake.nix` - Main Nix flake configuration (repository root)
+- `.github/workflows/nix/executable.yml` - Nix-based CI workflow
 
-1. **Layer 1: Patched Source** (`nix/src-patched.nix`)
-   - Removes `"type": "module"` declarations from package.json files
-   - Ensures consistent CommonJS semantics throughout the build
+## Build Architecture
 
-2. **Layer 2: Node Tree** (`default.nix` - nodeTree)
-   - Uses `bun2nix` to fetch dependencies offline from `bun.nix`
-   - Uses Bun to install dependencies from `bun.lockb` using offline cache
-   - Includes all devDependencies (babel, etc.)
-   - Runs `bun run build_cjs` to compile all packages using Bun's workspace support
+The Nix flake uses a **three-layer, cache-friendly architecture** to build the Percy CLI binary. This design maximizes Nix store and binary cache reuse while maintaining clean separation of concerns.
 
-3. **Layer 3: Prepared CLI** (`nix/prepared-cli.nix`)
-   - Applies CLI-specific patches for pkg packaging
-   - Patches `percy.js` imports and `NODE_ENV`
+### Three-Layer Architecture
 
-4. **Layer 4: Binary** (`nix/pkg-wrapper.nix`)
-   - Uses `pkg` to create platform-specific binaries
-   - Supports: x86_64-linux, aarch64-linux, x86_64-darwin, aarch64-darwin
+The build is split into three distinct layers, each with a specific purpose:
 
-## How bun2nix Works
+#### Layer 1: Patched Source (`patchedSrc`)
 
-The build uses `bun2nix` (from nix-community) to provide offline, reproducible builds:
+**Purpose**: Remove `"type": "module"` early so all consumers see consistent CJS semantics.
 
-1. **bun.nix**: Pre-generated file (committed to version control) that contains all dependency fetch URLs and hashes
-2. **bun2nix.fetchBunDeps**: Fetches all dependencies offline using the information in `bun.nix`
-3. **bun2nix.hook**: Sets up Bun to use the offline cache during `bun install`
-4. **Bun install**: Installs dependencies from the offline cache (no network access needed)
-5. **Bun build**: Builds all packages using Bun's native workspace support
+- **Input**: Upstream source (repository root)
+- **Output**: Same tree with `"type": "module"` removed from relevant `package.json` files
+- **Characteristics**:
+  - Arch-agnostic (pure text manipulation)
+  - Cache-friendly (only changes when source changes)
+  - Pure derivation (no network, no environment dependencies)
 
-The build phase in `default.nix` runs:
-1. `bun install --frozen-lockfile` (uses offline cache via bun2nix.hook)
-2. `bun run build_cjs` to build all packages using workspace support
-3. `babel` for CJS conversion (if needed)
+**Why early?** The `"type": "module"` removal changes how Node resolves modules, so it must be visible to:
+- Bun during `bun run build`
+- Node during `bun run build_cjs`
+- Any runtime that loads these packages
 
-This provides:
-- **Offline builds**: No network access required during Nix builds
-- **Reproducibility**: All dependencies are pinned with hashes
-- **Speed**: Bun's fast installs combined with Nix's binary cache
+#### Layer 2: Bun Build (`nodeTree`)
 
-## Building
+**Purpose**: Build the complete JS project with dependencies and compiled output.
 
-### Build the binary for your system:
+- **Input**: `patchedSrc` (Layer 1) + `bun.lockb` (or generates it)
+- **Output**: Complete JS project ready for packaging (includes `node_modules`, `dist/`, built artifacts)
+- **Characteristics**:
+  - Arch-agnostic (if no native addons)
+  - Highly cache-friendly (heaviest layer, reusable across systems)
+  - Uses Bun with offline cache for deterministic dependency resolution
+
+**Build steps**:
+- Installs dependencies via Bun (offline, using local registry server with offline cache)
+- Runs `bun run build` to compile source using Bun's bundler
+- Runs `bun run build_cjs` to convert ES6 to CommonJS if needed
+- Copies build artifacts to packages
+
+#### Layer 3: Binary Packaging (`percy-cli`)
+
+**Purpose**: Apply CLI-specific patches and wrap with `pkg` to create platform-specific binaries.
+
+- **Input**: `nodeTree` (Layer 2)
+- **Output**: Platform-specific binary executable (`percy`)
+- **Characteristics**:
+  - Per-system (pkg target varies by architecture)
+  - Lightweight (just text edits + pkg invocation)
+  - CLI-specific mutations isolated here
+
+**Steps**:
+- **patchPhase**: Applies CLI-specific patches:
+  - Prepends `import { cli } from '@percy/cli';` to `packages/cli/dist/percy.js`
+  - Injects `process.env.NODE_ENV = "executable";` into `packages/cli/bin/run.cjs`
+- **installPhase**: Runs `pkg` to create the binary and normalizes output name
+
+### Cache-Friendly Design
+
+This layering provides maximum cache reuse:
+
+1. **Layer 1 + Layer 2 are arch-agnostic**: If there are no native addons, the same build can be reused for all `*-linux` or `*-darwin` systems via binary cache
+2. **Layer 1 + Layer 2 are stable**: Only change when `bun.lockb` or source changes
+3. **Layer 3 is cheap**: Fast per-system derivation that just wraps the pre-built JS
+
+### Patching Strategy
+
+Patching is split across layers based on when and why it's needed:
+
+- **Layer 1 (patchedSrc)**: Module semantics fix
+  - Removes `"type": "module"` from package.json files
+  - Must happen early so all build steps see consistent module resolution
+
+- **Layer 3 (percy-cli)**: CLI-specific packaging hacks
+  - Prepends import to `percy.js`
+  - Injects NODE_ENV in `run.cjs`
+  - These only affect the final executable, not the build process
+
+### Reusable Scripts
+
+The binary packaging logic is available as `scripts/percy-make-binary.sh` for reuse in CI or non-Nix release jobs:
+
 ```bash
-nix build
+./scripts/percy-make-binary.sh <pkg-target> <output-path>
 ```
 
-### Build for a specific system:
+This script:
+- Runs `pkg` to create the binary
+- Handles pkg's variable output naming
+- Normalizes to a single output path
+
+Nix uses the same logic inline in `installPhase` for consistency.
+
+### Lockfile Updates
+
+When dependencies change, `bun.lockb` should be updated:
+
 ```bash
-nix build .#percy-cli
+bun install
 ```
 
-### Build all layers:
-```bash
-nix build .#src-patched
-nix build .#node-tree
-nix build .#prepared-cli
-nix build .#percy-cli
+The lockfile is used by Bun during the Nix build. For reproducible builds, commit `bun.lockb` to version control.
+
+## Building x86_64-darwin on Apple Silicon
+
+If you're on an Apple Silicon (aarch64-darwin) Mac and want to build x86_64-darwin (Intel) binaries locally, you can use Rosetta 2 emulation.
+
+### Setup
+
+1. **Install Rosetta 2** (if not already installed):
+   ```bash
+   softwareupdate --install-rosetta
+   ```
+
+2. **Configure Nix to support x86_64-darwin**:
+
+   Add to your Nix configuration:
+   
+   **For `/etc/nix/nix.conf` or `~/.config/nix/nix.conf`:**
+   ```conf
+   extra-platforms = x86_64-darwin
+   ```
+   
+   **For Nix-Darwin or Home Manager:**
+   ```nix
+   nix.settings.extra-platforms = [ "x86_64-darwin" ];
+   ```
+
+3. **Build the x86_64-darwin package**:
+   ```bash
+   nix build .#packages.x86_64-darwin.percy-cli
+   ```
+   
+   Or using the default package:
+   ```bash
+   nix build .#percy-cli --system x86_64-darwin
+   ```
+
+### How It Works
+
+- Nix will use your aarch64 host to run x86_64 tools under Rosetta 2
+- The build will produce a store path for x86_64-darwin (Intel binary)
+- This allows you to build Intel macOS binaries locally without needing a separate Intel Mac
+
+### Alternative: Remote Builder
+
+If you have an Intel Mac (or CI runner) available, you can configure it as a remote Nix builder for faster, native x86_64-darwin builds:
+
+```conf
+builders = ssh://builder@intel-mac x86_64-darwin - 4 1 big-parallel,kvm
 ```
 
-## Running Checks
+Then use the same build commands - Nix will automatically offload to the remote builder.
 
-Run all checks (builds all layers and verifies binary):
+## Flake Check Usage
+
+The flake defines packages for multiple systems (x86_64-linux, aarch64-linux, x86_64-darwin, aarch64-darwin), but local development machines typically can only build for their native system.
+
+### Local Development
+
+On your local machine (e.g., an aarch64-darwin Mac), use:
+
 ```bash
+# Check only the current system (recommended)
 nix flake check
+
+# Or explicitly specify the system
+nix flake check --system aarch64-darwin
 ```
 
 This will:
-- Build all layers (src-patched, node-tree, prepared-cli, percy-cli)
-- Verify the binary exists and is executable
-- Run a smoke test (--version or --help)
+- Only check packages for systems that can be built locally (darwin systems on macOS)
+- Skip Linux packages that require remote builders or cross-compilation
+- Avoid errors about "required system not available"
 
-### Run specific checks:
+The flake defines conditional checks that only run for darwin systems when on macOS, allowing local checks to succeed while keeping multi-system package definitions for CI.
+
+### Why `--all-systems` Fails Locally
+
+Running `nix flake check --all-systems` on a macOS machine will fail because:
+
+1. It attempts to build Linux packages (x86_64-linux, aarch64-linux) that cannot be built on macOS without:
+   - Remote Linux builders configured in `nix.conf`
+   - Cross-compilation setup
+   - A Linux VM or container
+
+2. The error messages will show:
+   ```
+   Required system: 'x86_64-linux'
+   Current system: 'aarch64-darwin'
+   Reason: required system or feature not available
+   ```
+
+This is expected behavior - your local machine simply cannot build those systems.
+
+### CI Usage
+
+In CI environments (like GitHub Actions) that have proper builders for all target systems, you can use:
+
 ```bash
-nix build .#checks.aarch64-darwin.binary_exists
-nix build .#checks.aarch64-darwin.binary_smoke_test
+nix flake check --all-systems
 ```
 
-## Updating Dependencies
+The CI workflow (`.github/workflows/nix/executable.yml`) builds each system separately on appropriate runners, which is the correct approach for multi-system builds.
 
-When dependencies change, you can use Nix apps to generate the required lockfiles:
-
-### Using Nix Apps (Recommended)
-
-1. Update both lockfiles at once:
-   ```bash
-   nix run .#update-lockfiles
-   ```
-
-2. Or update them separately:
-   ```bash
-   # Generate bun.lockb
-   nix run .#bun-install
-   
-   # Generate bun.nix from bun.lockb
-   nix run .#bun2nix-generate
-   ```
-
-3. Commit both files:
-   ```bash
-   git add bun.lockb bun.nix
-   git commit -m "Update dependencies"
-   ```
-
-4. Rebuild:
-   ```bash
-   nix build
-   ```
-
-### Using Bun Directly
-
-Alternatively, you can use Bun directly:
-
-1. Update `bun.lockb`:
-   ```bash
-   bun install
-   ```
-
-2. Regenerate `bun.nix`:
-   ```bash
-   bunx bun2nix -o bun.nix
-   ```
-
-3. Commit both files:
-   ```bash
-   git add bun.lockb bun.nix
-   git commit -m "Update dependencies"
-   ```
-
-**Important**: Both `bun.lockb` and `bun.nix` must be committed to version control for reproducible Nix builds. The `bun.nix` file should be generated manually (not during the build process) to ensure reproducibility.
-
-## Troubleshooting
-
-### Bun not found
-If you see "bun not found" errors:
-- Ensure Bun is available in nixpkgs for your system
-- Check that `nativeBuildInputs` includes `bun` in `flake.nix`
-- Verify Bun is installed in the dev shell: `nix develop`
-
-### Lockfile issues
-If `bun.lockb` doesn't exist:
-- Bun will generate it automatically during `bun install`
-- For reproducible builds, commit `bun.lockb` to version control
-- Use `bun install --frozen-lockfile` in CI/Nix builds
-
-If `bun.nix` doesn't exist or is outdated:
-- Regenerate it using Nix: `nix run .#bun2nix-generate`
-- Or manually: `bunx bun2nix -o bun.nix`
-- Commit the updated `bun.nix` file
-- The build will fail if `bun.nix` is missing or doesn't match `bun.lockb`
-
-### Build failures
-- Check the build logs: `nix log /nix/store/...`
-- Verify all source files are present
-- Ensure `bun.lockb` is up to date (or let Bun generate it)
-- Check that workspace packages are correctly configured
-
-### Native module issues
-If you encounter native module issues:
-- Verify the native module is compatible with Bun
-- Check that platform-specific packages (e.g., `@nx/nx-darwin-arm64`) are included
-- Ensure Bun is using the correct Node.js version for compatibility
-
-## Files
-
-- `flake.nix` - Main flake configuration with bun2nix integration
-- `default.nix` - Main package definition using bun2nix
-- `bun.nix` - Pre-generated dependency cache (committed to version control)
-- `bun.lockb` - Bun's binary lockfile (committed to version control)
-- `nix/src-patched.nix` - Source patching layer
-- `nix/prepared-cli.nix` - CLI preparation layer
-- `nix/pkg-wrapper.nix` - pkg binary wrapper
-- `nix/percy-config.nix` - Build configuration (versions, targets)
-- `nix/dev-shell.nix` - Development shell with Bun
-
-## Related Documentation
-
-- [Bun Documentation](https://bun.sh/docs)
-- [bun2nix Documentation](https://github.com/nix-community/bun2nix)
-- [Nix Flakes](https://nixos.wiki/wiki/Flakes)
-- [Percy CLI Development Guide](../packages/cli/README.md)

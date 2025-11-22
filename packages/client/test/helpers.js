@@ -1,5 +1,6 @@
 import EventEmitter from 'events';
 import url from 'url';
+import { vi, expect } from 'vitest';
 
 // Mock response class used for mock requests
 export class MockResponse extends EventEmitter {
@@ -71,26 +72,34 @@ export class MockRequest extends EventEmitter {
   }
 }
 
-// Mock request responses using jasmine spies
+// Mock request responses using Vitest spies
 export async function mockRequests(baseUrl, defaultReply = () => [200]) {
   let { protocol, hostname, pathname } = new URL(baseUrl);
   let { default: http } = await import(protocol === 'https:' ? 'https' : 'http');
 
-  if (!jasmine.isSpy(http.request)) {
-    spyOn(http, 'request').and.callFake((...a) => new MockRequest(null, ...a));
-    spyOn(http, 'get').and.callFake((...a) => new MockRequest(null, ...a).end());
+  if (!vi.isMockFunction(http.request)) {
+    vi.spyOn(http, 'request').mockImplementation((...a) => new MockRequest(null, ...a));
+    vi.spyOn(http, 'get').mockImplementation((...a) => new MockRequest(null, ...a).end());
     mockRequests.spies = new Map();
   }
 
-  let any = jasmine.anything();
+  let any = expect.anything();
   let match = o => o.hostname === hostname && (o.path ?? o.pathname).startsWith(pathname);
-  let reply = jasmine.createSpy('reply').and.callFake(defaultReply);
+  let reply = vi.fn(defaultReply);
   let spies = mockRequests.spies.get(baseUrl) ?? {};
 
-  spies.request = spies.request ?? http.request.withArgs({ asymmetricMatch: match });
-  spies.request.and.callFake((...a) => new MockRequest(reply, ...a));
-  spies.get = spies.get ?? http.get.withArgs({ asymmetricMatch: u => match(new URL(u)) }, any, any);
-  spies.get.and.callFake((...a) => new MockRequest(reply, ...a).end());
+  spies.request = spies.request ?? vi.spyOn(http, 'request').mockImplementation((...args) => {
+    if (match(args[0])) {
+      return new MockRequest(reply, ...args);
+    }
+    return http.request.originalImplementation?.(...args);
+  });
+  spies.get = spies.get ?? vi.spyOn(http, 'get').mockImplementation((...args) => {
+    if (match(new URL(args[0]))) {
+      return new MockRequest(reply, ...args).end();
+    }
+    return http.get.originalImplementation?.(...args);
+  });
   mockRequests.spies.set(baseUrl, spies);
 
   return reply;

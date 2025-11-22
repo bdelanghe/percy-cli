@@ -101,31 +101,24 @@ async function main({
       process.stdout.write('\n');
     }
   } else if (testNode) {
-    // $ jasmine <cwd>/test/**/*.test.js --config <config>
-    let { default: Jasmine } = await import('jasmine');
-    let { SpecReporter } = await import('jasmine-spec-reporter');
-    let jasmine = new Jasmine();
-
-    jasmine.loadConfig({
-      spec_dir: 'test',
-      spec_files: ['**/*.test.js'],
-      helpers: [path.resolve(filename, '../test-helpers.js')],
-      random: false
+    // $ bun test <cwd>/test/**/*.test.js
+    console.log(colors.magenta('Running node tests with Bun...\n'));
+    
+    let bunBin = path.resolve(filename, '../../node_modules/.bin/bun');
+    // Fallback to system bun if not found in node_modules
+    let bunCmd = fs.existsSync(bunBin) ? bunBin : 'bun';
+    
+    // Bun test runner arguments
+    let bunArgs = ['test'];
+    
+    // Add test files pattern
+    let testPattern = path.join(cwd, 'test/**/*.test.js');
+    bunArgs.push(testPattern);
+    
+    await child('spawn', bunCmd, bunArgs, {
+      cwd: cwd,
+      env: { ...process.env, NODE_ENV: 'test' }
     });
-
-    jasmine.clearReporters();
-    jasmine.addReporter(new SpecReporter({
-      spec: {
-        displayPending: true
-      },
-      summary: {
-        displayPending: false,
-        displayStacktrace: 'pretty'
-      }
-    }));
-
-    console.log(colors.magenta('Running node tests...\n'));
-    await jasmine.execute();
   } else if (testBrowsers) {
     // $ vitest run --config <root>/vitest.config.mts
     console.log(colors.magenta('Running browser tests with Vitest...'));

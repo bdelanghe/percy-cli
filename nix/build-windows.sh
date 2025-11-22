@@ -3,7 +3,7 @@ set -e -o pipefail
 
 # Windows-specific build script for Percy CLI
 # This script builds Windows executables without signing
-# Usage: ./scripts/nix/build-windows.sh
+# Usage: ./nix/build-windows.sh
 
 function check_dependencies() {
   if ! command -v gsed &> /dev/null; then

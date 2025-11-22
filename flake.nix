@@ -58,53 +58,42 @@
               # Suppress npm deprecation warnings
               export npm_config_loglevel=error
 
-              # mkYarnPackage structures things differently - check where we are
-              echo "=== Checking mkYarnPackage structure ===" >&2
-              echo "Current directory: $PWD" >&2
-              echo "Directory contents:" >&2
-              ls -la 2>&1 | head -20
-              echo "" >&2
-              
-              # mkYarnPackage might put source in a subdirectory or use a different structure
-              # Check if lerna is already available in node_modules/.bin
+              # mkYarnPackage structures things: source is in deps/percy-cli/, cache is at root
+              # Check if lerna is already available
+              LERNA_PATH=""
               if [ -f node_modules/.bin/lerna ]; then
-                echo "✓ lerna found in node_modules/.bin" >&2
+                LERNA_PATH="node_modules/.bin/lerna"
+              elif [ -f deps/percy-cli/node_modules/.bin/lerna ]; then
+                LERNA_PATH="deps/percy-cli/node_modules/.bin/lerna"
+              fi
+              
+              if [ -n "$LERNA_PATH" ]; then
+                echo "✓ lerna found at: $LERNA_PATH" >&2
               else
-                echo "✗ lerna NOT found in node_modules/.bin" >&2
-                echo "Checking node_modules/.bin contents:" >&2
-                ls -la node_modules/.bin/ 2>&1 | head -20 || echo "node_modules/.bin does not exist" >&2
-                echo "" >&2
+                echo "✗ lerna NOT found, installing devDependencies..." >&2
                 
-                # mkYarnPackage might have installed with --production
-                # Find package.json - it might be in a subdirectory
-                PKG_JSON=""
-                if [ -f package.json ]; then
-                  PKG_JSON="package.json"
-                elif [ -f deps/*/package.json ]; then
-                  PKG_JSON=$(ls deps/*/package.json | head -1)
-                  echo "Found package.json in: $PKG_JSON" >&2
-                fi
-                
-                if [ -n "$PKG_JSON" ]; then
-                  echo "Installing devDependencies from $PKG_JSON..." >&2
-                  # Change to directory containing package.json if needed
-                  PKG_DIR=$(dirname "$PKG_JSON")
-                  if [ "$PKG_DIR" != "." ]; then
-                    cd "$PKG_DIR"
-                    echo "Changed to directory: $PWD" >&2
+                # mkYarnPackage puts source in deps/percy-cli/ but cache is configured at root
+                # We need to install from the source directory but use the root's cache config
+                if [ -d deps/percy-cli ]; then
+                  echo "Installing devDependencies in deps/percy-cli/..." >&2
+                  
+                  # Copy .yarnrc from root to subdirectory so yarn can find the offline cache
+                  if [ -f .yarnrc ] && [ ! -f deps/percy-cli/.yarnrc ]; then
+                    cp .yarnrc deps/percy-cli/.yarnrc
+                    echo "Copied .yarnrc to deps/percy-cli/ for offline cache access" >&2
                   fi
                   
+                  cd deps/percy-cli
                   yarn install --offline --frozen-lockfile --production=false --ignore-scripts 2>&1 || {
                     echo "ERROR: Failed to install devDependencies" >&2
                     exit 1
                   }
+                  cd ../..
                 else
-                  echo "ERROR: Could not find package.json" >&2
-                  echo "This suggests mkYarnPackage structure is different than expected." >&2
+                  echo "ERROR: deps/percy-cli directory not found" >&2
                   exit 1
                 fi
               fi
-              echo "=== Structure check complete ===" >&2
               echo "" >&2
 
               # Add node_modules/.bin to PATH for babel, lerna, and other build tools

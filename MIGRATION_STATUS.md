@@ -296,19 +296,147 @@ bunx bun2nix -o bun.nix        # Regenerate bun.nix
 
 **Important**: Both `bun.lockb` and `bun.nix` must be committed to version control for reproducible Nix builds.
 
-## Alternatives Considered
+## Historical Reference: Karma Migration
 
-During the migration from Karma to modern browser testing, several options were evaluated:
+This section documents the original migration plan from Karma to modern browser testing. The migration was completed using **Vitest + jsdom** instead of the originally recommended Playwright.
 
-**Playwright** (originally recommended): Excellent browser automation but requires significant test rewrites and is heavier than needed.
+### Original Problem
 
-**Vitest + jsdom** (chosen): Jest-compatible API for easier migration from Jasmine, better Bun integration, Vite replaces Rollup entirely, faster execution without browser startup, and native ESM support. The split architecture uses Bun test for Node tests and Vitest for browser tests, each optimized for its environment.
+The project was using Karma 6.0.2 with Rollup for browser-based testing. This setup had several limitations:
+- Complex configuration with multiple files (`karma.config.cjs` + `rollup.config.js`)
+- Slower test execution (browser startup overhead)
+- Rollup dependency only used for tests
+- Less modern tooling integration
 
-**Web Test Runner**: Lightweight alternative but smaller community.
+### Alternatives Considered
 
-**Puppeteer + Jest/Vitest**: Mature but requires manual browser management and only supports Chromium.
+#### Option 1: Playwright Test (Originally Recommended)
+**Pros:**
+- Modern, actively maintained by Microsoft
+- Excellent browser automation and testing
+- Built-in test runner
+- Great debugging tools (UI mode, trace viewer)
+- Supports multiple browsers (Chromium, Firefox, WebKit)
 
-Vitest was chosen primarily for its Jest-compatible API (minimal test changes), seamless Bun integration, and ability to completely remove Rollup (Vite provides Rollup capabilities internally).
+**Cons:**
+- Different API from Jasmine (would need test migration)
+- Requires learning new APIs
+- Heavier than some alternatives
+
+**Migration Complexity:** Medium-High (test rewrite needed)
+
+#### Option 2: Vitest with Browser Mode (Chosen)
+**Pros:**
+- Jest-compatible API (familiar if using Jest)
+- Built-in browser mode support (uses Vite internally)
+- Fast and modern
+- Great TypeScript support
+- Can use same test files for Node and browser
+- Built-in coverage
+- Good Bun integration potential
+- **Vite replaces Rollup**: Vite is the engine, providing Rollup capabilities without direct Rollup dependency
+
+**Cons:**
+- Browser mode is relatively new (less mature than Playwright)
+- May have compatibility issues with some browser APIs
+- Less mature than Playwright for browser testing
+
+**Migration Complexity:** Medium (test rewrite needed, but similar to Jest)
+
+**Note:** Vitest was chosen because it provides Jest-compatible API (easier migration from Jasmine), better Bun integration, and Vite replaces Rollup entirely.
+
+#### Option 3: Web Test Runner (@web/test-runner)
+**Pros:**
+- Modern, lightweight alternative to Karma
+- Minimal configuration
+- Uses native ES modules (no bundling needed)
+- Supports multiple browsers
+
+**Cons:**
+- Smaller community than Playwright
+- Less feature-rich than Playwright
+
+**Migration Complexity:** Low-Medium (minimal test changes)
+
+#### Option 4: Puppeteer + Jest/Vitest
+**Pros:**
+- Puppeteer is mature and well-documented
+- Can use Jest/Vitest for test framework
+
+**Cons:**
+- Requires manual browser management
+- More setup complexity
+- Puppeteer only supports Chromium (not Firefox)
+
+**Migration Complexity:** Medium-High
+
+### Why Vitest Was Chosen
+
+Despite the original recommendation for Playwright, **Vitest + jsdom** was chosen because:
+
+1. **Easier migration**: Jest-compatible API means existing Jasmine tests require minimal changes
+2. **Better Bun integration**: Vitest works seamlessly with Bun
+3. **Vite replaces Rollup**: Complete Rollup removal possible (Vite uses Rollup internally)
+4. **Faster execution**: jsdom doesn't require browser startup
+5. **Native ESM support**: No pre-bundling step needed
+6. **Unified test runner**: Can use Vitest for both Node and browser tests
+
+### Vite Replaces Rollup for Browser Tests
+
+**Key Insight**: Vite can replace Rollup for almost everything Rollup is used for in Karma today.
+
+#### How Vite Replaces Rollup
+
+1. **Vite uses Rollup internally**: Vite's production build pipeline is Rollup with a configuration layer
+2. **For browser tests, Vite simplifies everything**:
+   - Modern test runners (Playwright, Vitest) understand ES modules natively
+   - No more pre-bundling step required
+   - No more `karma-rollup-preprocessor`
+   - Vite becomes the dev server + transformer if needed
+
+3. **With Vitest Browser Mode**:
+   - Vite is the engine (Vitest is built on Vite like Jest is built on its transformer)
+   - Full Vite capabilities available
+
+#### What This Means
+
+- ✅ **Complete Rollup removal possible**: After Karma migration, Rollup can be fully removed
+- ✅ **Simpler architecture**: No more separate bundling step for tests
+- ✅ **Better performance**: Native ESM support means faster test execution
+- ✅ **Modern tooling**: Vite provides Rollup's capabilities with better DX
+
+### Implementation Approach
+
+The migration was completed using Vitest with jsdom environment:
+
+1. **Installed Vitest + jsdom**: Added vitest, @vitest/ui, @vitest/coverage-v8, jsdom
+2. **Created Vitest configuration**: `vitest.config.mts` with jsdom environment
+3. **Updated test helpers**: Adapted for Vitest (removed Karma-specific code)
+4. **Updated test infrastructure**: Modified `scripts/test.js` to use Vitest
+5. **Removed Karma**: Deleted all Karma dependencies and `karma.config.cjs`
+6. **Removed Rollup**: Deleted `rollup.config.js` and rollup config from package.json files
+
+### Challenges and Solutions
+
+#### 1. Test Framework Migration
+- **Challenge**: Converting Jasmine tests to Vitest syntax
+- **Solution**: Vitest's Jest-compatible API made migration straightforward
+- **Impact**: Low - minimal test file updates needed
+
+#### 2. Coverage Collection
+- **Challenge**: Karma uses istanbul-lib-coverage, need equivalent
+- **Solution**: Use Vitest's built-in v8 coverage provider
+- **Impact**: Low - well-supported in Vitest
+
+#### 3. Test Helpers
+- **Challenge**: Browser test helpers may need updates
+- **Solution**: Migrated helpers to use Vitest's expect API
+- **Impact**: Low - helper functions updated easily
+
+#### 4. Browser Compatibility
+- **Challenge**: jsdom doesn't distinguish between browsers
+- **Solution**: Most tests work with jsdom; browser-specific tests can be handled separately if needed
+- **Impact**: Low - jsdom covers most browser testing needs
 
 ## Migration Benefits
 

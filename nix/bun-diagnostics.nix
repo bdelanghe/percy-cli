@@ -17,16 +17,18 @@ rec {
     # Allow cache dir to be passed as first argument, or use env var
     if [ -n "$1" ]; then
       cache_dir="$1"
+      echo "=== Bun Cache Diagnostics ===" >&2
+      echo "Using cache directory from argument: $cache_dir" >&2
     else
       cache_dir="''${BUN_INSTALL_CACHE_DIR:-}"
+      echo "=== Bun Cache Diagnostics ===" >&2
+      echo "Using cache directory from BUN_INSTALL_CACHE_DIR env var: $cache_dir" >&2
     fi
-    
-    echo "=== Bun Cache Diagnostics ===" >&2
     echo "" >&2
     
     # Use cache_dir from argument or environment variable
     if [ -n "$cache_dir" ]; then
-      echo "✓ BUN_INSTALL_CACHE_DIR is set: $cache_dir" >&2
+      echo "✓ Cache directory: $cache_dir" >&2
       
       if [ -d "$cache_dir" ]; then
         echo "✓ Cache directory exists" >&2
@@ -82,12 +84,14 @@ rec {
         export HOME="$TMPDIR/home"
         mkdir -p "$HOME"
         
-        # Verify variable is set before running diagnostics
-        echo "BUN_INSTALL_CACHE_DIR is set to: $BUN_INSTALL_CACHE_DIR" >&2
-        echo "bunDeps path: ${bunDeps}" >&2
+        # Verify paths before running diagnostics
+        bunDepsPath="${bunDeps}"
+        echo "bunDeps path (Nix variable): $bunDepsPath" >&2
+        echo "BUN_INSTALL_CACHE_DIR env var: $BUN_INSTALL_CACHE_DIR" >&2
         
-        # Run diagnostics - pass cache dir explicitly using the Nix variable directly
-        check-bun-cache ${bunDeps}
+        # Run diagnostics - pass cache dir explicitly using the local variable
+        # This ensures we're passing the correct path, not relying on env var
+        check-bun-cache "$bunDepsPath"
         
         echo "" >&2
         echo "Running bun install with --prefer-offline..." >&2

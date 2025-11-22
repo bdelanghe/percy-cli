@@ -27,8 +27,8 @@ function setup_temp_dir() {
 
 function prepare_build() {
   # Build in original directory (read-only operations)
-  yarn install
-  yarn build
+  bun install
+  bun run build
 
   # Copy necessary files to temp directory
   echo "Copying files to temporary directory..."

@@ -50,7 +50,7 @@ request](https://www.browserstack.com/contact?ref=percy#technical-support).
 ## Developing
 
 This project is built with [lerna](https://lerna.js.org/). The core libraries and CLI plugins are
-located in [./packages](./packages). Run `yarn` to install dependencies after cloning the repo and
+located in [./packages](./packages). Run `bun install` to install dependencies after cloning the repo and
 use the following scripts for various development tasks:
 
 - `yarn build` - build all packages
@@ -72,7 +72,7 @@ Individual package scripts can be invoked using yarn's
 [workspace](https://classic.yarnpkg.com/en/docs/cli/workspace/) command. For example:
 
 ```sh-session
-$ yarn workspace @percy/core test
+$ bun run --filter '@percy/core' test
 ```
 
 ### How to update Chromium revision?

@@ -32,25 +32,25 @@ The build is split into three distinct layers, each with a specific purpose:
   - Pure derivation (no network, no environment dependencies)
 
 **Why early?** The `"type": "module"` removal changes how Node resolves modules, so it must be visible to:
-- Yarn during `yarn build`
-- Node during `npm run build_cjs`
+- Bun during `bun run build`
+- Node during `bun run build_cjs`
 - Any runtime that loads these packages
 
-#### Layer 2: Yarn Build (`nodeTree`)
+#### Layer 2: Bun Build (`nodeTree`)
 
 **Purpose**: Build the complete JS project with dependencies and compiled output.
 
-- **Input**: `patchedSrc` (Layer 1) + `yarn.lock`
+- **Input**: `patchedSrc` (Layer 1) + `bun.lockb` (or generates it)
 - **Output**: Complete JS project ready for packaging (includes `node_modules`, `dist/`, built artifacts)
 - **Characteristics**:
   - Arch-agnostic (if no native addons)
   - Highly cache-friendly (heaviest layer, reusable across systems)
-  - Uses `mkYarnPackage` for offline, deterministic dependency resolution
+  - Uses Bun with offline cache for deterministic dependency resolution
 
 **Build steps**:
-- Installs dependencies via `mkYarnPackage` (offline, using `yarnConfigHook`)
-- Runs `yarn build` to compile source
-- Runs `npm run build_cjs` to convert ES6 to CommonJS
+- Installs dependencies via Bun (offline, using local registry server with offline cache)
+- Runs `bun run build` to compile source using Bun's bundler
+- Runs `bun run build_cjs` to convert ES6 to CommonJS if needed
 - Copies build artifacts to packages
 
 #### Layer 3: Binary Packaging (`percy-cli`)
@@ -75,7 +75,7 @@ The build is split into three distinct layers, each with a specific purpose:
 This layering provides maximum cache reuse:
 
 1. **Layer 1 + Layer 2 are arch-agnostic**: If there are no native addons, the same build can be reused for all `*-linux` or `*-darwin` systems via binary cache
-2. **Layer 1 + Layer 2 are stable**: Only change when `yarn.lock` or source changes
+2. **Layer 1 + Layer 2 are stable**: Only change when `bun.lockb` or source changes
 3. **Layer 3 is cheap**: Fast per-system derivation that just wraps the pre-built JS
 
 ### Patching Strategy
@@ -106,15 +106,15 @@ This script:
 
 Nix uses the same logic inline in `installPhase` for consistency.
 
-### Hash Calculation
+### Lockfile Updates
 
-When `yarn.lock` changes, the hash for `nodeTree` needs to be recalculated:
+When dependencies change, `bun.lockb` should be updated:
 
 ```bash
-nix-build .#nodeTree 2>&1 | grep got:
+bun install
 ```
 
-Then update the hash in `flake.nix` if using `outputHash` or similar attributes.
+The lockfile is used by Bun during the Nix build. For reproducible builds, commit `bun.lockb` to version control.
 
 ## Building x86_64-darwin on Apple Silicon
 

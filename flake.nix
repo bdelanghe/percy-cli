@@ -44,24 +44,20 @@
               python3
             ];
             
-            # Make offline cache available as build input
-            offlineCache = offlineCacheFiles.offline_cache;
-            
             # Build phase - use Bun for install and build with offline cache
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
 
-              # Start minimal registry server
+              # Start minimal HTTP server to serve offline cache packages
+              # Converts npm registry URLs to yarnpkg cache filename format
               REGISTRY_PORT=4873
               REGISTRY_URL="http://localhost:$REGISTRY_PORT"
               
               python3 -c "
 import http.server
 import socketserver
-import os
 import re
-import sys
 
 CACHE_DIR = '${offlineCacheFiles.offline_cache}'
 PORT = $REGISTRY_PORT
@@ -71,7 +67,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().__init__(*args, directory=CACHE_DIR, **kwargs)
     
     def do_GET(self):
-        # Handle tarball requests: convert npm URL to yarnpkg filename
+        # Convert npm registry URLs to yarnpkg cache filename format
         if self.path.endswith('.tgz'):
             match = re.match(r'/(@[^/]+/)?([^/]+)/-/\2-([^/]+)\.tgz$', self.path)
             if match:
@@ -83,7 +79,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 else:
                     filename = name + '___' + name + '-' + version + '.tgz'
                 self.path = '/' + filename
-        # For metadata requests, return 404 (Bun should use lockfile)
+        # Return 404 for metadata requests (Bun uses lockfile, not registry metadata)
         elif not self.path.endswith('.tgz'):
             self.send_response(404)
             self.end_headers()
@@ -100,15 +96,16 @@ with socketserver.TCPServer(('', PORT), Handler) as httpd:
               trap "kill $REGISTRY_PID 2>/dev/null || true" EXIT
               sleep 1
 
-              # Configure Bun to use local registry
+              # Configure Bun to use local registry server
               export BUN_INSTALL_REGISTRY="$REGISTRY_URL"
               export npm_config_registry="$REGISTRY_URL"
               echo "registry=$REGISTRY_URL" > .npmrc
 
-              # Install dependencies with Bun using offline cache
+              # Install dependencies from offline cache
               echo "Installing dependencies from offline cache..."
               bun install --frozen-lockfile --no-save || bun install --no-save
 
+              # Clean up registry server
               kill $REGISTRY_PID 2>/dev/null || true
               trap - EXIT
 

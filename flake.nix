@@ -62,10 +62,6 @@
           # bun-deps-verify: Verification info about bunDeps derivation
           bun-deps-verify = cliPackages.bun-deps-verify;
           
-          # node-tree-manual-cache: Test derivation with manual cache setup
-          # Use this to isolate whether issue is in bun2nix hook or Bun itself
-          node-tree-manual-cache = cliPackages.node-tree-manual-cache;
-          
           # node-tree-manual: Fallback implementation using manual cache setup
           # Use this if mkBunDerivation hook is not working correctly
           node-tree-manual = cliPackages.node-tree-manual;

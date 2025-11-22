@@ -325,10 +325,9 @@ This provides:
    - Post-install diagnostics verify `node_modules` creation and package presence
    - All diagnostics output to stderr during build for visibility
 
-3. **Test Derivation**:
-   - `nix build .#node-tree-manual-cache` - Tests Bun's offline behavior directly
-   - Manually sets `BUN_INSTALL_CACHE_DIR` and runs `bun install --prefer-offline`
-   - Helps isolate whether issue is in bun2nix hook or Bun's offline behavior
+3. **Diagnostic Outputs**:
+   - `nix build .#bun-deps` - Builds the offline cache derivation for inspection
+   - `nix build .#bun-deps-verify` - Shows verification info about bunDeps
 
 **Fallback Strategies**:
 

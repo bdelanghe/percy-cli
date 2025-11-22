@@ -33,10 +33,9 @@
 
           # Layer 2: node tree build using dream2nix
           # Use dream2nix to build node_modules with all dependencies including devDependencies
-          dream2nixLib = dream2nix.lib.${system};
-          
-          # Build the package using dream2nix evalModules
-          dream2nixEval = dream2nixLib.evalModules {
+          # According to dream2nix docs: https://dream2nix.dev/guides/getting-started/
+          dream2nixEval = dream2nix.lib.evalModules {
+            packageSets.nixpkgs = pkgs;
             modules = [
               {
                 paths.projectRoot = srcPatched;

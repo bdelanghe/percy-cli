@@ -67,49 +67,23 @@ let
 
   # Layer 2: node tree build using bun2nix
   # Choose installation strategy based on config
-  # Default uses bun2nix hook, but can fall back to manual cache setup
+  # Default uses mkBunDerivation (via bun2nix overlay), but can fall back to manual cache setup
   nodeTreeBase = if cfg.bunInstallStrategy == "manual-cache" then
     nodeTreeManual
   else
-    # Use bun2nix hook with stdenv.mkDerivation
-    # This fetches dependencies from bun.nix and sets up offline cache
+    # Use bun2nix.mkBunDerivation (available via overlay in flake.nix)
+    # This automatically fetches dependencies from bun.nix and sets up offline cache
     let
       bunDeps = pkgs.bun2nix.fetchBunDeps { bunNix = bunNix; };
     in
-    pkgs.stdenv.mkDerivation {
+    pkgs.bun2nix.mkBunDerivation {
     pname   = "percy-cli-node-tree";
     version = cfg.version;
     src     = srcPatched;
 
-    # Use bun2nix hook to set up offline cache
-    nativeBuildInputs = [ pkgs.bun ];
-    
-    # Set up bun2nix hook - these attributes are used by the hook
+    # mkBunDerivation uses bunDeps to set up offline cache automatically
     bunDeps = bunDeps;
     bunNix = bunNix;
-    
-    # Manually set up the bun2nix phases
-    # bunSetInstallCacheDir: Sets BUN_INSTALL_CACHE_DIR to bunDeps
-    bunSetInstallCacheDir = ''
-      export BUN_INSTALL_CACHE_DIR=${bunDeps}
-      echo "Set BUN_INSTALL_CACHE_DIR to: $BUN_INSTALL_CACHE_DIR" >&2
-    '';
-    
-    # bunNodeModulesInstallPhase: Runs bun install with the cache
-    bunNodeModulesInstallPhase = ''
-      runHook preInstall
-      
-      export HOME="$TMPDIR/home"
-      mkdir -p "$HOME"
-      
-      echo "Running bun install with offline cache..." >&2
-      bun install --frozen-lockfile
-      
-      runHook postInstall
-    '';
-    
-    # Define phases explicitly to include bun2nix phases
-    phases = [ "unpackPhase" "bunSetInstallCacheDir" "bunNodeModulesInstallPhase" "buildPhase" "installPhase" ];
 
     # Add diagnostic output before install phase
     # This helps verify what's happening during bunNodeModulesInstallPhase
@@ -388,6 +362,10 @@ in
   # bun-deps-verify: Verification info about bunDeps derivation
   # Build with: nix build .#bun-deps-verify && cat result
   bun-deps-verify = bunDepsVerify;
+  
+  # node-tree: Main node tree build using bun2nix.mkBunDerivation
+  # Build with: nix build .#node-tree
+  node-tree = nodeTree;
   
   # node-tree-manual: Fallback implementation using manual cache setup
   # Use this if mkBunDerivation hook is not working correctly

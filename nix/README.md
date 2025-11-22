@@ -4,7 +4,7 @@ This directory contains Nix-specific build configuration for building the Percy 
 
 ## Overview
 
-The build uses Bun to manage Node.js dependencies and build the Percy CLI monorepo. Bun reads `bun.lockb` (or generates it) and installs dependencies directly, providing fast, reproducible builds with native workspace support.
+The build uses Bun to manage Node.js dependencies and build the Percy CLI monorepo. The Nix integration uses `bun2nix` (from nix-community) to provide offline, reproducible builds. Bun reads `bun.lockb` and installs dependencies from a pre-fetched offline cache, providing fast, reproducible builds with native workspace support.
 
 ## Architecture
 
@@ -14,11 +14,11 @@ The build follows a multi-layer architecture:
    - Removes `"type": "module"` declarations from package.json files
    - Ensures consistent CommonJS semantics throughout the build
 
-2. **Layer 2: Node Tree** (`flake.nix` - nodeTree)
-   - Uses Bun to install dependencies from `bun.lockb`
+2. **Layer 2: Node Tree** (`default.nix` - nodeTree)
+   - Uses `bun2nix` to fetch dependencies offline from `bun.nix`
+   - Uses Bun to install dependencies from `bun.lockb` using offline cache
    - Includes all devDependencies (babel, etc.)
-   - Runs `bun run build` to compile all packages using Bun's workspace support
-   - Runs `babel` to convert ES6 to CommonJS (if needed)
+   - Runs `bun run build_cjs` to compile all packages using Bun's workspace support
 
 3. **Layer 3: Prepared CLI** (`nix/prepared-cli.nix`)
    - Applies CLI-specific patches for pkg packaging
@@ -28,18 +28,25 @@ The build follows a multi-layer architecture:
    - Uses `pkg` to create platform-specific binaries
    - Supports: x86_64-linux, aarch64-linux, x86_64-darwin, aarch64-darwin
 
-## How Bun Works
+## How bun2nix Works
 
-Bun is integrated directly in `flake.nix` using `stdenv.mkDerivation`:
-- Installs dependencies using `bun install` (reads or generates `bun.lockb`)
-- Uses Bun's native workspace support to build all packages
-- Provides binaries from `node_modules/.bin` in the build environment
-- Faster than traditional package managers (10-100x faster installs)
+The build uses `bun2nix` (from nix-community) to provide offline, reproducible builds:
 
-The build phase in `flake.nix` runs:
-1. `bun install` to install all dependencies
-2. `bun run build` to build all packages using workspace support
+1. **bun.nix**: Pre-generated file (committed to version control) that contains all dependency fetch URLs and hashes
+2. **bun2nix.fetchBunDeps**: Fetches all dependencies offline using the information in `bun.nix`
+3. **bun2nix.hook**: Sets up Bun to use the offline cache during `bun install`
+4. **Bun install**: Installs dependencies from the offline cache (no network access needed)
+5. **Bun build**: Builds all packages using Bun's native workspace support
+
+The build phase in `default.nix` runs:
+1. `bun install --frozen-lockfile` (uses offline cache via bun2nix.hook)
+2. `bun run build_cjs` to build all packages using workspace support
 3. `babel` for CJS conversion (if needed)
+
+This provides:
+- **Offline builds**: No network access required during Nix builds
+- **Reproducibility**: All dependencies are pinned with hashes
+- **Speed**: Bun's fast installs combined with Nix's binary cache
 
 ## Building
 
@@ -81,19 +88,56 @@ nix build .#checks.aarch64-darwin.binary_smoke_test
 
 ## Updating Dependencies
 
-When dependencies change:
+When dependencies change, you can use Nix apps to generate the required lockfiles:
 
-1. Update `bun.lockb` (if not committed):
+### Using Nix Apps (Recommended)
+
+1. Update both lockfiles at once:
    ```bash
-   bun install
+   nix run .#update-lockfiles
    ```
 
-2. Rebuild:
+2. Or update them separately:
+   ```bash
+   # Generate bun.lockb
+   nix run .#bun-install
+   
+   # Generate bun.nix from bun.lockb
+   nix run .#bun2nix-generate
+   ```
+
+3. Commit both files:
+   ```bash
+   git add bun.lockb bun.nix
+   git commit -m "Update dependencies"
+   ```
+
+4. Rebuild:
    ```bash
    nix build
    ```
 
-Bun will automatically detect changes and rebuild `node_modules` accordingly. For Nix reproducibility, consider committing `bun.lockb` to version control.
+### Using Bun Directly
+
+Alternatively, you can use Bun directly:
+
+1. Update `bun.lockb`:
+   ```bash
+   bun install
+   ```
+
+2. Regenerate `bun.nix`:
+   ```bash
+   bunx bun2nix -o bun.nix
+   ```
+
+3. Commit both files:
+   ```bash
+   git add bun.lockb bun.nix
+   git commit -m "Update dependencies"
+   ```
+
+**Important**: Both `bun.lockb` and `bun.nix` must be committed to version control for reproducible Nix builds. The `bun.nix` file should be generated manually (not during the build process) to ensure reproducibility.
 
 ## Troubleshooting
 
@@ -109,6 +153,12 @@ If `bun.lockb` doesn't exist:
 - For reproducible builds, commit `bun.lockb` to version control
 - Use `bun install --frozen-lockfile` in CI/Nix builds
 
+If `bun.nix` doesn't exist or is outdated:
+- Regenerate it using Nix: `nix run .#bun2nix-generate`
+- Or manually: `bunx bun2nix -o bun.nix`
+- Commit the updated `bun.nix` file
+- The build will fail if `bun.nix` is missing or doesn't match `bun.lockb`
+
 ### Build failures
 - Check the build logs: `nix log /nix/store/...`
 - Verify all source files are present
@@ -123,7 +173,10 @@ If you encounter native module issues:
 
 ## Files
 
-- `flake.nix` - Main flake configuration with Bun integration
+- `flake.nix` - Main flake configuration with bun2nix integration
+- `default.nix` - Main package definition using bun2nix
+- `bun.nix` - Pre-generated dependency cache (committed to version control)
+- `bun.lockb` - Bun's binary lockfile (committed to version control)
 - `nix/src-patched.nix` - Source patching layer
 - `nix/prepared-cli.nix` - CLI preparation layer
 - `nix/pkg-wrapper.nix` - pkg binary wrapper
@@ -133,5 +186,6 @@ If you encounter native module issues:
 ## Related Documentation
 
 - [Bun Documentation](https://bun.sh/docs)
+- [bun2nix Documentation](https://github.com/nix-community/bun2nix)
 - [Nix Flakes](https://nixos.wiki/wiki/Flakes)
 - [Percy CLI Development Guide](../packages/cli/README.md)

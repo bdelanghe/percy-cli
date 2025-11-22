@@ -10,23 +10,23 @@ let
   # Configuration
   cfg = import ./nix/percy-config.nix { inherit pkgs; };
 
-  # Check for bun.lock and bun.nix in source before building
+  # Check for bun.lockb and bun.nix in source before building
   # These should be generated outside Nix and committed to version control
-  hasBunLock = builtins.pathExists ./bun.lock;
-  hasBunNix  = builtins.pathExists ./bun.nix;
+  hasBunLock = builtins.pathExists ./bun.lockb;
+  hasBunNix  = builtins.pathExists bunNix;
 
   _ = if !hasBunLock || !hasBunNix then
     throw ''
 
       Missing Bun lock artifacts in source:
 
-        bun.lock present: ${toString hasBunLock}
+        bun.lockb present: ${toString hasBunLock}
         bun.nix present:  ${toString hasBunNix}
 
       To fix:
         bun install
         bunx bun2nix -o bun.nix
-        git add bun.lock bun.nix
+        git add bun.lockb bun.nix
 
     ''
   else
@@ -40,9 +40,9 @@ let
 
   # Offline Bun dependency cache from bun.nix
   # Use pkgs.bun2nix from overlay (tag 2.0.1 should have passthru attributes)
-  # Note: bun.nix will be copied to srcPatched, so we reference it there
+  # Use the bunNix parameter passed from flake.nix
   bunDeps = pkgs.bun2nix.fetchBunDeps {
-    bunNix = ./bun.nix;
+    bunNix = bunNix;
   };
 
   # Layer 2: node tree build using bun2nix
@@ -71,8 +71,8 @@ let
 
       export PATH="$PWD/node_modules/.bin:$PATH"
 
-      # Prefer Bun workspace scripts; fall back to Lerna if present
-      bun run build || lerna run build --stream
+      # Build using Bun workspace scripts
+      bun run build_cjs
 
       # Build CJS output (via babel or existing script)
       BABEL_ENV=dev babel packages -d build || true

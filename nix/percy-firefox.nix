@@ -8,7 +8,7 @@ let
   # Base build inputs (common to all platforms)
   baseInputs = with pkgs; [
     nodejs
-    yarn
+    bun
     git
     zip
     coreutils

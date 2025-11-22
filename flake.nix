@@ -1,5 +1,5 @@
 {
-  description = "Bun2Nix overrides sample";
+  description = "Percy CLI - Built with Bun and bun2nix";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
@@ -10,7 +10,7 @@
     bun2nix.inputs.systems.follows = "systems";
   };
 
-  # Use the cached version of bun2nix from the nix-community cli
+  # Use the cached version of bun2nix from the nix-community cache
   nixConfig = {
     extra-substituters = [
       "https://cache.nixos.org"
@@ -28,24 +28,25 @@
       # Read each system from the nix-systems input
       eachSystem = inputs.nixpkgs.lib.genAttrs (import inputs.systems);
 
-      # Access the package set for a given system
+      # Access the package set for a given system with bun2nix overlay
       pkgsFor = eachSystem (
         system:
         import inputs.nixpkgs {
           inherit system;
           # Use the bun2nix overlay, which puts `bun2nix` in pkgs
-          # You can, of course, still access
-          # inputs.bun2nix.packages.${system}.default instead
-          # and use that to build your package instead
           overlays = [ inputs.bun2nix.overlays.default ];
         }
       );
     in
     {
       packages = eachSystem (system: {
-        # Produce a package for this template with bun2nix in
-          # the overlay
+        # Main Percy CLI binary (default package)
         default = pkgsFor.${system}.callPackage ./default.nix {
+          bunNix = ./bun.nix;
+        };
+
+        # Expose all build layers for debugging and incremental builds
+        percy-cli = pkgsFor.${system}.callPackage ./default.nix {
           bunNix = ./bun.nix;
         };
       });
@@ -54,15 +55,66 @@
         default = pkgsFor.${system}.mkShell {
           packages = with pkgsFor.${system}; [
             bun
-
-            # Add the bun2nix binary to our devshell
-            # Optional now that we have a binary on npm
+            nodejs
+            git
+            # Add the bun2nix binary to our devshell for regenerating bun.nix
             bun2nix
           ];
 
           shellHook = ''
-            bun install --frozen-lockfile
+            # Install dependencies if bun.lockb exists
+            if [ -f bun.lockb ]; then
+              bun install --frozen-lockfile
+            else
+              echo "Warning: bun.lockb not found. Run 'bun install' to generate it."
+            fi
           '';
+        };
+      });
+
+      apps = eachSystem (system: {
+        # Generate bun.lockb by running bun install
+        bun-install = {
+          type = "app";
+          program = toString (pkgsFor.${system}.writeShellScript "bun-install" ''
+            set -e
+            echo "Running bun install to generate bun.lockb..."
+            ${pkgsFor.${system}.bun}/bin/bun install
+            echo "✓ bun.lockb generated"
+          '');
+        };
+
+        # Generate bun.nix from bun.lockb
+        bun2nix-generate = {
+          type = "app";
+          program = toString (pkgsFor.${system}.writeShellScript "bun2nix-generate" ''
+            set -e
+            if [ ! -f bun.lockb ]; then
+              echo "Error: bun.lockb not found. Run 'nix run .#bun-install' first." >&2
+              exit 1
+            fi
+            echo "Generating bun.nix from bun.lockb..."
+            ${pkgsFor.${system}.bun2nix}/bin/bun2nix -o bun.nix
+            echo "✓ bun.nix generated"
+          '');
+        };
+
+        # Update both lockfiles (bun install + bun2nix)
+        update-lockfiles = {
+          type = "app";
+          program = toString (pkgsFor.${system}.writeShellScript "update-lockfiles" ''
+            set -e
+            echo "Step 1: Running bun install to generate bun.lockb..."
+            ${pkgsFor.${system}.bun}/bin/bun install
+            echo "✓ bun.lockb generated"
+            echo ""
+            echo "Step 2: Generating bun.nix from bun.lockb..."
+            ${pkgsFor.${system}.bun2nix}/bin/bun2nix -o bun.nix
+            echo "✓ bun.nix generated"
+            echo ""
+            echo "✓ Both lockfiles updated. Don't forget to commit:"
+            echo "  git add bun.lockb bun.nix"
+          '');
         };
       });
     };

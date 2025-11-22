@@ -117,6 +117,23 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
     - Only plugin kept: `eslint-plugin-import` (for `import/no-extraneous-dependencies`).
     - Dropped `eslint-config-standard`, `eslint-plugin-n`, `eslint-plugin-promise` since they were either unused or only used to turn rules off.
 
+### 6. Dependency Scoping + TypeScript Setup
+
+- **Dependency scoping** (moved package-specific deps to their packages):
+  - `jsdom`: Moved to `packages/dom/devDependencies` (only package that needs DOM environment)
+  - `memfs`: Moved to `packages/config/devDependencies` (only package that uses it)
+  - Updated `vitest.config.mts` to use `node` environment by default, `jsdom` only for `packages/dom`
+- **TypeScript migration preparation**:
+  - Added `typescript` to root devDependencies
+  - Created `tsconfig.base.json` as base configuration for future TypeScript migration
+  - Replaced `tsd` with native TypeScript compiler (`tsc`) for type definition tests
+  - Created `tsd-helpers.d.ts` replacements for `expectType`/`expectError` using TypeScript's type system
+  - Updated `test:types` scripts to use `tsc --project types/tsconfig.json`
+- **Future TypeScript migration**:
+  - Plan to migrate packages from JavaScript to TypeScript incrementally
+  - Base TypeScript configuration ready in `tsconfig.base.json`
+  - Packages can extend base config as they migrate
+
 ---
 
 ## Current Root devDependencies
@@ -134,14 +151,60 @@ Minimal, root-level devDependencies:
 
 - `vitest` – browser-style tests.
 - `@vitest/coverage-v8` – coverage provider for Vitest.
-- `jsdom` – DOM-like environment for Vitest (configured in `vitest.config.mts`).
 
-**Test utilities**
+**TypeScript**
 
-- `memfs` – in-memory filesystem (used in `packages/config/test/helpers.js`).
-- `tsd` – tests of TypeScript definitions (`*.test-d.ts`).
+- `typescript` – TypeScript compiler (for type checking and future migration).
 
-Total: 9 dev dependencies (down from 20+ in the original stack).
+**Package-specific devDependencies** (scoped to packages that need them):
+
+- `packages/dom`: `jsdom` – DOM environment for DOM package tests only
+- `packages/config`: `memfs` – in-memory filesystem for config tests
+
+Total: 6 root dev dependencies (down from 20+ in the original stack, down from 9 after scoping).
+
+---
+
+## Future: TypeScript Migration
+
+**Status**: Preparation complete, migration pending
+
+### Current State
+
+- All packages are currently JavaScript (`.js` files)
+- Type definitions exist in `packages/*/types/` directories (`.d.ts` files)
+- Type checking uses TypeScript compiler (`tsc`) instead of `tsd`
+
+### Migration Plan
+
+**Phase 1: Infrastructure (Complete)**
+- ✅ Added TypeScript to root devDependencies
+- ✅ Created `tsconfig.base.json` as base configuration
+- ✅ Replaced `tsd` with native TypeScript compiler for type tests
+- ✅ Created `tsd-helpers.d.ts` for type testing utilities
+
+**Phase 2: Incremental Migration (Planned)**
+- Migrate packages from JavaScript to TypeScript incrementally
+- Each package can extend `tsconfig.base.json`:
+  ```json
+  {
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+      "rootDir": "./src",
+      "outDir": "./dist"
+    },
+    "include": ["src/**/*"]
+  }
+  ```
+- Update build scripts to use TypeScript compiler or Bun's built-in TypeScript support
+- Maintain backward compatibility during migration
+
+**Benefits**
+- Better type safety and developer experience
+- Improved IDE support and autocomplete
+- Catch errors at compile time
+- Better documentation through types
+- Bun has native TypeScript support, so no additional build step needed
 
 ---
 

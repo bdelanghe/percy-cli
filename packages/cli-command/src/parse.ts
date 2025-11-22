@@ -378,10 +378,10 @@ export async function parse(command, argv) {
       validateExclusiveFlag(flag, parsed);
       let value = parsed.operators.get(flag);
       if (flag.validate) await flag.validate(value, parsed);
-      parsed.flags[attributeName(flag, parsed)] = value;
+      (parsed.flags as Record<string, any>)[attributeName(flag, parsed)] = value;
     } else if (flag.default != null) {
       // a default value needs to be set, but not parsed
-      parsed.flags[attributeName(flag, parsed)] = flag.default;
+      (parsed.flags as Record<string, any>)[attributeName(flag, parsed)] = flag.default;
     }
   }
 
@@ -398,16 +398,16 @@ export async function parse(command, argv) {
       // a deprecated arg might be mapped to a flag
       if (arg.deprecated?.[1]?.startsWith('--') &&
           findFlag(arg.deprecated[1], parsed)) {
-        parsed.flags[attributeName(arg, parsed)] = value;
+        (parsed.flags as Record<string, any>)[attributeName(arg, parsed)] = value;
       } else {
-        parsed.args[attributeName(arg, parsed)] = value;
+        (parsed.args as Record<string, any>)[attributeName(arg, parsed)] = value;
       }
     } else if (arg.required) {
       // a required argument was not provided
       parseError(`Missing required argument '${arg.name}'`);
     } else if (arg.default != null) {
       // a default value needs to be set, but not parsed
-      parsed.args[attributeName(arg, parsed)] = arg.default;
+      (parsed.args as Record<string, any>)[attributeName(arg, parsed)] = arg.default;
     }
   }
 

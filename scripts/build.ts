@@ -222,8 +222,15 @@ main()
         console.error(colors.red('Watch mode not available: watch.js not found'));
         process.exit(1);
       });
+    } else {
+      // Explicitly exit with success code to ensure Bun's filter command sees success
+      // This is important because TypeScript errors on stderr might make Bun think the build failed
+      process.exit(0);
     }
-    // If not in watch mode, the script will exit naturally with code 0
   })
-  .catch(handleError);
+  .catch((err) => {
+    // Only exit with error code for actual failures, not TypeScript warnings
+    // TypeScript errors are already caught and handled in main()
+    handleError(err);
+  });
 

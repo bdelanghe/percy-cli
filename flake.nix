@@ -55,6 +55,9 @@
           # Default to Bun-compiled binary for backward compatibility
           default = cliPackages.default;
           
+          # Node tree (intermediate build artifact)
+          node-tree = cliPackages.node-tree;
+          
           # Diagnostic outputs for bun2nix offline cache troubleshooting
           # bun-deps: The offline cache derivation (for inspection)
           bun-deps = cliPackages.bun-deps;

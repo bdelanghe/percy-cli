@@ -67,19 +67,49 @@ let
 
   # Layer 2: node tree build using bun2nix
   # Choose installation strategy based on config
-  # Default uses mkBunDerivation, but can fall back to manual cache setup
+  # Default uses bun2nix hook, but can fall back to manual cache setup
   nodeTreeBase = if cfg.bunInstallStrategy == "manual-cache" then
     nodeTreeManual
   else
-    # Use mkBunDerivation which automatically handles offline cache setup
-    # mkBunDerivation will fetch dependencies from bun.nix internally
-    pkgs.bun2nix.mkBunDerivation {
+    # Use bun2nix hook with stdenv.mkDerivation
+    # This fetches dependencies from bun.nix and sets up offline cache
+    let
+      bunDeps = pkgs.bun2nix.fetchBunDeps { bunNix = bunNix; };
+    in
+    pkgs.stdenv.mkDerivation {
     pname   = "percy-cli-node-tree";
     version = cfg.version;
     src     = srcPatched;
 
-    # mkBunDerivation uses bunNix to fetch and set up the offline cache automatically
+    # Use bun2nix hook to set up offline cache
+    nativeBuildInputs = [ pkgs.bun ];
+    
+    # Set up bun2nix hook - these attributes are used by the hook
+    bunDeps = bunDeps;
     bunNix = bunNix;
+    
+    # Manually set up the bun2nix phases
+    # bunSetInstallCacheDir: Sets BUN_INSTALL_CACHE_DIR to bunDeps
+    bunSetInstallCacheDir = ''
+      export BUN_INSTALL_CACHE_DIR=${bunDeps}
+      echo "Set BUN_INSTALL_CACHE_DIR to: $BUN_INSTALL_CACHE_DIR" >&2
+    '';
+    
+    # bunNodeModulesInstallPhase: Runs bun install with the cache
+    bunNodeModulesInstallPhase = ''
+      runHook preInstall
+      
+      export HOME="$TMPDIR/home"
+      mkdir -p "$HOME"
+      
+      echo "Running bun install with offline cache..." >&2
+      bun install --frozen-lockfile
+      
+      runHook postInstall
+    '';
+    
+    # Define phases explicitly to include bun2nix phases
+    phases = [ "unpackPhase" "bunSetInstallCacheDir" "bunNodeModulesInstallPhase" "buildPhase" "installPhase" ];
 
     # Add diagnostic output before install phase
     # This helps verify what's happening during bunNodeModulesInstallPhase

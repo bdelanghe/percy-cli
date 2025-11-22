@@ -37,8 +37,9 @@
           dream2nixPackage = dream2nix.lib.evalModules {
             packageSets.nixpkgs = pkgs;
             modules = [
-              (import ./nix/dream2nix-config.nix {
-                inherit dream2nix;
+              # Pass the module as a function that will be called by the module system
+              ({ dream2nix, config, lib, ... }: import ./nix/dream2nix-config.nix {
+                inherit dream2nix config lib;
                 srcPatched = srcPatched;
               })
               {

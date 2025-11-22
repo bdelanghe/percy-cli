@@ -4,8 +4,11 @@
 { dream2nix, config, lib, srcPatched, ... }:
 
 {
-  # Import mkDerivation module to build the package
+  # Import required dream2nix modules
+  # dream2nix-core provides library functions like getFirstOutput
+  # mkDerivation provides the build derivation
   imports = [
+    dream2nix.modules.dream2nix-core
     dream2nix.modules.dream2nix.mkDerivation
   ];
 

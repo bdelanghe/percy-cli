@@ -40,8 +40,7 @@
               {
                 paths.projectRoot = srcPatched;
                 paths.package = srcPatched;
-                paths.packageJson = "${srcPatched}/package.json";
-                paths.lockFile = "${srcPatched}/yarn.lock";
+                paths.projectRootFile = "package.json";
                 name = "percy-cli";
                 translator = "yarn-lock";
                 subsystemInfo = {

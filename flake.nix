@@ -41,8 +41,8 @@
               ./nix/dream2nix-config.nix
               {
                 paths.projectRoot = srcPatched;
-                paths.packageJson = "${srcPatched}/package.json";
-                paths.lockFile = "${srcPatched}/yarn.lock";
+                paths.package = srcPatched;
+                paths.projectRootFile = "package.json";
                 name = "percy-cli";
                 # dream2nix will auto-detect translator from yarn.lock
               }

@@ -44,21 +44,13 @@
             yarnLock = ./yarn.lock;
             offlineCache = yarnDeps;
 
+            # Add lerna from Nix packages to nativeBuildInputs
+            # This provides lerna without needing to install devDependencies via yarn
+            nativeBuildInputs = [ pkgs.nodePackages.lerna ];
+
             # Keep NODE_ENV=development to ensure build tools (babel, rollup) 
             # from devDependencies are available and behave correctly during build
             NODE_ENV = "development";
-
-            # Use postConfigure to ensure devDependencies are installed after mkYarnPackage's default install
-            # mkYarnPackage's default configurePhase sets up offline cache and installs dependencies
-            # but might skip devDependencies. We ensure they're installed here.
-            postConfigure = ''
-              # mkYarnPackage structures: source in deps/percy-cli/, cache configured at root
-              if [ -d deps/percy-cli ] && [ -f deps/percy-cli/package.json ]; then
-                echo "Ensuring devDependencies are installed..." >&2
-                # Install from root where cache is configured, targeting deps/percy-cli
-                yarn install --offline --frozen-lockfile --production=false --ignore-scripts --cwd deps/percy-cli
-              fi
-            '';
 
             buildPhase = ''
               export HOME="$TMPDIR/home"
@@ -69,15 +61,15 @@
               # Suppress npm deprecation warnings
               export npm_config_loglevel=error
 
-              # Add node_modules/.bin to PATH for babel, lerna, and other build tools
+              # Add node_modules/.bin to PATH for babel and other build tools
               # mkYarnPackage structures things: source is in deps/percy-cli/
+              # lerna is provided via nativeBuildInputs (Nix package)
               export PATH="$PWD/deps/percy-cli/node_modules/.bin:$PWD/node_modules/.bin:$PATH"
 
-              # Verify lerna is available (should be installed by postConfigure)
+              # Verify lerna is available (from nativeBuildInputs)
               if ! command -v lerna >/dev/null 2>&1; then
                 echo "ERROR: lerna command not found" >&2
-                echo "This suggests devDependencies were not installed properly." >&2
-                echo "Check that postConfigure successfully installed devDependencies." >&2
+                echo "lerna should be available via nativeBuildInputs." >&2
                 exit 1
               fi
 

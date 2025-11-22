@@ -351,7 +351,18 @@ let
       
       echo "Build exit code: $BUILD_EXIT" >&2
       echo "Files after build:" >&2
-      ls -lah ./ | head -10 >&2 || true
+      ls -lah ./ | head -15 >&2 || true
+      
+      # Bun compile may create a temporary file with a hash name
+      # Look for .*.bun-build files and use that if ./percy is empty
+      BUN_BUILD_FILE=$(find . -maxdepth 1 -name ".*.bun-build" -type f 2>/dev/null | head -1)
+      
+      if [ -n "$BUN_BUILD_FILE" ] && [ -s "$BUN_BUILD_FILE" ]; then
+        echo "Found Bun build temporary file: $BUN_BUILD_FILE" >&2
+        echo "Copying to ./percy..." >&2
+        cp "$BUN_BUILD_FILE" ./percy
+        chmod +x ./percy
+      fi
       
       # Verify the binary was created and is not empty
       if [ ! -f ./percy ]; then
@@ -368,7 +379,7 @@ let
         ls -lah ./percy >&2
         file ./percy >&2 || true
         echo "Checking for other output files:" >&2
-        find . -name "percy*" -o -name "*.exe" 2>/dev/null | head -10 >&2 || true
+        find . -name ".*.bun-build" -o -name "percy*" -o -name "*.exe" 2>/dev/null | head -10 >&2 || true
         exit 1
       fi
       

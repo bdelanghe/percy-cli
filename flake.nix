@@ -34,9 +34,12 @@
           # Layer 2: node tree build using dream2nix
           # Use dream2nix to build node_modules with all dependencies including devDependencies
           # According to dream2nix docs: https://dream2nix.dev/guides/getting-started/
+          # evalModules returns a package directly, we need to import modules that provide node_modules
           dream2nixEval = dream2nix.lib.evalModules {
             packageSets.nixpkgs = pkgs;
             modules = [
+              # Import nodejs-node-modules module to get node_modules
+              dream2nix.modules.dream2nix.nodejs-node-modules-v3
               {
                 paths.projectRoot = srcPatched;
                 paths.package = srcPatched;
@@ -48,9 +51,8 @@
           };
 
           # Extract node_modules from dream2nix build
-          # The structure is: dream2nixEval.packages.<name>.public.nodeModules
-          dream2nixPackage = dream2nixEval.packages."percy-cli";
-          nodeModules = dream2nixPackage.public.nodeModules;
+          # evalModules returns a config object, access nodeModules from config.public
+          nodeModules = dream2nixEval.config.public.nodeModules;
 
           # Build the complete node tree with source and dependencies
           nodeTree = pkgs.stdenv.mkDerivation {

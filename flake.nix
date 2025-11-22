@@ -199,7 +199,7 @@
             program = toString (pkgsFor.${system}.writeShellScript "chromium-revision" ''
               set -e
               export PATH="${nodejs}/bin:$PATH"
-              ${nodejs}/bin/node ./scripts/chromium-revision.js
+              ${nodejs}/bin/node ./scripts/chromium-revision.ts
             '');
           };
 

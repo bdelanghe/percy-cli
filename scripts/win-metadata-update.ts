@@ -1,7 +1,7 @@
 import fs from 'fs';
 import * as ResEdit from 'resedit';
 
-function windowsPostBuild(output) {
+function windowsPostBuild(output: string): void {
   const exe = ResEdit.NtExecutable.from(fs.readFileSync(output));
   const res = ResEdit.NtExecutableResource.from(exe);
   const iconFile = ResEdit.Data.IconFile.from(fs.readFileSync('./scripts/files/percy.ico'));
@@ -34,3 +34,4 @@ function windowsPostBuild(output) {
 }
 
 windowsPostBuild('percy.exe');
+

@@ -2,8 +2,8 @@
 
 // This is deprecated as it is not working for 115
 
-const url = await import('url');
-const path = await import('path');
+import url from 'url';
+import path from 'path';
 
 const SCRIPT_NAME = path.basename(url.fileURLToPath(import.meta.url));
 
@@ -36,12 +36,12 @@ const GH_TAGS_URL = 'https://github.com/chromium/chromium/branch_commits';
 const GH_HEADERS = {
   Accept: 'application/vnd.github.v3+json',
   // eslint-disable-next-line no-template-curly-in-string
-  'User-Agent': '@percy/cli; ${SCRIPT_NAME}'
+  'User-Agent': `@percy/cli; ${SCRIPT_NAME}`
 };
 
 // Google Storage constants
 const G_STORAGE_API_URL = 'https://www.googleapis.com/storage/v1/b/chromium-browser-snapshots/o';
-const G_STORAGE_PREFIXES = {
+const G_STORAGE_PREFIXES: Record<string, string> = {
   darwin: 'Mac',
   darwinArm: 'Mac_Arm',
   linux: 'Linux_x64',
@@ -49,94 +49,145 @@ const G_STORAGE_PREFIXES = {
   win32: 'Win'
 };
 
+interface TaskState {
+  i?: number;
+  value?: unknown;
+  authored?: boolean;
+  platforms?: string[];
+  range?: [number, number];
+}
+
+interface Tag {
+  name: string;
+  commit: {
+    sha: string;
+    url: string;
+  };
+}
+
+interface Commit {
+  sha: string;
+  url: string;
+  parents?: Array<{ url: string }>;
+  author?: {
+    name: string;
+  };
+  message?: string;
+}
+
+interface PlatformRevision {
+  version: string;
+  revision: number | string;
+  sha: string;
+}
+
 // Runs a stateful async function repeatedly until it returns a truthy value while updating a log
 // message with ellipses for each iteration of the task function
-async function task({ message, state: init, function: fn }) {
-  return await (async function run(state) {
+async function task<T>({ message, state: init, function: fn }: {
+  message: (state: TaskState, dots: string) => string;
+  state?: () => TaskState;
+  function: (state: TaskState) => Promise<T | undefined>;
+}): Promise<T> {
+  return await (async function run(state: TaskState): Promise<T> {
     // log the message with an additional period for each iteration
-    let i = state.i = (state.i || 0) + 1;
+    const i = state.i = (state.i || 0) + 1;
     log.progress(message(state, '.'.repeat(i)));
 
     // if the function does not return, run again
-    return await fn(state) || run(state);
-  })((init?.() || {}));
+    const result = await fn(state);
+    return result || run(state);
+  })((init?.() || {}) as TaskState);
 }
 
 // The actual script that prints a revision corresponding to the provided version for each platform
-async function printVersionRevisions(version) {
+async function printVersionRevisions(version: string): Promise<void> {
   // tags cannot be queried for by name with github's rest api; so query as many tags as we can
   // until a matching one is found
-  let commit = await task({
-    message: (state, dots) => state.value
-      ? `Tagged commit: ${state.value.sha}`
+  const commit = await task<Commit>({
+    message: (state, dots) => (state.value as Commit)?.sha
+      ? `Tagged commit: ${(state.value as Commit).sha}`
       : `Searching for tagged version: ${version}${dots}`,
     async function(state) {
-      if (state.value) return state.value;
+      if (state.value) return state.value as Commit;
       // this can be slow - the newer the browser, the less queries are needed
-      let tags = await request(`${GH_API_URL}/tags?page=${state.i}&per_page=100`, { headers: GH_HEADERS });
-      let match = tags.find(tag => tag.name === version);
-      state.value = match && match.commit;
+      const tags = await request(`${GH_API_URL}/tags?page=${state.i}&per_page=100`, { headers: GH_HEADERS }) as Tag[];
+      const match = tags.find(tag => tag.name === version);
+      state.value = match?.commit;
+      return state.value as Commit | undefined;
     }
   });
 
   // a bot likely published the release, so find the first human-authored commit
-  let authored = await task({
+  const authored = await task<Commit>({
     state: () => ({ value: commit }),
     message: (state, dots) => state.authored
-      ? `Authored commit: ${state.value.sha}`
+      ? `Authored commit: ${(state.value as Commit).sha}`
       : `Fetching authored commit${dots}`,
     async function(state) {
       // get each parent commit until the authored commit is found
-      if (state.authored) return state.value;
-      let { parents } = await request(state.value.url, { headers: GH_HEADERS });
-      let parent = await request(parents[0].url, { headers: GH_HEADERS });
+      if (state.authored) return state.value as Commit;
+      const commitData = await request((state.value as Commit).url, { headers: GH_HEADERS }) as Commit;
+      const { parents } = commitData;
+      if (!parents || parents.length === 0) {
+        state.value = commitData;
+        state.authored = true;
+        return state.value as Commit;
+      }
+      const parent = await request(parents[0].url, { headers: GH_HEADERS }) as Commit;
       state.value = parent.commit ? parent.commit : parent;
       // an author name ending in "-bot" is likely an automated commit
-      state.authored = !state.value.author.name.endsWith('-bot');
+      state.authored = !(state.value as Commit).author?.name.endsWith('-bot');
+      return state.authored ? state.value as Commit : undefined;
     }
   });
 
   // parse the authored commit's message for the revision number; relies on the message format
   // ending in "refs/head/main@{000000}" where zeros are the revision number
-  let revision = parseInt(authored.message.match(/refs\/heads\/main@\{#(\d+)}$/)[1], 10);
+  const revisionMatch = authored.message?.match(/refs\/heads\/main@\{#(\d+)}$/);
+  if (!revisionMatch) {
+    throw new Error('Could not parse revision from commit message');
+  }
+  const revision = parseInt(revisionMatch[1], 10);
   log.info(`Commit position: ${revision}`);
 
   // for each platform, find the first suitable revision matching the desired version spanning back
   // 50 revisions (not all platforms release at the same time)
-  let revisions = await task({
+  const revisions = await task<Record<string, PlatformRevision>>({
     state: () => ({
       platforms: ['linux', 'win64', 'win32', 'darwin', 'darwinArm'],
       range: [revision - 50, revision],
       value: {}
     }),
-    message: (state, dots) => state.i <= state.platforms.length
-      ? `Determining platform revisions: ${state.platforms[state.i - 1]}${dots}`
+    message: (state, dots) => (state.i || 0) <= (state.platforms?.length || 0)
+      ? `Determining platform revisions: ${state.platforms?.[(state.i || 0) - 1]}${dots}`
       : 'Matching revisions:',
     async function(state) {
-      let platform = state.platforms[state.i - 1];
-      if (!platform) return state.value;
-      let rev = state.range[1];
+      const platform = state.platforms?.[(state.i || 0) - 1];
+      if (!platform) return state.value as Record<string, PlatformRevision>;
+      let rev = state.range?.[1] || revision;
 
-      for (; rev >= state.range[0]; rev--) {
+      for (; rev >= (state.range?.[0] || revision - 50); rev--) {
         // query google's storage api for the platform revision
-        let { items } = await request((
+        const response = await request((
           `${G_STORAGE_API_URL}?fields=items(name,metadata)&` +
             `prefix=${G_STORAGE_PREFIXES[platform]}/${rev}`
-        ), {});
+        ), {}) as { items?: Array<{ metadata?: { 'cr-git-commit'?: string } }> };
 
         // no matching revision for this platform
-        if (!items) continue;
+        if (!response.items) continue;
         // check if the revision's commit is included in the desired release version
-        let sha = items[0].metadata['cr-git-commit'];
-        let tags = (await request(`${GH_TAGS_URL}/${sha}`, {}))
-          .match(/\/releases\/tag\/[\d.]+/g)
-          .map(t => t.replace('/releases/tag/', ''));
+        const sha = response.items[0]?.metadata?.['cr-git-commit'];
+        if (!sha) continue;
+        const tagsPage = await request(`${GH_TAGS_URL}/${sha}`, {}) as string;
+        const tagMatches = tagsPage.match(/\/releases\/tag\/[\d.]+/g);
+        if (!tagMatches) continue;
+        const tags = tagMatches.map(t => t.replace('/releases/tag/', ''));
 
         // no matching version for this revision
         if (!tags.includes(version)) continue;
 
         // found a suitable revision for this platform
-        state.value[platform] = {
+        (state.value as Record<string, PlatformRevision>)[platform] = {
           version: tags[tags.length - 1],
           revision: rev,
           sha
@@ -146,11 +197,14 @@ async function printVersionRevisions(version) {
       }
 
       // no suitable revision was found for this platform
-      state.value[platform] ||= {
-        revision: '-'.repeat(String(rev).length),
-        version: 'no match',
-        sha: 'none'
-      };
+      if (!(state.value as Record<string, PlatformRevision>)[platform]) {
+        (state.value as Record<string, PlatformRevision>)[platform] = {
+          revision: '-'.repeat(String(rev).length),
+          version: 'no match',
+          sha: 'none'
+        };
+      }
+      return undefined; // Continue to next platform
     }
   });
 
@@ -164,5 +218,7 @@ async function printVersionRevisions(version) {
 // call the script with the first provided arg
 printVersionRevisions(process.argv[2]).catch(error => {
   // request errors have a response body
-  log.error(error.response?.body?.message || error);
+  const err = error as { response?: { body?: { message?: string } } };
+  log.error(err.response?.body?.message || error);
 });
+

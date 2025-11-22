@@ -49,7 +49,7 @@ export default defineConfig({
         setupFiles.push(pkgHelpersJs);
       }
       // Always include root test-helpers
-      const rootHelpers = path.resolve(ROOT, 'scripts/test-helpers.js');
+      const rootHelpers = path.resolve(ROOT, 'scripts/test-helpers.ts');
       if (existsSync(rootHelpers)) {
         setupFiles.push(rootHelpers);
       }

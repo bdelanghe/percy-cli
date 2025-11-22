@@ -359,17 +359,24 @@ in
   # Diagnostic outputs
   # bun-deps: The offline cache derivation (for inspection)
   # Build with: nix build .#bun-deps
+  # Inspect with: nix-store -qR $(nix-build --no-out-link .#bun-deps) | head -20
   bun-deps = diagnostics.bunDeps;
+  
+  # bun-deps-verify: Verification info about bunDeps derivation
+  # Build with: nix build .#bun-deps-verify && cat result
+  bun-deps-verify = bunDepsVerify;
   
   # node-tree-manual-cache: Test derivation with manual cache setup
   # Use this to isolate whether issue is in bun2nix hook or Bun itself
   # Build with: nix build .#node-tree-manual-cache
+  # This manually sets BUN_INSTALL_CACHE_DIR and runs bun install --prefer-offline
+  # Compare behavior with mkBunDerivation to determine if issue is hook or Bun
   node-tree-manual-cache = nodeTreeManualCache;
   
   # node-tree-manual: Fallback implementation using manual cache setup
   # Use this if mkBunDerivation hook is not working correctly
   # Build with: nix build .#node-tree-manual
-  # Then update percy-cli-node and percy-cli to use nodeTreeManual instead of nodeTree
+  # To switch to this strategy, set bunInstallStrategy = "manual-cache" in nix/percy-config.nix
   node-tree-manual = nodeTreeManual;
 }
 

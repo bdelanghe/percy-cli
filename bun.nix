@@ -1426,6 +1426,10 @@
      url = "https://registry.npmjs.org/jsbn/-/jsbn-1.1.0.tgz";
      hash = "sha512-4bYVV3aAMtDTTu4+xsDYa6sy9GyJ69/amsu9sYF2zqjiEoZA5xJi3BrfX3uY+/IekIu7MwdObdbDWpoZdBv3/A==";
   };
+  "jsdom@24.1.3" = fetchurl {
+     url = "https://registry.npmjs.org/jsdom/-/jsdom-24.1.3.tgz";
+     hash = "sha512-MyL55p3Ut3cXbeBEG7Hcv0mVM8pp8PBNWxRqchZnSfAiES1v1mRnMeFfaHWIPULpwsYfvO+ZmMZz5tGCnjzDUQ==";
+  };
   "jsdom@25.0.1" = fetchurl {
      url = "https://registry.npmjs.org/jsdom/-/jsdom-25.0.1.tgz";
      hash = "sha512-8i7LzZj7BF8uplX+ZyOlIz86V6TAsSs+np6m1kpW9u0JWi4z/1t+FzcK1aek+ybTnAC4KhBL4uXCNT0wcUIeCw==";
@@ -1714,6 +1718,10 @@
      url = "https://registry.npmjs.org/prelude-ls/-/prelude-ls-1.2.1.tgz";
      hash = "sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==";
   };
+  "psl@1.15.0" = fetchurl {
+     url = "https://registry.npmjs.org/psl/-/psl-1.15.0.tgz";
+     hash = "sha512-JZd3gMVBAVQkSs6HdNZo9Sdo0LNcQeMNP3CozBJb3JYC/QUYZTnKxP+f8oWRX4rHP5EurWxqAHTSwUCjlNKa1w==";
+  };
   "pump@3.0.0" = fetchurl {
      url = "https://registry.npmjs.org/pump/-/pump-3.0.0.tgz";
      hash = "sha512-LwZy+p3SFs1Pytd/jYct4wpv49HiYCqd9Rlc5ZVdk0V+8Yzv6jR5Blk3TRmPL1ft69TxP0IMZGJ+WPFU2BFhww==";
@@ -1725,6 +1733,10 @@
   "punycode@2.3.1" = fetchurl {
      url = "https://registry.npmjs.org/punycode/-/punycode-2.3.1.tgz";
      hash = "sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==";
+  };
+  "querystringify@2.2.0" = fetchurl {
+     url = "https://registry.npmjs.org/querystringify/-/querystringify-2.2.0.tgz";
+     hash = "sha512-FIqgj2EUvTa7R50u0rGsyTftzjYmv/a3hO345bZNrqabNqjtgiDMgmo4mkUjd+nzU5oF3dClKqFIPUKybUyqoQ==";
   };
   "queue-microtask@1.2.3" = fetchurl {
      url = "https://registry.npmjs.org/queue-microtask/-/queue-microtask-1.2.3.tgz";
@@ -1749,6 +1761,10 @@
   "require-from-string@2.0.2" = fetchurl {
      url = "https://registry.npmjs.org/require-from-string/-/require-from-string-2.0.2.tgz";
      hash = "sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==";
+  };
+  "requires-port@1.0.0" = fetchurl {
+     url = "https://registry.npmjs.org/requires-port/-/requires-port-1.0.0.tgz";
+     hash = "sha512-KigOCHcocU3XODJxsu8i/j8T9tzT4adHiecwORRQ0ZZFcp7ahwXuRU1m+yuO90C5ZUyGeGfocHDI14M3L3yDAQ==";
   };
   "resolve-from@4.0.0" = fetchurl {
      url = "https://registry.npmjs.org/resolve-from/-/resolve-from-4.0.0.tgz";
@@ -2034,6 +2050,10 @@
      url = "https://registry.npmjs.org/totalist/-/totalist-3.0.1.tgz";
      hash = "sha512-sf4i37nQ2LBx4m3wB74y+ubopq6W/dIzXg0FDGjsYnZHVa1Da8FH853wlL2gtUhg+xJXjfk3kUZS3BRoQeoQBQ==";
   };
+  "tough-cookie@4.1.4" = fetchurl {
+     url = "https://registry.npmjs.org/tough-cookie/-/tough-cookie-4.1.4.tgz";
+     hash = "sha512-Loo5UUvLD9ScZ6jh8beX1T6sO1w2/MpCRpEP7V280GKMVUQ0Jzar2U3UJPsrdbziLEMMhu3Ujnq//rhiFuIeag==";
+  };
   "tough-cookie@5.1.2" = fetchurl {
      url = "https://registry.npmjs.org/tough-cookie/-/tough-cookie-5.1.2.tgz";
      hash = "sha512-FVDYdxtnj0G6Qm/DhNPSb8Ju59ULcup3tuJxkFb5K8Bv2pUXILbf0xZWU8PX8Ov19OXljbUyveOFwRMwkXzO+A==";
@@ -2102,9 +2122,17 @@
      url = "https://registry.npmjs.org/unbox-primitive/-/unbox-primitive-1.1.0.tgz";
      hash = "sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==";
   };
+  "universalify@0.2.0" = fetchurl {
+     url = "https://registry.npmjs.org/universalify/-/universalify-0.2.0.tgz";
+     hash = "sha512-CJ1QgKmNg3CwvAv/kOFmtnEN05f0D/cn9QntgNOQlQF9dgvVTHj3t+8JPdjqawCHk7V/KA+fbUqzZ9XWhcqPUg==";
+  };
   "uri-js@4.4.1" = fetchurl {
      url = "https://registry.npmjs.org/uri-js/-/uri-js-4.4.1.tgz";
      hash = "sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==";
+  };
+  "url-parse@1.5.10" = fetchurl {
+     url = "https://registry.npmjs.org/url-parse/-/url-parse-1.5.10.tgz";
+     hash = "sha512-WypcfiRhfeUP9vvF0j6rw0J3hrWrw6iZv3+22h6iRMJ/8z1Tj6XfLP4DsUix5MhMPnXpiHDoKyoZ/bdCkwBCiQ==";
   };
   "vite-node@2.1.9" = fetchurl {
      url = "https://registry.npmjs.org/vite-node/-/vite-node-2.1.9.tgz";

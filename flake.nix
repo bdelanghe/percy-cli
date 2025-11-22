@@ -72,43 +72,22 @@
               else
                 echo "✗ lerna NOT found, installing devDependencies..." >&2
                 
-                # mkYarnPackage puts source in deps/percy-cli/ but cache is configured at root
-                # We need to install from the source directory but use the root's cache config
-                if [ -d deps/percy-cli ]; then
-                  echo "Installing devDependencies in deps/percy-cli/..." >&2
+                # mkYarnPackage's yarnConfigHook sets up the offline cache at root level
+                # Install from root using --cwd to keep the cache configuration
+                if [ -d deps/percy-cli ] && [ -f deps/percy-cli/package.json ]; then
+                  echo "Installing devDependencies using root cache (--cwd deps/percy-cli)..." >&2
                   
-                  # Get the cache path from root .yarnrc and ensure it's absolute
-                  ROOT_DIR="$PWD"
-                  if [ -f .yarnrc ]; then
-                    CACHE_PATH=$(grep "yarn-offline-mirror" .yarnrc | sed 's/.*"\(.*\)".*/\1/' || echo "")
-                    if [ -n "$CACHE_PATH" ]; then
-                      # If relative, make it absolute from root
-                      if [[ "$CACHE_PATH" != /* ]]; then
-                        CACHE_PATH="$ROOT_DIR/$CACHE_PATH"
-                      fi
-                      # Create .yarnrc in subdirectory with absolute path
-                      echo "yarn-offline-mirror \"$CACHE_PATH\"" > deps/percy-cli/.yarnrc
-                      echo "Created .yarnrc with absolute cache path: $CACHE_PATH" >&2
-                      # Verify cache exists
-                      if [ ! -d "$CACHE_PATH" ]; then
-                        echo "WARNING: Cache directory not found: $CACHE_PATH" >&2
-                        echo "This might cause installation to fail." >&2
-                      fi
-                    else
-                      cp .yarnrc deps/percy-cli/.yarnrc
-                    fi
-                  fi
-                  
-                  cd deps/percy-cli
-                  yarn install --offline --frozen-lockfile --production=false --ignore-scripts 2>&1 || {
-                    echo "ERROR: Failed to install devDependencies" >&2
-                    echo "Current .yarnrc contents:" >&2
-                    cat .yarnrc 2>&1 || true
+                  # Install from root directory where yarnConfigHook configured the cache
+                  # Use --cwd to target deps/percy-cli while keeping root's cache config
+                  yarn install --offline --frozen-lockfile --production=false --ignore-scripts --cwd deps/percy-cli 2>&1 || {
+                    echo "ERROR: Failed to install devDependencies with --cwd" >&2
+                    echo "This suggests the offline cache might not be properly configured." >&2
+                    echo "Checking yarn configuration..." >&2
+                    yarn config list 2>&1 | head -20 || true
                     exit 1
                   }
-                  cd ../..
                 else
-                  echo "ERROR: deps/percy-cli directory not found" >&2
+                  echo "ERROR: deps/percy-cli directory or package.json not found" >&2
                   exit 1
                 fi
               fi

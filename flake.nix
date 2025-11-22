@@ -4,11 +4,9 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
     flake-schemas.url = "github:DeterminateSystems/flake-schemas";
-    dream2nix.url = "github:nix-community/dream2nix";
-    dream2nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, flake-schemas, dream2nix }:
+  outputs = { self, nixpkgs, flake-schemas }:
     let
       systems = [
         "aarch64-linux"
@@ -31,25 +29,37 @@
           cfg        = import ./nix/percy-config.nix { inherit pkgs; };
           srcPatched = import ./nix/src-patched.nix { inherit pkgs; version = cfg.version; };
 
-          # Layer 2: node tree build using dream2nix
-          # Let dream2nix handle the entire Node.js build including devDependencies
-          # This is cleaner than mkYarnPackage + manual build orchestration
-          dream2nixPackage = dream2nix.lib.evalModules {
-            packageSets.nixpkgs = pkgs;
-            modules = [
-              # Pass module as a bare path - the module system will call it with proper args
-              ./nix/dream2nix-config.nix
-            ];
-            # specialArgs provides extra arguments to all modules
-            specialArgs = {
-              inherit dream2nix srcPatched;
-            };
-          };
+          # Layer 2: node tree build using mkYarnPackage
+          # Use mkYarnPackage with the existing offline cache for reliable, reproducible builds
+          # mkYarnPackage includes devDependencies by default when they're in yarn.lock
+          offlineCache = import ./nix/offline-cache.nix { inherit (pkgs) fetchurl fetchgit linkFarm runCommand gnutar; };
+          
+          nodeTree = pkgs.mkYarnPackage {
+            name = "percy-cli-node-tree";
+            src = srcPatched;
+            yarnLock = "${srcPatched}/yarn.lock";
+            packageJson = "${srcPatched}/package.json";
+            yarnOfflineCache = offlineCache;
+            
+            # Build phase - run lerna and babel
+            # Note: mkYarnPackage installs all dependencies including devDependencies
+            buildPhase = ''
+              export HOME="$TMPDIR/home"
+              mkdir -p "$HOME"
 
-          # Extract the built package from dream2nix
-          # dream2nix handles: node_modules install (with devDependencies) + lerna build + babel
-          # Try accessing via packages attribute, fallback to direct access
-          nodeTree = dream2nixPackage.packages."percy-cli" or dream2nixPackage.packages.percy-cli or dream2nixPackage;
+              # Add node_modules/.bin to PATH for build tools
+              export PATH="$PWD/node_modules/.bin:$PATH"
+
+              # Run lerna build
+              lerna run build --stream
+
+              # Run babel build_cjs directly
+              BABEL_ENV=dev babel packages -d build || true
+              if [ -d build ]; then
+                cp -R build/* packages/
+              fi
+            '';
+          };
 
           # Layer 3: prepared CLI tree (patched for pkg)
           preparedCli = import ./nix/prepared-cli.nix {

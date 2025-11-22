@@ -13,7 +13,8 @@ stdenv.mkDerivation {
   inherit version;
 
   src = nodeTree;
-  sourceRoot = ".";
+  # mkYarnPackage outputs the package in libexec/${name}/, but we want the root
+  sourceRoot = "libexec/percy-cli-node-tree";
 
   nativeBuildInputs = [ gnused ];
 

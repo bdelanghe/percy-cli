@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import colors from 'colors';
-import parse from 'yargs-parser';
+import arg from 'arg';
 import { spawn, ChildProcess } from 'child_process';
 
 const cwd = process.cwd();
@@ -15,11 +15,29 @@ interface ParsedArgs {
   [key: string]: unknown;
 }
 
-// borrow yargs-parser to process command arguments
-const argv = parse(process.argv.slice(2), {
-  alias: { node: 'n', bundle: 'b', watch: 'w' },
-  boolean: ['node', 'bundle', 'watch']
-}) as ParsedArgs;
+// parse command arguments using arg (lightweight alternative to yargs-parser)
+const args = arg(
+  {
+    '--node': Boolean,
+    '--bundle': Boolean,
+    '--watch': Boolean,
+    '-n': '--node',
+    '-b': '--bundle',
+    '-w': '--watch',
+  },
+  {
+    argv: process.argv.slice(2),
+    permissive: false,
+  }
+);
+
+// Convert to expected format (camelCase without -- prefix)
+// arg returns undefined for flags that aren't present, which matches yargs-parser behavior
+const argv: ParsedArgs = {
+  node: args['--node'],
+  bundle: args['--bundle'],
+  watch: args['--watch'],
+};
 
 interface SpawnOptions {
   cwd?: string;

@@ -3,7 +3,7 @@ import fs from 'fs';
 import url from 'url';
 import path from 'path';
 import cp from 'child_process';
-import parse from 'yargs-parser';
+import arg from 'arg';
 import colors from 'colors/safe.js';
 
 const cwd = process.cwd();
@@ -19,13 +19,32 @@ interface ParsedArgs {
   [key: string]: unknown;
 }
 
-// borrow yargs-parser to process command arguments
-const argv = parse(process.argv.slice(2), {
-  configuration: { 'strip-aliased': true },
-  alias: { node: 'n', browsers: 'b', coverage: 'c', reporter: 'r' },
-  boolean: ['node', 'browsers', 'coverage'],
-  string: ['reporter']
-}) as ParsedArgs;
+// parse command arguments using arg (lightweight alternative to yargs-parser)
+const args = arg(
+  {
+    '--node': Boolean,
+    '--browsers': Boolean,
+    '--coverage': Boolean,
+    '--reporter': String,
+    '-n': '--node',
+    '-b': '--browsers',
+    '-c': '--coverage',
+    '-r': '--reporter',
+  },
+  {
+    argv: process.argv.slice(2),
+    permissive: false,
+  }
+);
+
+// Convert to expected format (camelCase without -- prefix)
+// arg returns undefined for flags that aren't present, which matches yargs-parser behavior
+const argv: ParsedArgs = {
+  node: args['--node'],
+  browsers: args['--browsers'],
+  coverage: args['--coverage'],
+  reporter: args['--reporter'],
+};
 
 interface SpawnOptions {
   cwd?: string;

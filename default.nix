@@ -358,7 +358,7 @@ EOF
       # First bundle everything into a single file, then compile
       # This ensures all dependencies are included
       echo "Step 1: Bundling with bun build..." >&2
-      bun build ./percy-entry.js --outfile=./percy-bundle.js --target bun --minify=false 2>&1 || {
+      bun build ./percy-entry.js --outfile=./percy-bundle.js --minify=false 2>&1 || {
         echo "Error: bun build failed" >&2
         exit 1
       }

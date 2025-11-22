@@ -23,6 +23,9 @@
 
 ### Test Scripts
 - ✅ **package.json test scripts**: Updated to use `bun test` and `bun test --coverage`
+- ✅ **scripts/loader.js**: Removed Babel usage, now uses Bun's native module handling
+- ✅ **scripts/test.js**: Removed babel-register.cjs reference, updated for Bun
+- ✅ **scripts/babel-register.cjs**: Deleted (no longer needed)
 
 ## ⚠️ Testing Required
 
@@ -37,9 +40,10 @@ The following need to be tested to ensure they work correctly:
 ## ⏳ Remaining Work
 
 ### Optional Optimizations
-- [ ] Consider using Bun's bundler instead of Rollup for browser bundles
-- [ ] Evaluate if Babel can be replaced with Bun's native transpiler
-- [ ] Remove unused dependencies (Jasmine, Karma if tests work with Bun)
+- ⚠️ **Rollup kept for Karma**: Rollup and karma-rollup-preprocessor are kept for browser tests only
+- ✅ **Babel removed from test scripts**: Babel is no longer used in test infrastructure
+- ⚠️ **Babel ESLint parser kept**: `@babel/eslint-parser` and `eslint-plugin-babel` kept for ESLint compatibility
+- ⚠️ **Jasmine/Karma kept**: Still needed for browser tests (Karma) and some Node tests (Jasmine)
 
 ### Documentation Updates
 - [ ] Update README.md to mention Bun instead of Yarn/Lerna
@@ -47,8 +51,12 @@ The following need to be tested to ensure they work correctly:
 - ✅ **nix/README.md**: Updated to reflect Bun usage instead of dream2nix
 
 ### CI/CD Updates
-- [ ] Update GitHub Actions workflows to use Bun
-- [ ] Update any CI scripts that reference `yarn` or `lerna`
+- ✅ **.github/workflows/test.yml**: Updated to use Bun instead of Yarn
+  - Added `oven-sh/setup-bun@v1` action
+  - Replaced `yarn` with `bun install`
+  - Replaced `yarn build` with `bun run build`
+  - Replaced `yarn workspace` with `bun run --filter`
+  - Updated cache keys from `yarn.lock` to `bun.lockb`
 
 ## 📝 Notes
 

@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v1
       - uses: actions/setup-node@v3
         with:
           node-version: 14
@@ -22,12 +23,12 @@ jobs:
           key: >
             ${{ runner.os }}/node-14/
             ${{ hashFiles('.github/.cache-key') }}/
-            ${{ hashFiles('**/yarn.lock') }}
+            ${{ hashFiles('**/bun.lockb') }}
           restore-keys: >
             ${{ runner.os }}/node-14/
             ${{ hashFiles('.github/.cache-key') }}/
-      - run: yarn
-      - run: yarn build
+      - run: bun install
+      - run: bun run build
       - uses: actions/upload-artifact@v4
         with:
           name: dist
@@ -60,6 +61,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v1
       - uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node }}
@@ -72,7 +74,7 @@ jobs:
           key: >
             ${{ runner.os }}/node-${{ matrix.node }}/
             ${{ hashFiles('.github/.cache-key') }}/
-            ${{ hashFiles('**/yarn.lock') }}
+            ${{ hashFiles('**/bun.lockb') }}
           restore-keys: >
             ${{ runner.os }}/node-${{ matrix.node }}/
             ${{ hashFiles('.github/.cache-key') }}/
@@ -80,11 +82,11 @@ jobs:
         with:
           name: dist
           path: packages
-      - run: yarn
+      - run: bun install
       - name: Install browser dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --fix-missing libgbm-dev
         if: ${{ matrix.os == 'ubuntu-latest' }}
       - name: Run tests
-        run: yarn workspace ${{ matrix.package }} test:coverage --colors
+        run: bun run --filter ${{ matrix.package }} test:coverage --colors

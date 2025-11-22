@@ -17,8 +17,8 @@
 - ⚠️ Kept `@babel/eslint-parser` (still needed for ESLint, can be replaced later)
 
 ### Configuration Files
-- ✅ **babel.config.cjs**: Can be deleted (no longer used)
-- ✅ **rollup.config.js**: Can be deleted (no longer used)
+- ✅ **babel.config.cjs**: Deleted (no longer used)
+- ⚠️ **rollup.config.js**: Kept (still needed for Karma browser tests)
 - ⚠️ **karma.config.cjs**: Still needed for browser tests (see below)
 - ✅ **.eslintrc**: Updated with note about potential future parser change
 
@@ -28,27 +28,20 @@
 
 ## Remaining Work
 
+### Test Scripts Updated
+- ✅ **scripts/loader.js**: Removed Babel usage, now uses Bun's native module handling
+- ✅ **scripts/test.js**: Removed babel-register.cjs reference, updated for Bun
+- ✅ **scripts/babel-register.cjs**: Deleted (no longer needed)
+
 ### Karma for Browser Tests
 - ⚠️ **Karma is still needed** for browser-based testing
 - Bun's test runner doesn't run tests in actual browsers (Chrome/Firefox)
 - The test system uses Karma to:
   - Run tests in real browsers (ChromeHeadless, FirefoxHeadless)
-  - Bundle test files with Rollup (now needs to use Bun)
+  - Bundle test files with Rollup (kept for browser tests only)
   - Collect coverage from browser tests
 
-**Options:**
-1. Keep Karma but update it to use Bun's bundler instead of Rollup
-2. Migrate to a different browser testing solution (Playwright, Puppeteer)
-3. Keep Karma as-is for now (it still works, just uses old Rollup config)
-
-### Files That Can Be Deleted
-- `babel.config.cjs` - No longer used
-- `rollup.config.js` - No longer used (but Karma might still reference it)
-
-### Files That Still Reference Old Tools
-- `scripts/loader.js` - Uses Babel for test-time transformations
-- `scripts/test.js` - Uses Karma for browser tests
-- `karma.config.cjs` - References rollup.config.js
+**Decision:** Keep Rollup only for Karma browser tests. Rollup and karma-rollup-preprocessor remain as dependencies for browser testing.
 
 ## Testing Required
 

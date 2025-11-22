@@ -1,10 +1,8 @@
 import fs from 'fs';
 import url from 'url';
 import path from 'path';
-import babel from '@babel/core';
 
 const ROOT = path.resolve(url.fileURLToPath(import.meta.url), '../..');
-const BABEL_REG = /(\/|\\)(@percy|packages)\1(.+?)\1(src|test|.*\\.js)/;
 const CJS_REG = /(^|\n)(module\.)?(exports)/;
 const MOCK_REG = /^mock:\/\/|\?.+$/g;
 
@@ -93,20 +91,9 @@ export async function getSource(srcURL, context, defaultGetSource) {
   return defaultGetSource(srcURL, context, defaultGetSource);
 }
 
-// return loader mocks or transform sources using babel
+// return loader mocks or pass through sources (Bun handles ES modules natively)
 export async function transformSource(source, context, defaultTransformSource) {
-  let callback = (src = source) => defaultTransformSource(src, context, defaultTransformSource);
-  if (context.format !== 'module' && context.format !== 'commonjs') return callback();
-  if (context.url.startsWith('mock://')) return callback();
-
-  if (typeof source !== 'string') source = Buffer.from(source);
-  if (Buffer.isBuffer(source)) source = source.toString();
-
-  return callback((await babel.transformAsync(source, {
-    filename: url.fileURLToPath(context.url),
-    sourceType: context.format,
-    babelrcRoots: ['.'],
-    rootMode: 'upward',
-    only: [BABEL_REG]
-  }))?.code);
+  // Bun can run ES modules natively, so no transformation needed
+  // Just pass through to default handler
+  return defaultTransformSource(source, context, defaultTransformSource);
 }

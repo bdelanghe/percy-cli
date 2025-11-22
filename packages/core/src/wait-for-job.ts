@@ -8,9 +8,16 @@ const JOB_TIMEOUT = Number(process.env.SYNC_TIMEOUT) || 90_000;
 
 // Job is either for snapshot or comparison only
 export class WaitForJob {
-  log = logger('core:wait-for-job');
+  log: ReturnType<typeof logger>;
+  percy: any;
+  jobs: JobData[];
+  type: string;
+  timer: NodeJS.Timeout | null;
+  exit: boolean;
+  running: boolean;
 
-  constructor(type, percy) {
+  constructor(type: string, percy: any) {
+    this.log = logger('core:wait-for-job');
     this.percy = percy;
     this.jobs = [];
     if (type !== 'comparison' && type !== 'snapshot') throw new Error('Type should be either comparison or snapshot');
@@ -20,7 +27,7 @@ export class WaitForJob {
     this.running = false;
   }
 
-  push(job) {
+  push(job: JobData) {
     if (!(job instanceof JobData)) throw new Error('Invalid job passed, use JobData');
     if (this.type === 'snapshot') job.timeout += 420_000; // For snapshot timeout after 08:30 min
 
@@ -90,7 +97,7 @@ export class WaitForJob {
       clearTimeout(this.timer);
       this.timer = null;
     }
-    this.jobs.forEach((job) => {
+    this.jobs.forEach((job: JobData) => {
       job.reject(new Error('Unable to process synchronous results as the CLI was exited while awaiting completion of the snapshot.'));
     });
   }

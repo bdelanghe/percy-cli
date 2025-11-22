@@ -39,7 +39,7 @@ export default class Monitoring {
 
   getPercyEnv() {
     const percyKeys = Object.keys(process.env).filter(env => env.toLowerCase().includes('percy') && !env.toLowerCase().includes('token'));
-    let envs = {};
+    let envs: Record<string, string | undefined> = {};
     percyKeys.forEach((env) => { envs[env] = process.env[env]; });
     return envs;
   }
@@ -80,7 +80,7 @@ export default class Monitoring {
    * It will start monitoring at certain interval
    * by default every 5 seconds
    */
-  async startMonitoring(options = {}) {
+  async startMonitoring(options: { interval?: number } = {}) {
     const { interval = 5000 } = options;
     // early return if already monitoring
     if (this.monitoringId) return;

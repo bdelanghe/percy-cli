@@ -14,7 +14,7 @@ stdenv.mkDerivation {
 
   src = lib.cleanSource src;
   sourceRoot = "source";
-  nativeBuildInputs = [ gnused ];
+  nativeBuildInputs = with pkgs; [ gnused jq ];
   dontBuild = true;
 
   installPhase = ''
@@ -33,17 +33,13 @@ stdenv.mkDerivation {
 
     # Add bun2nix postinstall script to root package.json
     # This will generate bun.nix after bun install runs
-    if ! grep -q '"postinstall".*"bun2nix"' package.json; then
-      # Use jq if available, otherwise use sed
-      if command -v jq >/dev/null 2>&1; then
-        jq '.scripts.postinstall = "bun2nix -o bun.nix"' package.json > package.json.tmp && mv package.json.tmp package.json
-      else
-        # Fallback: use sed to add postinstall script
-        # Find the scripts section and add postinstall
-        sed -i '/"scripts": {/a\
-    "postinstall": "bun2nix -o bun.nix",
-' package.json
-      fi
+    # Merge with existing postinstall if present
+    if jq -e '.scripts.postinstall' package.json >/dev/null 2>&1; then
+      # Existing postinstall - append bun2nix
+      jq '.scripts.postinstall = (.scripts.postinstall + " && bun2nix -o bun.nix")' package.json > package.json.tmp && mv package.json.tmp package.json
+    else
+      # No existing postinstall - add new one
+      jq '.scripts.postinstall = "bun2nix -o bun.nix"' package.json > package.json.tmp && mv package.json.tmp package.json
     fi
   '';
 }

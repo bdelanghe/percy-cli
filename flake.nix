@@ -34,12 +34,11 @@
           # Layer 2: node tree build using dream2nix
           # Let dream2nix handle the entire Node.js build including devDependencies
           # This is cleaner than mkYarnPackage + manual build orchestration
-          dream2nixLib = dream2nix.lib.${system};
-          
-          dream2nixPackage = dream2nixLib.evalModules {
+          dream2nixPackage = dream2nix.lib.evalModules {
             packageSets.nixpkgs = pkgs;
             modules = [
               # Pass module as a path, not an imported function
+              # The module system will call it with { config, lib, ... } plus specialArgs
               ./nix/dream2nix-config.nix
               {
                 paths.projectRoot = srcPatched;

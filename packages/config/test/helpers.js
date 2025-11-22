@@ -97,9 +97,13 @@ export async function mockfs({
 
 // Mock module loading to avoid node using internal C++ fs bindings
 function mockFileModule(filepath, content = '') {
-  if (!jasmine.isSpy(Module._load)) {
-    spyOn(Module, '_load').and.callThrough();
-    spyOn(Module, '_resolveFilename').and.callThrough();
+  if (!vi.isMockFunction(Module._load)) {
+    vi.spyOn(Module, '_load').mockImplementation((...args) => {
+      return Module._load.originalImplementation?.(...args);
+    });
+    vi.spyOn(Module, '_resolveFilename').mockImplementation((...args) => {
+      return Module._resolveFilename.originalImplementation?.(...args);
+    });
   }
 
   let mod = new Module();
@@ -111,10 +115,23 @@ function mockFileModule(filepath, content = '') {
       fp.endsWith(path.join('node_modules', f))
   };
 
-  Module._resolveFilename.withArgs(matchFilepath, any).and.returnValue(fp);
-  Module._load.withArgs(matchFilepath, any, any).and.callFake(() => {
-    mod.loaded = mod.loaded || (mod._compile(content, fp), true);
-    return mod.exports;
+  // Store original implementations for matching
+  let originalResolveFilename = Module._resolveFilename.originalImplementation || Module._resolveFilename;
+  let originalLoad = Module._load.originalImplementation || Module._load;
+  
+  vi.spyOn(Module, '_resolveFilename').mockImplementation((f, ...rest) => {
+    if (matchFilepath.asymmetricMatch(f)) {
+      return fp;
+    }
+    return originalResolveFilename(f, ...rest);
+  });
+  
+  vi.spyOn(Module, '_load').mockImplementation((f, ...rest) => {
+    if (matchFilepath.asymmetricMatch(f)) {
+      mod.loaded = mod.loaded || (mod._compile(content, fp), true);
+      return mod.exports;
+    }
+    return originalLoad(f, ...rest);
   });
 }
 

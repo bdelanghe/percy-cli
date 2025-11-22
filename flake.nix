@@ -38,55 +38,18 @@
             nativeBuildInputs = with pkgs; [
               bun
               nodejs
-              python3
             ];
             
-            # Build phase - use Bun for install and build with offline cache
+            # Build phase - use Bun for install and build
+            # Bun reads bun.lockb directly and installs dependencies
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
 
-              # Start minimal HTTP server to serve offline cache packages
-              # Converts npm registry URLs to yarnpkg cache filename format
-              REGISTRY_PORT=4873
-              REGISTRY_URL="http://localhost:$REGISTRY_PORT"
-              
-              python3 -c 'import http.server, socketserver, re, os; \
-CACHE_DIR = "${offlineCacheFiles.offline_cache}"; \
-PORT = 4873; \
-class Handler(http.server.SimpleHTTPRequestHandler): \
-    def __init__(self, *args, **kwargs): \
-        super().__init__(*args, directory=CACHE_DIR, **kwargs); \
-    def do_GET(self): \
-        if self.path.endswith(".tgz"): \
-            m = re.match(r"/(@[^/]+/)?([^/]+)/-/\2-([^/]+)\.tgz$", self.path); \
-            if m: \
-                scope, name, version = m.group(1), m.group(2), m.group(3); \
-                fn = ("_" + scope.replace("@", "").replace("/", "_") + "_" + name + "___" + name + "-" + version + ".tgz") if scope else (name + "___" + name + "-" + version + ".tgz"); \
-                self.path = "/" + fn; \
-        elif not self.path.endswith(".tgz"): \
-            self.send_response(404); \
-            self.end_headers(); \
-            return; \
-        return super().do_GET(); \
-    def log_message(self, *args): pass; \
-socketserver.TCPServer(("", PORT), Handler).serve_forever()' > /dev/null 2>&1 &
-              REGISTRY_PID=$!
-              trap "kill $REGISTRY_PID 2>/dev/null || true" EXIT
-              sleep 1
-
-              # Configure Bun to use local registry server
-              export BUN_INSTALL_REGISTRY="$REGISTRY_URL"
-              export npm_config_registry="$REGISTRY_URL"
-              echo "registry=$REGISTRY_URL" > .npmrc
-
-              # Install dependencies from offline cache
-              echo "Installing dependencies from offline cache..."
+              # Install dependencies using Bun
+              # Bun will use bun.lockb if available, or generate it
+              echo "Installing dependencies with Bun..."
               bun install --frozen-lockfile --no-save || bun install --no-save
-
-              # Clean up registry server
-              kill $REGISTRY_PID 2>/dev/null || true
-              trap - EXIT
 
               # Add node_modules/.bin to PATH for build tools
               export PATH="$PWD/node_modules/.bin:$PATH"

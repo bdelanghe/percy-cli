@@ -42,9 +42,8 @@
                 paths.package = srcPatched;
                 paths.projectRootFile = "package.json";
                 name = "percy-cli";
-                translator = "yarn-lock";
-                # Include devDependencies - yarn-lock translator may include them by default
-                # If not, we may need to use a different approach or module
+                # translator will be auto-detected from yarn.lock
+                # dream2nix should automatically detect yarn-lock translator
               }
             ];
           };

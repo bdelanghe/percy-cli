@@ -8,6 +8,17 @@
     "type": "git",
     "url": "https://github.com/percy/cli"
   },
+  "scripts": {
+    "build": "bun run --filter './packages/*' build",
+    "build:watch": "bun run --filter './packages/*' build --watch",
+    "build_cjs": "bun run --filter './packages/*' build --node",
+    "lint": "bun run --filter './packages/*' lint",
+    "readme": "bun run --filter './packages/*' readme",
+    "test": "bun run --filter './packages/*' test",
+    "test:coverage": "bun run --filter './packages/*' test:coverage",
+    "test:types": "bun run --filter './packages/*' test:types",
+    "postinstall": "bun run --filter './packages/*' postinstall"
+  },
   "devDependencies": {
     "eslint": "^7.30.0",
     "eslint-config-standard": "^16.0.2",

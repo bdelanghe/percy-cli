@@ -167,6 +167,7 @@ The migration is complete. The current architecture matches the target:
 - ✅ bun2nix for offline, reproducible Nix builds
 - ✅ All build scripts migrated to Bun
 - ✅ All package.json test:coverage scripts updated (removed yarn references)
+- ✅ Root-level scripts added to package.json for centralized script management
 - ✅ ESLint using native parser (Babel ESLint parser removed)
 - ✅ Minimal dependency footprint (only actively used packages remain)
 
@@ -201,7 +202,11 @@ All legacy dependencies (Karma, Rollup, Babel, Jasmine, nyc, cross-env, @nx/nx-d
 ### Completed Verification Tasks ✅
 
 1. ✅ **Package.json script cleanup**: All `test:coverage` scripts updated from `yarn test --coverage` to `node ../../scripts/test --coverage` (17 packages updated)
-2. ✅ **Code verification**: Build and test scripts verified to use Bun and Vitest correctly
+2. ✅ **Root-level scripts**: Added centralized scripts to root `package.json` using `bun run --filter './packages/*'` pattern
+   - Enables running `bun run build`, `bun test`, `bun run lint`, etc. from root
+   - Centralizes script management instead of duplicating across packages
+   - Matches documented commands in README
+3. ✅ **Code verification**: Build and test scripts verified to use Bun and Vitest correctly
    - `scripts/build.js` uses Bun bundler for both Node.js and browser builds
    - `scripts/test.js` uses Bun test runner for Node tests and Vitest for browser tests
    - `vitest.config.mts` properly configured with jsdom environment

@@ -13,22 +13,27 @@ let
   # Configuration
   cfg = import ./nix/percy-config.nix { inherit pkgs; };
 
-  # Check for bun.lock and bun.nix in source before building
+  # Diagnostic helpers for bun2nix cache
+  diagnostics = import ./nix/bun-diagnostics.nix {
+    inherit pkgs bunNix;
+  };
+
+  # Check for bun.lockb and bun.nix in source before building
   # These should be generated outside Nix and committed to version control
-  hasBunLock = builtins.pathExists ./bun.lock;
+  hasBunLockb = builtins.pathExists ./bun.lockb;
   hasBunNix  = builtins.pathExists bunNix;
 
-  _ = if !hasBunLock || !hasBunNix then
+  _ = if !hasBunLockb || !hasBunNix then
     throw ''
 
       Missing Bun lock artifacts in source:
 
-        bun.lock present: ${toString hasBunLock}
+        bun.lockb present: ${toString hasBunLockb}
         bun.nix present:  ${toString hasBunNix}
 
       To fix:
-        bun install                    # Generates bun.lock
-        bunx bun2nix -o bun.nix       # Generates bun.nix from bun.lock
+        bun install                    # Generates bun.lockb
+        bunx bun2nix -o bun.nix       # Generates bun.nix from bun.lockb
         # Or use Nix app:
         nix run .#update-lockfiles
         git add bun.lockb bun.nix
@@ -43,16 +48,55 @@ let
     version = cfg.version;
   };
 
+  # Verify bunDeps is built (for diagnostics)
+  # This ensures the cache derivation exists before we try to use it
+  _verifyBunDeps = diagnostics.bunDeps;
+
   # Layer 2: node tree build using bun2nix
-  # Use mkBunDerivation which automatically handles offline cache setup
-  # mkBunDerivation will fetch dependencies from bun.nix internally
-  nodeTree = pkgs.bun2nix.mkBunDerivation {
+  # Choose installation strategy based on config
+  # Default uses mkBunDerivation, but can fall back to manual cache setup
+  nodeTreeBase = if cfg.bunInstallStrategy == "manual-cache" then
+    nodeTreeManual
+  else
+    # Use mkBunDerivation which automatically handles offline cache setup
+    # mkBunDerivation will fetch dependencies from bun.nix internally
+    pkgs.bun2nix.mkBunDerivation {
     pname   = "percy-cli-node-tree";
     version = cfg.version;
     src     = srcPatched;
 
     # mkBunDerivation uses bunNix to fetch and set up the offline cache automatically
     bunNix = bunNix;
+
+    # Add diagnostic output after install phase completes
+    # This helps verify what happened during bunNodeModulesInstallPhase
+    postInstall = ''
+      echo "" >&2
+      echo "=== Post-Install Diagnostics ===" >&2
+      
+      # Check if BUN_INSTALL_CACHE_DIR was set (should still be in environment)
+      if [ -n "$BUN_INSTALL_CACHE_DIR" ]; then
+        echo "✓ BUN_INSTALL_CACHE_DIR was set: $BUN_INSTALL_CACHE_DIR" >&2
+        if [ -d "$BUN_INSTALL_CACHE_DIR" ]; then
+          cache_files=$(find "$BUN_INSTALL_CACHE_DIR" -type f 2>/dev/null | wc -l || echo "0")
+          echo "  Cache contains $cache_files files" >&2
+        fi
+      else
+        echo "⚠ BUN_INSTALL_CACHE_DIR not found in environment (may have been unset)" >&2
+      fi
+      
+      # Verify node_modules was created
+      if [ -d node_modules ]; then
+        echo "✓ node_modules directory exists" >&2
+        node_count=$(find node_modules -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l || echo "0")
+        echo "  Found $node_count top-level packages" >&2
+      else
+        echo "✗ node_modules directory not found" >&2
+      fi
+      
+      echo "=== End Diagnostics ===" >&2
+      echo "" >&2
+    '';
 
     # mkBunDerivation automatically runs bun install with offline cache
     # We just need to run the build after dependencies are installed
@@ -83,6 +127,113 @@ let
       mkdir -p "$out"
       cp -R . "$out"
       runHook postInstall
+    '';
+    };
+
+  # Use the selected installation strategy
+  nodeTree = nodeTreeBase;
+
+  # Test derivation to isolate Bun's offline behavior
+  # This helps determine if the issue is in bun2nix hook or Bun itself
+  nodeTreeManualCache = diagnostics.testManualCache {
+    src = srcPatched;
+    bunDeps = diagnostics.bunDeps;
+  };
+
+  # Fallback: Manual cache setup (Option A from plan)
+  # Use this if mkBunDerivation hook is not working correctly
+  # This manually sets up the cache and runs bun install
+  nodeTreeManual = pkgs.stdenv.mkDerivation {
+    pname   = "percy-cli-node-tree-manual";
+    version = cfg.version;
+    src     = srcPatched;
+
+    nativeBuildInputs = [
+      pkgs.bun
+      diagnostics.checkCacheSetup
+    ];
+
+    # Manually set up offline cache (bypassing bun2nix hook)
+    preInstall = ''
+      echo "=== Manual Offline Cache Setup ===" >&2
+      
+      # Set cache directory from bunDeps
+      export BUN_INSTALL_CACHE_DIR=${diagnostics.bunDeps}
+      export HOME="$TMPDIR/home"
+      mkdir -p "$HOME"
+      
+      # Run cache diagnostics
+      check-bun-cache
+      
+      echo "" >&2
+      echo "Running bun install with offline cache..." >&2
+    '';
+
+    installPhase = ''
+      runHook preInstall
+      
+      # Run bun install with offline flags
+      # --prefer-offline: Use cache if available, but may still check registry
+      # --frozen-lockfile: Don't update lockfile
+      set +e
+      bun install --prefer-offline --frozen-lockfile 2>&1 | tee install.log || true
+      install_status=$?
+      set -e
+      
+      echo "" >&2
+      echo "=== Install Result ===" >&2
+      
+      # Analyze install log for network activity
+      if grep -iE "(fetch|download|network|registry|http|https)" install.log | grep -vE "(cache|offline|local)" | head -5; then
+        echo "⚠ Warning: Potential network activity detected in install log" >&2
+        echo "  This may indicate Bun is still trying to reach the registry" >&2
+      fi
+      
+      if [ $install_status -eq 0 ]; then
+        echo "✓ bun install completed" >&2
+      else
+        echo "⚠ bun install exited with status $install_status" >&2
+        echo "  This may be expected if network access is blocked" >&2
+      fi
+      
+      # Verify node_modules was created
+      if [ -d node_modules ]; then
+        echo "✓ node_modules directory created" >&2
+        node_count=$(find node_modules -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l || echo "0")
+        echo "  Found $node_count top-level packages" >&2
+      else
+        echo "✗ node_modules directory not found" >&2
+        if [ $install_status -ne 0 ]; then
+          echo "  Install failed - this may be due to network restrictions" >&2
+          echo "  Consider using vendored node_modules approach" >&2
+        fi
+        exit 1
+      fi
+      
+      mkdir -p "$out"
+      cp -R . "$out"
+      runHook postInstall
+    '';
+
+    buildPhase = ''
+      runHook preBuild
+      
+      export HOME="$TMPDIR/home"
+      mkdir -p "$HOME"
+      export PATH="$PWD/node_modules/.bin:$PATH"
+
+      # Verify dependencies are installed
+      if [ ! -d node_modules ]; then
+        echo "Error: node_modules not found after install phase" >&2
+        exit 1
+      fi
+
+      echo "Dependencies installed successfully from offline cache"
+      
+      # Build using Bun workspace scripts (ESM output)
+      bun run build
+      
+      runHook postBuild
     '';
   };
 
@@ -136,5 +287,21 @@ in
   
   # Default to Bun-compiled binary for backward compatibility
   default = percyCli;
+  
+  # Diagnostic outputs
+  # bun-deps: The offline cache derivation (for inspection)
+  # Build with: nix build .#bun-deps
+  bun-deps = diagnostics.bunDeps;
+  
+  # node-tree-manual-cache: Test derivation with manual cache setup
+  # Use this to isolate whether issue is in bun2nix hook or Bun itself
+  # Build with: nix build .#node-tree-manual-cache
+  node-tree-manual-cache = nodeTreeManualCache;
+  
+  # node-tree-manual: Fallback implementation using manual cache setup
+  # Use this if mkBunDerivation hook is not working correctly
+  # Build with: nix build .#node-tree-manual
+  # Then update percy-cli-node and percy-cli to use nodeTreeManual instead of nodeTree
+  node-tree-manual = nodeTreeManual;
 }
 

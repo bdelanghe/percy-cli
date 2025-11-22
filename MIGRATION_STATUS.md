@@ -95,7 +95,7 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
   - `nix run .#bun2nix-generate` – regenerate `bun.nix` from `bun.lockb`.
   - `nix run .#update-lockfiles` – run both.
 
-### 4. Test Migration (Jasmine/Karma → Bun + Vitest)
+### 4. Test Migration (Jasmine/Karma → Bun + Vitest Browser Mode)
 
 - Node tests:
   - Migrated from Jasmine to Bun's test runner.
@@ -104,8 +104,9 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
   - Migrated from Karma + Rollup to Vitest Browser Mode (Playwright).
   - Added `vitest`, `@vitest/coverage-v8`, `@vitest/browser-playwright`.
   - `vitest.config.mts` uses Browser Mode with Playwright provider (Chromium, Firefox, WebKit).
-  - Updated test helpers to Vitest APIs.
+  - Updated test helpers to Vitest APIs and real browser detection.
   - Removed Karma config and dependencies.
+  - **Note**: Playwright browsers must be installed via `bunx playwright install` before running browser tests.
 - Coverage:
   - Node: `bun test --coverage`.
   - Browser: `vitest run --coverage` with v8 provider.
@@ -230,7 +231,8 @@ bun run build
 # Node tests
 bun test
 
-# Browser-style tests
+# Browser-style tests (requires Playwright browsers)
+bunx playwright install  # Install browsers first
 bunx vitest run
 
 # Coverage
@@ -309,7 +311,7 @@ This provides:
 
 ### Building
 
-**Prerequisites**: `bun.lockb` and `bun.nix` must exist. If missing, run `nix run .#update-lockfiles` first (requires clean git state).
+**Prerequisites**: `bun.lock` and `bun.nix` must exist. If missing, run `nix run .#update-lockfiles` first (requires clean git state).
 
 ```bash
 # Build the binary for your system
@@ -520,19 +522,23 @@ The migration is functionally complete. The following items are optional or pend
    - Run `bun install` or use Nix to install dependencies
    - Regenerate `bun.nix` if using bun2nix: `nix run .#bun2nix-generate`
 
-2. **Run tests to verify everything works**
+2. **Install Playwright browsers** (required for browser tests)
+   - Run `bunx playwright install` to install Chromium, Firefox, and WebKit browsers
+   - This is a one-time setup step needed before running browser tests
+
+3. **Run tests to verify everything works**
    - Run browser tests: `bunx vitest run`
    - Run all tests: `bun test` (Node tests) + `bunx vitest run` (browser tests)
    - Run with coverage: `vitest run --coverage`
 
-3. **Fix any test failures**
+4. **Fix any test failures**
    - Most Jasmine syntax should work with Vitest (describe/it/expect)
    - Potential fixes needed:
      - `expectAsync().toBeResolvedTo()` → `await expect(...).resolves.toBe(...)`
      - `jasmine.any(String)` → `expect.any(String)` or use Vitest's matchers
      - Browser-specific conditionals work with real browsers (Chromium, Firefox, WebKit detection available)
 
-4. **Update CI/CD if needed**
+5. **Update CI/CD if needed**
    - Ensure GitHub Actions workflows use Vitest instead of Karma
    - Remove any Karma-specific setup steps
    - Ensure Vitest and Playwright browsers are available in CI environment
@@ -606,11 +612,111 @@ The following require actual test runs in an environment with Bun installed:
 - ⚠️ Actual Nix build execution (`nix build` - requires bun.lockb first)
 - ⚠️ Actual workspace command execution
 
-**Next Steps**:
-1. Generate `bun.lockb`: `bun install` or `nix run .#bun-install`
-2. Commit changes: `git add bun.lockb bun.nix && git commit`
-3. Run verification: `bun run build`, `bun test`, `nix build`
-4. Update migration status with runtime results
+**Next Steps for Runtime Verification**:
+
+1. **Generate `bun.lockb`** (requires network access):
+   ```bash
+   # Option 1: Using Bun directly (if installed)
+   bun install
+   
+   # Option 2: Using Nix (requires clean git state)
+   nix run .#bun-install
+   ```
+
+2. **Regenerate `bun.nix`** from the new `bun.lockb`:
+   ```bash
+   bunx bun2nix -o bun.nix
+   # or
+   nix run .#bun2nix-generate
+   ```
+
+3. **Commit both files**:
+   ```bash
+   git add bun.lockb bun.nix
+   git commit -m "Add bun.lockb and update bun.nix for Nix builds"
+   ```
+
+4. **Run runtime verification**:
+   ```bash
+   # Verify builds
+   bun run build
+   
+   # Verify tests
+   bun test                    # Node tests
+   vitest run                  # Browser tests
+   
+   # Verify Nix builds
+   nix build                   # Should now work with bun.lockb
+   ```
+
+5. **Update migration status** with runtime results once verification completes
+
+---
+
+## Verification Plan Implementation Summary
+
+### Task 1: Verify Build Process ✅
+
+**Code Verification Completed**:
+- ✅ Root `package.json` has `build` script: `bun run --filter './packages/*' build`
+- ✅ All 17 packages have `build` scripts configured
+- ✅ `scripts/build.js` verified to use Bun bundler (no Babel/Rollup)
+- ✅ 17 packages have `dist/` directories (builds have run previously)
+- ✅ Build script uses `bun build` with correct format flags
+
+**Runtime Verification**: ⚠️ Pending - requires `bun run build` execution
+
+### Task 2: Verify Test Execution ✅
+
+**Code Verification Completed**:
+- ✅ `scripts/test.js` updated to use Bun test runner for Node tests
+- ✅ `scripts/test.js` updated to use Vitest for browser tests
+- ✅ All 17 packages have `test:coverage` scripts updated (0 yarn references)
+- ✅ Test helpers verified to use Vitest/Bun APIs
+- ✅ `vitest.config.mts` properly configured
+
+**Runtime Verification**: ⚠️ Pending - requires `bun test` and `vitest run` execution
+
+### Task 3: Verify Nix Builds ✅
+
+**Code Verification Completed**:
+- ✅ `default.nix` updated to check for `bun.lockb` (not `bun.lock`)
+- ✅ `bun2nix.fetchBunDeps` configured correctly
+- ✅ `mkBunDerivation` properly integrated with bun2nix
+- ✅ `bun.nix` exists and is properly formatted (2296 lines)
+- ✅ All `bun.lock` references changed to `bun.lockb` in `default.nix` and `flake.nix`
+
+**Runtime Verification**: ⚠️ Pending - requires `bun.lockb` generation and `nix build` execution
+
+### Task 4: Verify Workspace Commands ✅
+
+**Code Verification Completed**:
+- ✅ Root `package.json` has 8 centralized scripts using `bun run --filter './packages/*'`
+- ✅ All scripts use correct Bun workspace filtering patterns
+- ✅ Scripts: `build`, `build:watch`, `lint`, `readme`, `test`, `test:coverage`, `test:types`, `postinstall`
+
+**Runtime Verification**: ⚠️ Pending - requires execution of `bun run --filter` commands
+
+### Task 5: Update Migration Status Document ✅
+
+**Completed**:
+- ✅ Added comprehensive "Testing & Verification" section
+- ✅ Documented all code-level verification results
+- ✅ Documented runtime verification requirements
+- ✅ Added verification summary with next steps
+- ✅ Updated status section to reflect verification state
+
+### Task 6: Fix Any Issues Found ✅
+
+**Issues Fixed**:
+- ✅ Fixed all `bun.lock` references → `bun.lockb` in `default.nix` and `flake.nix`
+- ✅ Updated `bun2nix.fetchBunDeps` API to include `src`, `bunLock`, and `bunNix` parameters
+- ✅ Removed Babel references from build phase
+- ✅ Updated all 17 package `test:coverage` scripts (removed yarn references)
+- ✅ Added root-level scripts for centralized management
+- ✅ Updated CI/CD workflows (test.yml and lint.yml)
+
+**All identified issues have been resolved.**
 
 ---
 

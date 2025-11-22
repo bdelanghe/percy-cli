@@ -298,9 +298,9 @@
                 fi
               done
               
-              if [ ${#failed_packages[@]} -gt 0 ]; then
+              if [ ''${#failed_packages[@]} -gt 0 ]; then
                 echo ""
-                echo "❌ Type check failed for: ${failed_packages[*]}"
+                echo "❌ Type check failed for: ''${failed_packages[*]}"
                 exit 1
               fi
               echo "✓ Type checks passed"

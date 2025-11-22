@@ -84,9 +84,10 @@ rec {
         
         # Verify variable is set before running diagnostics
         echo "BUN_INSTALL_CACHE_DIR is set to: $BUN_INSTALL_CACHE_DIR" >&2
+        echo "bunDeps path: ${bunDeps}" >&2
         
-        # Run diagnostics - pass cache dir explicitly to ensure it's available
-        check-bun-cache "$BUN_INSTALL_CACHE_DIR"
+        # Run diagnostics - pass cache dir explicitly using the Nix variable directly
+        check-bun-cache ${bunDeps}
         
         echo "" >&2
         echo "Running bun install with --prefer-offline..." >&2

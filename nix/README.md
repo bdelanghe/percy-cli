@@ -12,6 +12,22 @@ This directory contains Nix-specific build scripts and helpers.
 - `flake.nix` - Main Nix flake configuration (repository root)
 - `.github/workflows/nix/executable.yml` - Nix-based CI workflow
 
+## Quick Start
+
+Two CLI packaging options are available:
+
+```bash
+# Option A: Nix-wrapped Node (simpler, works with ESM directly)
+nix build .#percy-cli-node
+
+# Option B: Bun-compiled binary (true native binary, default)
+nix build .#percy-cli
+# or simply:
+nix build
+```
+
+Both produce a `percy` executable in `./result/bin/percy`.
+
 ## Build Architecture
 
 The Nix flake uses a **three-layer, cache-friendly architecture** to build the Percy CLI binary. This design maximizes Nix store and binary cache reuse while maintaining clean separation of concerns.
@@ -51,7 +67,27 @@ The build is split into three distinct layers, each with a specific purpose:
 - Runs `bun run build` to compile source using Bun's bundler (ESM output)
 - Builds all packages in the monorepo as ESM modules
 
-#### Layer 3: Bun-Compiled Binary (`percy-cli`)
+#### Layer 3: CLI Binary Packaging
+
+Two options are available for packaging the CLI:
+
+**Option A: Nix-Wrapped Node (`percy-cli-node`)**
+
+**Purpose**: Simple wrapper that runs Node on the built ESM entrypoint.
+
+- **Input**: `nodeTree` (Layer 2)
+- **Output**: Shell script that invokes Node on the ESM entrypoint
+- **Characteristics**:
+  - Simple and straightforward
+  - Works directly with ESM output from `bun build`
+  - Requires Node.js in the Nix store (but not installed on user's system)
+  - No binary compilation step
+
+**Steps**:
+- Creates a shell script that runs `${nodejs}/bin/node ${nodeTree}/packages/cli/dist/index.js "$@"`
+- No build phase needed - just wraps the existing ESM output
+
+**Option B: Bun-Compiled Binary (`percy-cli`)**
 
 **Purpose**: Compile the CLI into a standalone native binary using Bun's compile feature.
 
@@ -61,10 +97,18 @@ The build is split into three distinct layers, each with a specific purpose:
   - Per-system (compiled for target architecture)
   - Self-contained (includes Bun runtime)
   - True native binary (not a Node.js wrapper)
+  - No external runtime dependencies
 
 **Steps**:
 - **buildPhase**: Runs `bun build --compile` on `packages/cli/src/bin.js` to create a standalone executable
 - **installPhase**: Copies the compiled binary to `$out/bin/percy` and sets executable permissions
+
+**Which to use?**
+
+- **Option A (`percy-cli-node`)**: Simpler, works directly with ESM builds, good for development and Nix-native workflows
+- **Option B (`percy-cli`)**: True standalone binary, no runtime dependencies, better for distribution outside Nix
+
+The default package is `percy-cli` (Option B) for backward compatibility.
 
 ### Cache-Friendly Design
 
@@ -86,20 +130,38 @@ Patching is split across layers based on when and why it's needed:
   - Uses Bun's native `--compile` feature to create a standalone executable
   - No additional patching needed - Bun handles bundling and runtime embedding
 
-### Binary Compilation
+### Binary Packaging Options
 
-The binary is compiled using Bun's native `--compile` feature:
+Two packaging options are available:
+
+**Option A: Nix-Wrapped Node**
+
+The simplest approach - wraps the ESM output with a Node.js script:
 
 ```bash
-bun build ./packages/cli/src/bin.js --compile --outfile=./percy
+# Build the Nix-wrapped Node version
+nix build .#percy-cli-node
+
+# The result is a shell script that runs Node on the ESM entrypoint
+./result/bin/percy --version
 ```
 
-This creates a standalone executable that includes:
-- All bundled JavaScript code
-- Bun runtime embedded in the binary
-- No external Node.js or Bun installation required
+**Option B: Bun-Compiled Binary**
 
-The compiled binary is platform-specific and must be built for each target architecture.
+Creates a true native binary using Bun's compile feature:
+
+```bash
+# Build the Bun-compiled binary
+nix build .#percy-cli
+
+# Or use the default (same as percy-cli)
+nix build
+
+# The result is a standalone native binary
+./result/bin/percy --version
+```
+
+**Using Bun Compile Directly**
 
 The binary packaging logic is available as `scripts/percy-make-binary.sh` for reuse in CI or non-Nix release jobs:
 

@@ -1,5 +1,8 @@
 # default.nix
-# Main package definition for Percy CLI built with Bun compile via Nix
+# Main package definition for Percy CLI
+# Provides two build options:
+# - Option A: Nix-wrapped Node (percy-cli-node) - simpler, uses Node to run ESM
+# - Option B: Bun-compiled binary (percy-cli) - true native binary with embedded Bun runtime
 
 { pkgs, bunNix }:
 
@@ -88,7 +91,14 @@ let
     '';
   };
 
-  # Layer 3: Bun-compiled binary
+  # Option A: Nix-wrapped Node CLI
+  # Simple wrapper that runs Node on the built ESM entrypoint
+  percyCliNode = pkgs.writeShellScriptBin "percy" ''
+    exec ${pkgs.nodejs}/bin/node ${nodeTree}/packages/cli/dist/index.js "$@"
+  '';
+
+  # Option B: Bun-compiled binary
+  # True native binary with embedded Bun runtime
   percyCli = pkgs.stdenv.mkDerivation {
     pname   = "percy-cli";
     version = cfg.version;
@@ -122,5 +132,14 @@ let
   };
 
 in
-percyCli
+{
+  # Option A: Nix-wrapped Node (simpler, works directly with ESM)
+  percy-cli-node = percyCliNode;
+  
+  # Option B: Bun-compiled binary (true native binary)
+  percy-cli = percyCli;
+  
+  # Default to Bun-compiled binary for backward compatibility
+  default = percyCli;
+}
 

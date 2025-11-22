@@ -11,7 +11,6 @@
   "scripts": {
     "build": "bun run --filter './packages/*' build",
     "build:watch": "bun run --filter './packages/*' build --watch",
-    "build:binary": "bun build ./packages/cli/src/bin.js --compile --outfile=./dist/percy",
     "lint": "bun run --filter './packages/*' lint",
     "readme": "bun run --filter './packages/*' readme",
     "test": "bun run --filter './packages/*' test",

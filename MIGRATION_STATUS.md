@@ -57,7 +57,9 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
   - All Babel deps (@babel/*, babel plugins) and babel.config.*.
   - All Rollup deps (core + plugins) and rollup.config.js.
 - Updated build scripts (scripts/build.js, etc.) to use Bun.
-- Binary compilation: Migrated from `pkg` to `bun build --compile` for native binaries.
+- Binary packaging: Migrated from `pkg` to two modern options:
+  - Option A: Nix-wrapped Node (simple wrapper for ESM output)
+  - Option B: Bun-compiled binary (`bun build --compile` for true native binaries)
 
 ### 3. Nix Integration (bun2nix)
 - Integrated bun2nix from nix-community:
@@ -68,7 +70,9 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
   1. src-patched: removes "type": "module" where needed for CJS compatibility.
   2. node-tree: runs bun install --frozen-lockfile and bun run build (ESM output).
   3. percy-cli: compiles native binary using `bun build --compile`.
-- Removed pkg-based binary packaging in favor of Bun's native compile feature.
+- Removed pkg-based binary packaging in favor of two modern options:
+  - Nix-wrapped Node CLI (works directly with ESM builds)
+  - Bun-compiled binary (true native binary with embedded Bun runtime)
 - Added Nix apps:
   - nix run .#bun-install → generate bun.lockb
   - nix run .#bun2nix-generate → generate bun.nix
@@ -193,11 +197,11 @@ The build follows a multi-layer architecture:
    - Includes all devDependencies
    - Runs `bun run build` to compile all packages as ESM using Bun's workspace support
 
-3. **Layer 3: Bun-Compiled Binary** (`default.nix` - percyCli)
-   - Uses `bun build --compile` to create a standalone native binary
-   - Compiles `packages/cli/src/bin.js` into a platform-specific executable
-   - Self-contained binary with Bun runtime embedded
-   - Supports: x86_64-linux, aarch64-linux, x86_64-darwin, aarch64-darwin
+3. **Layer 3: CLI Binary Packaging** (`default.nix`)
+   - **Option A (`percy-cli-node`)**: Nix-wrapped Node - simple shell script that runs Node on the ESM entrypoint
+   - **Option B (`percy-cli`)**: Bun-compiled binary - uses `bun build --compile` to create a standalone native binary
+   - Both options support: x86_64-linux, aarch64-linux, x86_64-darwin, aarch64-darwin
+   - Default is Option B (Bun-compiled) for backward compatibility
 
 ### How bun2nix Works
 

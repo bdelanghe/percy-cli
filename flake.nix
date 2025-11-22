@@ -39,17 +39,23 @@
       );
     in
     {
-      packages = eachSystem (system: {
-        # Main Percy CLI binary (default package)
-        default = pkgsFor.${system}.callPackage ./default.nix {
-          bunNix = ./bun.nix;
-        };
-
-        # Expose all build layers for debugging and incremental builds
-        percy-cli = pkgsFor.${system}.callPackage ./default.nix {
-          bunNix = ./bun.nix;
-        };
-      });
+      packages = eachSystem (system:
+        let
+          cliPackages = pkgsFor.${system}.callPackage ./default.nix {
+            bunNix = ./bun.nix;
+          };
+        in
+        {
+          # Option A: Nix-wrapped Node CLI (simpler, uses Node to run ESM)
+          percy-cli-node = cliPackages.percy-cli-node;
+          
+          # Option B: Bun-compiled binary (true native binary with embedded Bun runtime)
+          percy-cli = cliPackages.percy-cli;
+          
+          # Default to Bun-compiled binary for backward compatibility
+          default = cliPackages.default;
+        }
+      );
 
       devShells = eachSystem (system: {
         default = pkgsFor.${system}.mkShell {

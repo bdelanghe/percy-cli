@@ -4,7 +4,7 @@
 # - Option A: Nix-wrapped Node (percy-cli-node) - simpler, uses Node to run ESM
 # - Option B: Bun-compiled binary (percy-cli) - true native binary with embedded Bun runtime
 
-{ pkgs, bunNix, mkBunDerivation ? null, fetchBunDeps ? null }:
+{ pkgs, bunNix }:
 
 let
   # Extract system from pkgs
@@ -72,18 +72,12 @@ let
     nodeTreeManual
   else
     # Use bun2nix v2 API: fetchBunDeps + mkDerivation
+    # Both are available via the overlay applied in flake.nix
     let
       # Fetch dependencies offline from bun.nix
-      bunDeps = if fetchBunDeps != null then
-        fetchBunDeps { bunNix = bunNix; }
-      else
-        pkgs.bun2nix.fetchBunDeps { bunNix = bunNix; };
-      
-      # Use mkDerivation (v2 API, not mkBunDerivation)
-      # mkBunDerivation parameter name is kept for compatibility with flake.nix
-      mkBun = if mkBunDerivation != null then mkBunDerivation else pkgs.bun2nix.mkDerivation;
+      bunDeps = pkgs.bun2nix.fetchBunDeps { bunNix = bunNix; };
     in
-    mkBun {
+    pkgs.bun2nix.mkDerivation {
     pname   = "percy-cli-node-tree";
     version = cfg.version;
     src     = srcPatched;

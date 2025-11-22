@@ -43,9 +43,8 @@
         let
           cliPackages = pkgsFor.${system}.callPackage ./default.nix {
             bunNix = ./bun.nix;
-            # Pass bun2nix v2 functions directly (Pattern B)
-            mkBunDerivation = inputs.bun2nix.lib.${system}.mkDerivation;
-            fetchBunDeps = inputs.bun2nix.lib.${system}.fetchBunDeps;
+            # bun2nix functions are available via overlay (Pattern A)
+            # No need to pass them explicitly - pkgs.bun2nix.* is available
           };
         in
         {
@@ -69,7 +68,7 @@
           bun-deps-verify = cliPackages.bun-deps-verify;
           
           # node-tree-manual: Fallback implementation using manual cache setup
-          # Use this if mkBunDerivation hook is not working correctly
+          # Use this if mkDerivation hook is not working correctly
           node-tree-manual = cliPackages.node-tree-manual;
         }
       );

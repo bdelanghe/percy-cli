@@ -3,7 +3,7 @@ import globals from 'globals'
 
 export default [
   // Base configuration for all files
-  ...standard,
+  ...(Array.isArray(standard) ? standard : [standard]),
   {
     languageOptions: {
       globals: {

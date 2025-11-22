@@ -73,16 +73,20 @@ let
   nodeTreeBase = if cfg.bunInstallStrategy == "manual-cache" then
     nodeTreeManual
   else
-    # Use bun2nix v2 API: mkDerivation with bunNix
-    # mkDerivation handles fetchBunDeps internally when given bunNix
+    # Use bun2nix v2 API: fetchBunDeps + mkDerivation
+    # mkDerivation does NOT accept bunNix directly - must use fetchBunDeps first
+    let
+      # Fetch dependencies offline from bun.nix
+      bunDeps = pkgs.bun2nix.fetchBunDeps { bunNix = bunNix; };
+    in
     pkgs.bun2nix.mkDerivation {
     pname   = "percy-cli-node-tree";
     version = cfg.version;
     src     = srcPatched;
 
-    # Critical: Pass bunNix so mkDerivation can prefetch deps and run bun install offline
-    # mkDerivation will handle fetchBunDeps internally and set up the offline cache
-    bunNix = bunNix;
+    # Critical: Pass bunDeps (from fetchBunDeps) so mkDerivation can use offline cache
+    # This tells mkDerivation where to find the prefetched dependencies
+    bunDeps = bunDeps;
     packageJson = ./package.json;
     
     # Add diagnostic output before install phase

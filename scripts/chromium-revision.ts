@@ -209,7 +209,7 @@ async function printVersionRevisions(version: string): Promise<void> {
   });
 
   // log all matching revisions
-  logger.stdout.write('\n' + (
+  log.stdout.write('\n' + (
     Object.entries(revisions).map(([platform, i]) => (
       `${platform}: ${i.revision} (${i.sha}; ${i.version})`
     )).join('\n') + '\n\n'));

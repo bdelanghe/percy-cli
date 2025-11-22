@@ -148,6 +148,14 @@ nix build .#percy-cli
 
 # Run full check pipeline (layers + binary smoke tests)
 nix flake check
+
+# Verification commands (after committing changes)
+nix run .#bun-install      # Install dependencies, generate bun.lockb
+nix run .#build            # Build all packages
+nix run .#test             # Run all tests (Node + Browser)
+nix run .#test-browser      # Run browser tests only (Vitest)
+nix run .#test-coverage    # Run tests with coverage
+nix run .#lint             # Lint all packages
 ```
 
 ### Lockfile Updates

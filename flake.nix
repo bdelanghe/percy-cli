@@ -28,6 +28,9 @@
         let
           cfg        = import ./nix/percy-config.nix { inherit pkgs; };
           srcPatched = import ./nix/src-patched.nix { inherit pkgs; version = cfg.version; };
+          offlineCacheFiles = import ./nix/offline-cache.nix { 
+            inherit (pkgs) fetchurl fetchgit linkFarm runCommand gnutar;
+          };
 
           # Layer 2: node tree build using Bun
           # Bun provides fast, reproducible builds with native workspace support
@@ -38,17 +41,46 @@
             nativeBuildInputs = with pkgs; [
               bun
               nodejs
+              python3
             ];
             
-            # Build phase - use Bun for install and build
+            # Make offline cache available as build input
+            offlineCache = offlineCacheFiles.offline_cache;
+            
+            # Build phase - use Bun for install and build with offline cache
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
 
-              # Install dependencies with Bun
-              # Bun uses bun.lockb for lockfile (binary format)
-              # If lockfile doesn't exist, Bun will generate it
+              # Set up simple local registry server for offline cache
+              REGISTRY_PORT=4873
+              REGISTRY_URL="http://localhost:$REGISTRY_PORT"
+              
+              # Start simple HTTP server to serve offline cache
+              cd ${offlineCacheFiles.offline_cache}
+              python3 -m http.server $REGISTRY_PORT > /dev/null 2>&1 &
+              REGISTRY_PID=$!
+              cd - > /dev/null
+              
+              # Ensure server is killed on exit
+              trap "kill $REGISTRY_PID 2>/dev/null || true" EXIT
+              
+              # Wait for server to start
+              sleep 1
+
+              # Configure Bun to use local registry
+              export BUN_INSTALL_REGISTRY="$REGISTRY_URL"
+              export npm_config_registry="$REGISTRY_URL"
+              echo "registry=$REGISTRY_URL" > .npmrc
+              export BUN_INSTALL_OFFLINE=1
+
+              # Install dependencies with Bun using offline cache
+              echo "Installing dependencies from offline cache..."
               bun install --frozen-lockfile --no-save || bun install --no-save
+
+              # Stop server
+              kill $REGISTRY_PID 2>/dev/null || true
+              trap - EXIT
 
               # Add node_modules/.bin to PATH for build tools
               export PATH="$PWD/node_modules/.bin:$PATH"

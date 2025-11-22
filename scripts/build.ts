@@ -1,7 +1,7 @@
 /* eslint-disable import/no-extraneous-dependencies */
 import fs from 'fs';
 import path from 'path';
-import colors from 'colors/safe.js';
+import colors from 'colors';
 import parse from 'yargs-parser';
 import { spawn, ChildProcess } from 'child_process';
 

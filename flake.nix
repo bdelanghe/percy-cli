@@ -44,12 +44,9 @@
             yarnLock = ./yarn.lock;
             offlineCache = yarnDeps;
 
-            # Add lerna from Nix packages to nativeBuildInputs
-            # This provides lerna without needing to install devDependencies via yarn
-            nativeBuildInputs = [ pkgs.nodePackages.lerna ];
-
-            # Keep NODE_ENV=development to ensure build tools (babel, rollup) 
+            # Keep NODE_ENV=development to ensure build tools (babel, rollup, lerna)
             # from devDependencies are available and behave correctly during build
+            # mkYarnPackage should install devDependencies when NODE_ENV=development
             NODE_ENV = "development";
 
             buildPhase = ''
@@ -61,56 +58,46 @@
               # Suppress npm deprecation warnings
               export npm_config_loglevel=error
 
-              # Add node_modules/.bin to PATH for babel and other build tools
+              # Add node_modules/.bin to PATH for babel, lerna, and other build tools
               # mkYarnPackage structures things: source is in deps/percy-cli/
-              # lerna is provided via nativeBuildInputs (Nix package)
+              # lerna should be installed by mkYarnPackage from devDependencies
               export PATH="$PWD/deps/percy-cli/node_modules/.bin:$PWD/node_modules/.bin:$PATH"
 
-              # Diagnostic: Verify node_modules structure and lerna availability
-              echo "=== Diagnostic: Checking node_modules structure ===" >&2
+              # Diagnostic: Verify lerna is available (installed by mkYarnPackage)
+              echo "=== Checking lerna availability ===" >&2
               echo "Current directory: $PWD" >&2
               
-              # Check root node_modules/.bin
-              if [ -d node_modules/.bin ]; then
-                echo "✓ node_modules/.bin exists at root" >&2
-                echo "Contents:" >&2
-                ls -1 node_modules/.bin/ 2>&1 | head -10 >&2
-              else
-                echo "⚠ node_modules/.bin not found at root" >&2
+              # Check for lerna in node_modules/.bin (mkYarnPackage should have installed it)
+              LERNA_FOUND=0
+              if [ -f deps/percy-cli/node_modules/.bin/lerna ]; then
+                echo "✓ lerna found in deps/percy-cli/node_modules/.bin" >&2
+                LERNA_FOUND=1
+              elif [ -f node_modules/.bin/lerna ]; then
+                echo "✓ lerna found in node_modules/.bin" >&2
+                LERNA_FOUND=1
               fi
               
-              # Check deps/percy-cli/node_modules/.bin
-              if [ -d deps/percy-cli/node_modules/.bin ]; then
-                echo "✓ deps/percy-cli/node_modules/.bin exists" >&2
-                echo "Contents:" >&2
-                ls -1 deps/percy-cli/node_modules/.bin/ 2>&1 | head -10 >&2
-              else
-                echo "⚠ deps/percy-cli/node_modules/.bin not found" >&2
-              fi
-              
-              echo "" >&2
-              echo "=== Checking lerna availability ===" >&2
-              
-              # Check if lerna is in node_modules (from yarn install)
-              if [ -f node_modules/.bin/lerna ] || [ -f deps/percy-cli/node_modules/.bin/lerna ]; then
-                echo "✓ lerna found in node_modules/.bin (from yarn install)" >&2
-              else
-                echo "⚠ lerna not found in node_modules/.bin" >&2
-              fi
-              
-              # Check if lerna is available via PATH (from nativeBuildInputs)
-              if command -v lerna >/dev/null 2>&1; then
-                LERNA_PATH=$(command -v lerna)
-                echo "✓ lerna found in PATH at: $LERNA_PATH" >&2
-                echo "Lerna version:" >&2
-                lerna --version 2>&1 || echo "  (version check failed)" >&2
-              else
-                echo "✗ ERROR: lerna not found in PATH" >&2
-                echo "lerna should be available via nativeBuildInputs." >&2
+              if [ "$LERNA_FOUND" = "0" ]; then
+                echo "✗ ERROR: lerna not found in node_modules/.bin" >&2
+                echo "This suggests mkYarnPackage did not install devDependencies." >&2
+                echo "Checking node_modules structure:" >&2
+                if [ -d deps/percy-cli/node_modules/.bin ]; then
+                  echo "deps/percy-cli/node_modules/.bin contents:" >&2
+                  ls -1 deps/percy-cli/node_modules/.bin/ 2>&1 | head -10 >&2
+                else
+                  echo "deps/percy-cli/node_modules/.bin does not exist" >&2
+                fi
                 exit 1
               fi
               
-              echo "=== Diagnostic complete ===" >&2
+              # Verify lerna is executable
+              if ! command -v lerna >/dev/null 2>&1; then
+                echo "✗ ERROR: lerna not found in PATH" >&2
+                echo "PATH includes: $PATH" >&2
+                exit 1
+              fi
+              
+              echo "✓ lerna is available and ready to use" >&2
               echo "" >&2
 
               # Run lerna build

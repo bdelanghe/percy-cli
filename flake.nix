@@ -60,26 +60,24 @@
           else
             null;
 
+          # Access bun2nix library functions directly from the flake input
+          bun2nixLib = bun2nix.lib.${system};
+
           # Offline Bun deps from committed bun.nix
-          bunDeps = pkgs.bun2nix.fetchBunDeps {
+          bunDeps = bun2nixLib.fetchBunDeps {
             bunNix = "${srcPatched}/bun.nix";
           };
 
-          # Layer 2: node tree build using bun2nix
-          # Use stdenv.mkDerivation with bun2nix.hook for offline installs
-          # Note: bun2nix.mkDerivation is not available via the overlay in this version
-          nodeTree = pkgs.stdenv.mkDerivation {
+          # Layer 2: node tree build using bun2nix.mkDerivation
+          # bun2nix.mkDerivation handles hook wiring and cache setup automatically
+          nodeTree = bun2nixLib.mkDerivation {
             pname   = "percy-cli-node-tree";
             version = cfg.version;
-            src     = srcPatched;
 
-            nativeBuildInputs = with pkgs; [
-              bun
-              nodejs
-              pkgs.bun2nix.hook  # from overlay - wires up offline cache
-            ];
+            # bun workspace root (your patched source)
+            src = srcPatched;
 
-            # bun2nix.hook uses this to find the offline cache
+            # bun2nix v2-style input
             inherit bunDeps;
 
             buildPhase = ''

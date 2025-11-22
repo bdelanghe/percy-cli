@@ -490,6 +490,10 @@
      url = "https://registry.npmjs.org/ansi-styles/-/ansi-styles-4.3.0.tgz";
      hash = "sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg==";
   };
+  "arg@5.0.2" = fetchurl {
+     url = "https://registry.npmjs.org/arg/-/arg-5.0.2.tgz";
+     hash = "sha512-PYjyFOLKQ9y57JvQ6QLo8dAgNqswh8M1RMJYdQduT6xbWSgK36P/Z/v+p888pM69jMMfS8Xd8F6I1kQ/I9HUGg==";
+  };
   "argparse@2.0.1" = fetchurl {
      url = "https://registry.npmjs.org/argparse/-/argparse-2.0.1.tgz";
      hash = "sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==";

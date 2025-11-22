@@ -38,7 +38,6 @@
             packageSets.nixpkgs = pkgs;
             modules = [
               (import ./nix/dream2nix-config.nix {
-                inherit lib;
                 inherit dream2nix;
                 srcPatched = srcPatched;
               })

@@ -17,19 +17,20 @@ rec {
     echo "" >&2
     
     # Check BUN_INSTALL_CACHE_DIR (use ${...:-} to handle unset variable)
-    if [ -n "''${BUN_INSTALL_CACHE_DIR:-}" ]; then
-      echo "✓ BUN_INSTALL_CACHE_DIR is set: $BUN_INSTALL_CACHE_DIR" >&2
+    cache_dir="''${BUN_INSTALL_CACHE_DIR:-}"
+    if [ -n "$cache_dir" ]; then
+      echo "✓ BUN_INSTALL_CACHE_DIR is set: $cache_dir" >&2
       
-      if [ -d "$BUN_INSTALL_CACHE_DIR" ]; then
+      if [ -d "$cache_dir" ]; then
         echo "✓ Cache directory exists" >&2
         
         # Count files in cache
-        cache_files=$(find "$BUN_INSTALL_CACHE_DIR" -type f | wc -l)
+        cache_files=$(find "$cache_dir" -type f | wc -l)
         echo "  Cache contains $cache_files files" >&2
         
         # Check for expected Bun cache structure
         # Bun cache typically has structure like: registry.npmjs.org/package-name/version/
-        if find "$BUN_INSTALL_CACHE_DIR" -type d -name "registry.npmjs.org" | grep -q .; then
+        if find "$cache_dir" -type d -name "registry.npmjs.org" | grep -q .; then
           echo "✓ Found registry.npmjs.org structure in cache" >&2
         else
           echo "⚠ Warning: registry.npmjs.org structure not found in cache" >&2
@@ -38,9 +39,9 @@ rec {
         # List first few cache entries
         echo "" >&2
         echo "First 10 cache entries:" >&2
-        find "$BUN_INSTALL_CACHE_DIR" -type f | head -10 | sed 's/^/  /' >&2
+        find "$cache_dir" -type f | head -10 | sed 's/^/  /' >&2
       else
-        echo "✗ Cache directory does not exist: $BUN_INSTALL_CACHE_DIR" >&2
+        echo "✗ Cache directory does not exist: $cache_dir" >&2
         exit 1
       fi
     else

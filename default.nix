@@ -375,12 +375,12 @@ in
   # Build with: nix build .#bun-deps-verify && cat result
   bun-deps-verify = bunDepsVerify;
   
-  # node-tree: Main node tree build using bun2nix.mkBunDerivation
+  # node-tree: Main node tree build using bun2nix.mkDerivation (v2 API)
   # Build with: nix build .#node-tree
   node-tree = nodeTree;
   
   # node-tree-manual: Fallback implementation using manual cache setup
-  # Use this if mkBunDerivation hook is not working correctly
+  # Use this if mkDerivation hook is not working correctly
   # Build with: nix build .#node-tree-manual
   # To switch to this strategy, set bunInstallStrategy = "manual-cache" in nix/percy-config.nix
   node-tree-manual = nodeTreeManual;

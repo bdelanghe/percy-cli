@@ -7,7 +7,9 @@
         "nixpkgs": [
           "nixpkgs"
         ],
-        "systems": "systems",
+        "systems": [
+          "systems"
+        ],
         "treefmt-nix": "treefmt-nix"
       },
       "locked": {
@@ -21,7 +23,6 @@
       "original": {
         "owner": "nix-community",
         "repo": "bun2nix",
-        "rev": "21f2aed3b1f1d4af93df1a6d34cb3e3f703ac6f9",
         "type": "github"
       }
     },
@@ -108,7 +109,8 @@
       "inputs": {
         "bun2nix": "bun2nix",
         "flake-schemas": "flake-schemas",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "systems": "systems"
       }
     },
     "systems": {

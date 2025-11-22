@@ -1,7 +1,7 @@
 # default.nix
 # Main package definition for Percy CLI built with pkg via Nix
 
-{ pkgs }:
+{ pkgs, bunNix }:
 
 let
   # Extract system from pkgs

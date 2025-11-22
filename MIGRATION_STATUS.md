@@ -637,7 +637,8 @@ The following require actual test runs in an environment with Bun installed:
 6. ⚠️ **Coverage collection runtime**: Needs coverage runs to verify reports are generated correctly
 
 **Prerequisites for Runtime Verification**:
-- `bun.lockb` must be generated (run `bun install` or `nix run .#bun-install`)
+- `bun.lock` must exist (already present - Bun 1.3+ uses text format)
+- `bun.nix` must exist (already present - 2296 lines)
 - Bun must be available in the environment (`nix develop` or system installation)
 - For Nix builds: clean git state (commit current changes)
 
@@ -656,31 +657,27 @@ The following require actual test runs in an environment with Bun installed:
 **Remaining Runtime Verification**:
 - ⚠️ Actual build execution (`bun run build`)
 - ⚠️ Actual test execution (`bun test`, `vitest run`)
-- ⚠️ Actual Nix build execution (`nix build` - requires bun.lockb first)
+- ⚠️ Actual Nix build execution (`nix build` - requires clean git state)
 - ⚠️ Actual workspace command execution
 
 **Next Steps for Runtime Verification**:
 
-1. **Generate `bun.lockb`** (requires network access):
+**Note**: `bun.lock` already exists (Bun 1.3+ uses text format). `bun.nix` also exists. Both are ready for Nix builds.
+
+1. **Ensure lockfiles are up to date** (if dependencies changed):
    ```bash
    # Option 1: Using Bun directly (if installed)
-   bun install
+   bun install                    # Updates bun.lock
+   bunx bun2nix -o bun.nix       # Regenerates bun.nix
    
    # Option 2: Using Nix (requires clean git state)
-   nix run .#bun-install
+   nix run .#update-lockfiles
    ```
 
-2. **Regenerate `bun.nix`** from the new `bun.lockb`:
-   ```bash
-   bunx bun2nix -o bun.nix
-   # or
-   nix run .#bun2nix-generate
-   ```
-
-3. **Commit both files**:
+2. **Commit changes** (if lockfiles were updated):
    ```bash
    git add bun.lock bun.nix
-   git commit -m "Add bun.lockb and update bun.nix for Nix builds"
+   git commit -m "Update bun.lock and bun.nix"
    ```
 
 4. **Run runtime verification**:
@@ -692,8 +689,8 @@ The following require actual test runs in an environment with Bun installed:
    bun test                    # Node tests
    vitest run                  # Browser tests
    
-   # Verify Nix builds
-   nix build                   # Should now work with bun.lockb
+   # Verify Nix builds (requires clean git state)
+   nix build                   # Should work with bun.lock and bun.nix
    ```
 
 5. **Update migration status** with runtime results once verification completes
@@ -727,13 +724,15 @@ The following require actual test runs in an environment with Bun installed:
 ### Task 3: Verify Nix Builds ✅
 
 **Code Verification Completed**:
-- ✅ `default.nix` updated to check for `bun.lockb` (not `bun.lock`)
-- ✅ `bun2nix.fetchBunDeps` configured correctly
+- ✅ `default.nix` updated to check for `bun.lock` (Bun 1.3+ text format)
+- ✅ `bun2nix.fetchBunDeps` configured correctly via `mkBunDerivation`
 - ✅ `mkBunDerivation` properly integrated with bun2nix
 - ✅ `bun.nix` exists and is properly formatted (2296 lines)
-- ✅ All `bun.lock` references changed to `bun.lockb` in `default.nix` and `flake.nix`
+- ✅ `bun.lock` exists (193KB, JSON format - Bun 1.3+ default)
+- ✅ All Nix files correctly reference `bun.lock` (not `bun.lockb`)
+- ✅ Diagnostic helpers added for troubleshooting bun2nix cache issues
 
-**Runtime Verification**: ⚠️ Pending - requires `bun.lockb` generation and `nix build` execution
+**Runtime Verification**: ⚠️ Pending - requires clean git state and `nix build` execution
 
 ### Task 4: Verify Workspace Commands ✅
 

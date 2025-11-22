@@ -77,15 +77,33 @@
                 if [ -d deps/percy-cli ]; then
                   echo "Installing devDependencies in deps/percy-cli/..." >&2
                   
-                  # Copy .yarnrc from root to subdirectory so yarn can find the offline cache
-                  if [ -f .yarnrc ] && [ ! -f deps/percy-cli/.yarnrc ]; then
-                    cp .yarnrc deps/percy-cli/.yarnrc
-                    echo "Copied .yarnrc to deps/percy-cli/ for offline cache access" >&2
+                  # Get the cache path from root .yarnrc and ensure it's absolute
+                  ROOT_DIR="$PWD"
+                  if [ -f .yarnrc ]; then
+                    CACHE_PATH=$(grep "yarn-offline-mirror" .yarnrc | sed 's/.*"\(.*\)".*/\1/' || echo "")
+                    if [ -n "$CACHE_PATH" ]; then
+                      # If relative, make it absolute from root
+                      if [[ "$CACHE_PATH" != /* ]]; then
+                        CACHE_PATH="$ROOT_DIR/$CACHE_PATH"
+                      fi
+                      # Create .yarnrc in subdirectory with absolute path
+                      echo "yarn-offline-mirror \"$CACHE_PATH\"" > deps/percy-cli/.yarnrc
+                      echo "Created .yarnrc with absolute cache path: $CACHE_PATH" >&2
+                      # Verify cache exists
+                      if [ ! -d "$CACHE_PATH" ]; then
+                        echo "WARNING: Cache directory not found: $CACHE_PATH" >&2
+                        echo "This might cause installation to fail." >&2
+                      fi
+                    else
+                      cp .yarnrc deps/percy-cli/.yarnrc
+                    fi
                   fi
                   
                   cd deps/percy-cli
                   yarn install --offline --frozen-lockfile --production=false --ignore-scripts 2>&1 || {
                     echo "ERROR: Failed to install devDependencies" >&2
+                    echo "Current .yarnrc contents:" >&2
+                    cat .yarnrc 2>&1 || true
                     exit 1
                   }
                   cd ../..

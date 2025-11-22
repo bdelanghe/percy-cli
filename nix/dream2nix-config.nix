@@ -11,6 +11,9 @@
   # Package name
   name = "percy-cli";
   
+  # Default paths (can be overridden by inline module in flake.nix)
+  paths.projectRoot = srcPatched;
+  
   # mkDerivation configuration
   mkDerivation = {
     src = srcPatched;

@@ -34,16 +34,17 @@
           # Layer 2: node tree build using dream2nix
           # Let dream2nix handle the entire Node.js build including devDependencies
           # This is cleaner than mkYarnPackage + manual build orchestration
-          dream2nixPackage = dream2nix.lib.evalModules {
+          dream2nixLib = dream2nix.lib.${system};
+          
+          dream2nixPackage = dream2nixLib.evalModules {
             packageSets.nixpkgs = pkgs;
             modules = [
-              # Pass module as a path, not an imported function
-              # The module system will call it with { config, lib, ... } plus specialArgs
+              # Pass module as a bare path - the module system will call it with proper args
               ./nix/dream2nix-config.nix
               {
                 paths.projectRoot = srcPatched;
-                paths.package = srcPatched;
-                paths.projectRootFile = "package.json";
+                paths.packageJson = "${srcPatched}/package.json";
+                paths.lockFile = "${srcPatched}/yarn.lock";
                 name = "percy-cli";
                 # dream2nix will auto-detect translator from yarn.lock
               }

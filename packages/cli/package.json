@@ -22,7 +22,11 @@
     "percy": "./bin/run.cjs"
   },
   "main": "./dist/index.js",
-  "exports": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "types": "./dist/index.d.ts",
+    "default": "./dist/index.js"
+  },
   "type": "module",
   "scripts": {
     "build": "node ../../scripts/build",

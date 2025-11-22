@@ -10,11 +10,9 @@
 
   outputs = { self, nixpkgs, flake-schemas, bun2nix }:
     let
+      # Start with just aarch64-darwin to debug the bun2nix issue
       systems = [
-        "aarch64-linux"
         "aarch64-darwin"
-        "x86_64-linux"
-        "x86_64-darwin"
       ];
 
       # Pass both pkgs and bun2nixPkg into each per-system function

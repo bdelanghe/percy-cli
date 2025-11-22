@@ -42,8 +42,7 @@
                 paths.package = srcPatched;
                 paths.projectRootFile = "package.json";
                 name = "percy-cli";
-                # translator will be auto-detected from yarn.lock
-                # dream2nix should automatically detect yarn-lock translator
+                # dream2nix will auto-detect translator from yarn.lock
               }
             ];
           };

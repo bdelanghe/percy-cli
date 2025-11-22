@@ -17,19 +17,17 @@
         "x86_64-darwin"
       ];
 
+      # Pass both pkgs and bun2nixPkg into each per-system function
       forAllSystems = f:
         nixpkgs.lib.genAttrs systems (system:
           let
-            # Apply bun2nix overlay to pkgs for easier access to bun2nix functions
-            pkgs = import nixpkgs {
-              inherit system;
-              overlays = [ bun2nix.overlays.default ];
-            };
+            pkgs       = import nixpkgs { inherit system; };
+            bun2nixPkg = bun2nix.packages.${system}.default;
           in
-          f pkgs system);
+          f pkgs bun2nixPkg system);
 
       # Build graph for each system (src → nodeTree → preparedCli → percyCli)
-      perSystemPackages = forAllSystems (pkgs: system:
+      perSystemPackages = forAllSystems (pkgs: bun2nixPkg: system:
         let
           cfg = import ./nix/percy-config.nix { inherit pkgs; };
 
@@ -60,9 +58,8 @@
           else
             null;
 
-          # Offline Bun deps from committed bun.nix
-          # Use pkgs.bun2nix.fetchBunDeps from the overlay
-          bunDeps = pkgs.bun2nix.fetchBunDeps {
+          # Offline Bun dependency cache from bun.nix (via bun2nix flake package)
+          bunDeps = bun2nixPkg.fetchBunDeps {
             bunNix = "${srcPatched}/bun.nix";
           };
 
@@ -78,7 +75,7 @@
             nativeBuildInputs = with pkgs; [
               bun
               nodejs
-              pkgs.bun2nix.hook  # from overlay - wires up offline cache
+              bun2nixPkg.hook  # setup hook for offline installs
             ];
 
             # bun2nix.hook uses this to find the offline cache
@@ -142,7 +139,8 @@
 
       packages = perSystemPackages;
 
-      apps = forAllSystems (pkgs: system: {
+      # apps/devShells/checks also need the bun2nixPkg arg now
+      apps = forAllSystems (pkgs: bun2nixPkg: system: {
         percy-cli = {
           type = "app";
           program = "${perSystemPackages.${system}.percy-cli}/bin/percy";
@@ -150,11 +148,11 @@
         };
       });
 
-      devShells = forAllSystems (pkgs: system: {
+      devShells = forAllSystems (pkgs: bun2nixPkg: system: {
         default = import ./nix/dev-shell.nix { inherit pkgs; };
       });
 
-      checks = forAllSystems (pkgs: system:
+      checks = forAllSystems (pkgs: bun2nixPkg: system:
         let
           p = perSystemPackages.${system};
           percyCli = p.percy-cli;

@@ -140,7 +140,8 @@
               # Add Bun to PATH so postinstall scripts can find it
               export PATH="${bunPath}:$PATH"
               echo "Step 1: Running bun install to generate bun.lock..."
-              ${bun}/bin/bun install
+              echo "  (Skipping postinstall scripts - not needed for lockfile generation)"
+              ${bun}/bin/bun install --ignore-scripts
               echo "✓ bun.lock generated"
               echo ""
               echo "Step 2: Generating bun.nix from bun.lock..."

@@ -28,7 +28,7 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
 ### Current
 - Package manager: Bun
 - Monorepo: Bun workspaces (workspaces in package.json)
-- Build: bun build (CJS + browser bundles)
+- Build: bun build (ESM + browser bundles)
 - Tests:
   - Node: bun test
   - Browser: Vitest (jsdom environment)

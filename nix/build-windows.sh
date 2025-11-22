@@ -37,7 +37,7 @@ function prepare_build() {
   cp babel.config.cjs "$BUILD_TMP/" 2>/dev/null || true
   cp -R node_modules "$BUILD_TMP/" 2>/dev/null || true
   
-  # Verify node_modules was copied successfully (required for build_cjs)
+  # Verify node_modules was copied successfully (required for Bun compile)
   if [ ! -d "$BUILD_TMP/node_modules" ]; then
     echo "Error: Failed to copy node_modules to temporary build directory" >&2
     echo "The build requires node_modules to exist in $BUILD_TMP" >&2
@@ -76,63 +76,39 @@ function prepare_build() {
     fi
   done
 
-  # Modify percy.js in temp
-  if [ -f ./packages/cli/dist/percy.js ]; then
-    {
-      echo "import { cli } from '@percy/cli';"
-      cat ./packages/cli/dist/percy.js
-    } > ./packages/cli/dist/percy.js.new
-    mv ./packages/cli/dist/percy.js.new ./packages/cli/dist/percy.js
-  fi
-
-  # Ensure NODE_ENV is set in run.cjs (matches Nix build behavior)
-  if [ -f ./packages/cli/bin/run.cjs ] && \
-     ! grep -q 'process.env.NODE_ENV = "executable";' ./packages/cli/bin/run.cjs; then
-    gsed -i '1a process.env.NODE_ENV = "executable";' ./packages/cli/bin/run.cjs
-  fi
-
-  # Convert ES6 code to cjs (runs in temp directory)
-  bun run build_cjs || true
-  if [ -d build ]; then
-    cp -R ./build/* packages/
-  fi
+  # No need for pkg-specific patches with Bun compile
+  # Bun compile handles bundling and runtime embedding automatically
 }
 
 function build_windows() {
-  echo "Building Windows executable"
+  echo "Building Windows executable with Bun compile"
   # Build in temp directory
   cd "$BUILD_TMP"
   
   echo "Building Windows executable for: x64"
-  bunx pkg ./packages/cli/bin/run.cjs -t node20-win-x64 -d
+  # Use Bun compile to create a standalone Windows executable
+  bun build ./packages/cli/src/bin.js --compile --outfile=./percy.exe
   
-  # Handle Windows executable
-  # pkg generates run-<target> when using a single target specification
-  # Check for run-node20-win-x64.exe first, then fallback patterns
-  for name in run-node20-win-x64.exe run-node20-win-x64 run-win.exe run.exe; do
-    if [ -f "$name" ]; then
-      mv "$name" percy.exe || {
-        echo "Error: Failed to rename $name to percy.exe" >&2
-        exit 1
-      }
-      mv percy.exe "$ORIGINAL_DIR/" || {
-        echo "Error: Failed to move executable to $ORIGINAL_DIR/" >&2
-        exit 1
-      }
-      # Verify the file exists at destination before reporting success
-      if [ ! -f "$ORIGINAL_DIR/percy.exe" ]; then
-        echo "Error: Executable not found at destination after move: $ORIGINAL_DIR/percy.exe" >&2
-        exit 1
-      fi
-      echo "Windows executable built successfully: $ORIGINAL_DIR/percy.exe"
-      exit 0
-    fi
-  done
+  # Verify the executable was created
+  if [ ! -f "./percy.exe" ]; then
+    echo "Error: Bun compile did not produce percy.exe" >&2
+    ls -la
+    exit 1
+  fi
   
-  echo "Error: Windows executable not found after pkg build" >&2
-  echo "Expected one of: run-node20-win-x64.exe, run-node20-win-x64, run-win.exe, run.exe" >&2
-  ls -la
-  exit 1
+  # Move executable to original directory
+  mv ./percy.exe "$ORIGINAL_DIR/" || {
+    echo "Error: Failed to move executable to $ORIGINAL_DIR/" >&2
+    exit 1
+  }
+  
+  # Verify the file exists at destination before reporting success
+  if [ ! -f "$ORIGINAL_DIR/percy.exe" ]; then
+    echo "Error: Executable not found at destination after move: $ORIGINAL_DIR/percy.exe" >&2
+    exit 1
+  fi
+  
+  echo "Windows executable built successfully: $ORIGINAL_DIR/percy.exe"
 }
 
 function cleanup() {

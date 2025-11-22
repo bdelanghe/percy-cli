@@ -34,23 +34,39 @@ do
   fi
 done
 
-echo "import { cli } from '@percy/cli';\
-$(cat ./packages/cli/dist/percy.js)" > ./packages/cli/dist/percy.js
+# Build executables using Bun compile
+# Bun compile creates platform-specific binaries
+echo "Building executables with Bun compile..."
 
-gsed -i '/Update NODE_ENV for executable/{s//\nprocess.env.NODE_ENV = "executable";/;h};${x;/./{x;q0};x;q1}' ./packages/cli/bin/run.cjs
+# Build for current platform (Bun compile targets the current OS/arch)
+# Note: For cross-platform builds, you may need to run this on each target platform
+# or use Bun's cross-compilation features if available
+bun build ./packages/cli/src/bin.js --compile --outfile=./percy
 
-# Convert ES6 code to cjs
-bun run build_cjs
-cp -R ./build/* packages/
-
-# Create executables
-# Note: package.json specifies bin as ./bin/run.cjs (not run.js)
-bunx pkg ./packages/cli/bin/run.cjs -d
-
-# Rename executables
-mv run-linux percy && chmod +x percy
-mv run-macos percy-osx && chmod +x percy-osx
-mv run-win.exe percy.exe && chmod +x percy.exe
+# Determine platform and rename accordingly
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+  # Linux
+  mv percy percy-linux || cp percy percy-linux
+  chmod +x percy-linux
+  # For macOS and Windows, you'd need to build on those platforms or use cross-compilation
+  echo "Built Linux executable: percy-linux"
+  echo "Note: macOS and Windows executables require building on those platforms"
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+  # macOS
+  mv percy percy-osx || cp percy percy-osx
+  chmod +x percy-osx
+  echo "Built macOS executable: percy-osx"
+  echo "Note: Linux and Windows executables require building on those platforms"
+elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]]; then
+  # Windows
+  mv percy percy.exe || cp percy percy.exe
+  chmod +x percy.exe
+  echo "Built Windows executable: percy.exe"
+  echo "Note: Linux and macOS executables require building on those platforms"
+else
+  echo "Warning: Unknown platform $OSTYPE, keeping default name 'percy'"
+  chmod +x percy
+fi
 
 # Sign & Notrize mac app
 echo "$APPLE_DEV_CERT" | base64 -d > AppleDevIDApp.p12

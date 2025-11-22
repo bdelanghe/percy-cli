@@ -129,20 +129,20 @@ export function createShadowEl(tag = 0) {
 }
 
 export function getTestBrowser() {
-  if (navigator.userAgent.toLowerCase().includes('chrome')) {
-    return chromeBrowser;
-  } else if (navigator.userAgent.toLowerCase().includes('firefox')) {
+  // In jsdom, we don't have real browser detection
+  // Default to Chrome since jsdom supports Shadow DOM (Chrome feature)
+  // Tests can override via environment variable if needed
+  if (typeof process !== 'undefined' && process.env.TEST_BROWSER === 'firefox') {
     return firefoxBrowser;
-  } else {
-    throw new Error('unsupported test browser');
   }
+  // jsdom's userAgent might include 'node' or similar, so default to Chrome
+  return chromeBrowser;
 }
 
 export const platforms = (() => {
-  if (getTestBrowser() === chromeBrowser) {
-    return ['plain', 'shadow'];
-  }
-  return ['plain'];
+  // jsdom supports Shadow DOM, so enable shadow platform tests
+  // This matches Chrome behavior which was the primary test target
+  return ['plain', 'shadow'];
 })();
 
 export function platformDOM(plat) {

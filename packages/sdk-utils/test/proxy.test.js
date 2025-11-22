@@ -1,5 +1,5 @@
 // NOTE: Proxy tests only run in Node.js environments since they use Node.js-specific modules
-// This file is excluded from browser tests in karma.config.cjs
+// This file is excluded from browser tests (Node.js-specific, uses http/https modules)
 import {
   hostnameMatches,
   port,

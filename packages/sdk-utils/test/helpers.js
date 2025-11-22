@@ -1,4 +1,4 @@
-const utils = require('@percy/sdk-utils');
+import utils from '@percy/sdk-utils';
 
 const helpers = {
   async setupTest({ logger = true } = {}) {
@@ -62,4 +62,4 @@ const helpers = {
   }
 };
 
-module.exports = helpers;
+export default helpers;

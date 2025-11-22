@@ -127,32 +127,23 @@ async function main({
     console.log(colors.magenta('Running node tests...\n'));
     await jasmine.execute();
   } else if (testBrowsers) {
-    // $ karma start --config <root>/karma.config.js
-    let { default: Karma } = await import('karma');
-    let { Server: KarmaServer, config: { parseConfig } } = Karma;
-
-    let configFile = path.resolve(filename, '../../karma.config.cjs');
-    let karma = new KarmaServer(await parseConfig(configFile, karmaArgs, {
-      promiseConfig: true,
-      throwErrors: true
-    }));
-
-    // attach any karma hooks
-    if (pkg.karma) {
-      for (let [event, exec] of Object.entries(pkg.karma)) {
-        karma.on(event, () => child('exec', exec));
-      }
+    // $ vitest run --config <root>/vitest.config.mts
+    console.log(colors.magenta('Running browser tests with Vitest...'));
+    
+    let vitestBin = path.resolve(filename, '../../node_modules/.bin/vitest');
+    let configFile = path.resolve(filename, '../../vitest.config.mts');
+    
+    // Run Vitest with coverage if requested
+    let vitestArgs = ['run'];
+    if (coverage) {
+      vitestArgs.push('--coverage');
     }
-
-    // collect coverage for nyc here rather than use a karma plugin
-    let { default: istcov } = await import('istanbul-lib-coverage');
-    let cov = istcov.createCoverageMap();
-
-    karma.on('browser_complete', (b, r) => r && cov.merge(r.coverage));
-    karma.on('run_complete', () => (global.__coverage__ = cov.toJSON()));
-
-    console.log(colors.magenta('Running browser tests...'));
-    await karma.start();
+    vitestArgs.push('--config', configFile);
+    
+    await child('spawn', vitestBin, vitestArgs, {
+      cwd: cwd,
+      env: { ...process.env, NODE_ENV: 'test' }
+    });
   }
 }
 

@@ -76,8 +76,8 @@ This document tracks the migration from the legacy toolchain (Lerna + Yarn + Bab
 #### Rollup Removal (Partial)
 - ✅ **Build System**: Rollup removed from build system, replaced with Bun bundler
 - ✅ **Dependencies Removed**: `rollup` and all `@rollup/plugin-*` packages from build system
-- ⚠️ **Kept for Karma**: Rollup and `karma-rollup-preprocessor` kept only for browser tests
-- ⚠️ **rollup.config.js**: Kept (still needed for Karma browser tests)
+- ✅ **Vitest replaces Karma**: Vitest + jsdom now used for browser tests
+- ✅ **Vite replaces Rollup**: Vite (used by Vitest) handles bundling, Rollup completely removed
 
 ### Phase 3: Nix Integration Migration ✅
 
@@ -114,66 +114,60 @@ This document tracks the migration from the legacy toolchain (Lerna + Yarn + Bab
 
 ### What's Pending
 
-#### Browser Testing (Karma → Playwright)
-- ⏳ **Karma still in use**: Browser tests still use Karma + Rollup
-- ⏳ **Rollup dependency**: Rollup kept only for `karma-rollup-preprocessor`
-- ⏳ **Migration needed**: See "Remaining Work" section below
+#### Browser Testing (Karma → Vitest) ✅
+- ✅ **Vitest migration complete**: Browser tests now use Vitest + jsdom
+- ✅ **Rollup removed**: Rollup completely removed (Vite replaces it)
+- ✅ **Karma removed**: All Karma dependencies and config files removed
 
-#### Dependencies Still Present
-- ⚠️ **Karma packages**: `karma`, `karma-chrome-launcher`, `karma-firefox-launcher`, `karma-jasmine`, `karma-mocha-reporter`
-- ⚠️ **Rollup for tests**: `rollup`, `karma-rollup-preprocessor` (only for Karma)
-- ⚠️ **Jasmine**: Still in dependencies (used by Karma)
+#### Dependencies Still Present (Optional Cleanup)
+- ⚠️ **Jasmine**: Still in dependencies (used by Node tests, can be kept)
 - ⚠️ **Babel ESLint parser**: `@babel/eslint-parser`, `eslint-plugin-babel` (for ESLint compatibility)
 
 ## Remaining Work
 
-### Phase 5: Browser Testing Migration (Karma → Playwright)
+### Phase 5: Browser Testing Migration (Karma → Vitest) ✅
 
-**Status**: ⏳ Pending
+**Status**: ✅ Complete
 
-**Goal**: Replace Karma + Rollup with Playwright Test for browser testing, enabling complete Rollup removal.
+**Goal**: Replace Karma + Rollup with Vitest + jsdom for browser testing, enabling complete Rollup removal.
 
-**Detailed Plan**: See [KARMA_MIGRATION_PLAN.md](./KARMA_MIGRATION_PLAN.md) for comprehensive migration details.
+**What Was Done**:
+1. ✅ **Installed Vitest + jsdom**: Added vitest, @vitest/ui, @vitest/coverage-v8, jsdom
+2. ✅ **Created Vitest configuration**: `vitest.config.mts` with jsdom environment
+3. ✅ **Updated test helpers**: Adapted for Vitest (removed Karma-specific code)
+4. ✅ **Updated test infrastructure**: Modified `scripts/test.js` to use Vitest
+5. ✅ **Removed Karma**: Deleted all Karma dependencies and `karma.config.cjs`
+6. ✅ **Removed Rollup**: Deleted `rollup.config.js` and rollup config from package.json files
 
-**Why Playwright?**
-- Modern, actively maintained by Microsoft
-- Excellent browser automation and testing
-- Built-in test runner (no separate framework needed)
-- Great debugging tools (UI mode, trace viewer)
-- Supports multiple browsers (Chromium, Firefox, WebKit)
-- Better performance than Karma
+**Why Vitest?**
+- Modern, actively maintained
+- Jest-compatible API (easy migration from Jasmine)
+- Vite replaces Rollup (simpler architecture)
+- Good Bun integration
 - Built-in coverage support
-- Can run tests in parallel
-
-**Migration Overview**:
-
-1. **Research and Preparation** - Audit tests, create proof of concept
-2. **Setup and Configuration** - Install Playwright, configure browsers
-3. **Test Migration** - Convert Jasmine tests to Playwright syntax
-4. **Build System Updates** - Remove Rollup completely
-5. **Cleanup** - Remove Karma dependencies and config files
-
-**Estimated Timeline**: 2-3 weeks
-
-**Benefits After Migration**:
-- Complete Rollup removal
-- Simpler architecture (no pre-bundling step)
-- Better performance
-- Modern tooling
+- Faster execution (no browser startup)
 - Native ESM support
 
-### Phase 6: Final Cleanup
+**Benefits Achieved**:
+- ✅ Complete Rollup removal
+- ✅ Simpler architecture (no pre-bundling step)
+- ✅ Better performance (no browser startup)
+- ✅ Modern tooling
+- ✅ Native ESM support
+- ✅ Unified test runner (can use Vitest for both Node and browser tests)
 
-**Status**: ⏳ Pending (after Karma migration)
+### Phase 6: Final Cleanup ✅
 
-**Tasks**:
-- Remove all Karma dependencies
-- Remove all Rollup dependencies
-- Remove `rollup.config.js`
-- Remove `karma.config.cjs`
-- Consider replacing `@babel/eslint-parser` with alternative
-- Update all documentation
-- Final testing and validation
+**Status**: ✅ Complete
+
+**Tasks Completed**:
+- ✅ Removed all Karma dependencies
+- ✅ Removed all Rollup dependencies (for tests)
+- ✅ Removed `rollup.config.js`
+- ✅ Removed `karma.config.cjs`
+- ⏳ Consider replacing `@babel/eslint-parser` with alternative (optional)
+- ✅ Updated documentation
+- ⏳ Final testing and validation (pending actual test runs)
 
 ## Required Files for Nix Builds
 

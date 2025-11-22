@@ -22,16 +22,6 @@
     "test": "node ../../scripts/test",
     "test:coverage": "yarn test --coverage"
   },
-  "rollup": {
-    "output": {
-      "name": "PercyDOM"
-    },
-    "test": {
-      "output": {
-        "exports": "named"
-      }
-    }
-  },
   "devDependencies": {
     "interactor.js": "^2.0.0-beta.10"
   }

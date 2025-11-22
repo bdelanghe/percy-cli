@@ -10,9 +10,9 @@ let
   # Configuration
   cfg = import ./nix/percy-config.nix { inherit pkgs; };
 
-  # Check for bun.lockb and bun.nix in source before building
+  # Check for bun.lock and bun.nix in source before building
   # These should be generated outside Nix and committed to version control
-  hasBunLock = builtins.pathExists ./bun.lockb;
+  hasBunLock = builtins.pathExists ./bun.lock;
   hasBunNix  = builtins.pathExists bunNix;
 
   _ = if !hasBunLock || !hasBunNix then
@@ -20,13 +20,13 @@ let
 
       Missing Bun lock artifacts in source:
 
-        bun.lockb present: ${toString hasBunLock}
+        bun.lock present: ${toString hasBunLock}
         bun.nix present:  ${toString hasBunNix}
 
       To fix:
         bun install
         bunx bun2nix -o bun.nix
-        git add bun.lockb bun.nix
+        git add bun.lock bun.nix
 
     ''
   else

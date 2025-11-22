@@ -10,25 +10,25 @@ let
   # Configuration
   cfg = import ./nix/percy-config.nix { inherit pkgs; };
 
-  # Check for bun.lockb and bun.nix in source before building
+  # Check for bun.lock and bun.nix in source before building
   # These should be generated outside Nix and committed to version control
-  hasBunLockb = builtins.pathExists ./bun.lockb;
+  hasBunLock = builtins.pathExists ./bun.lock;
   hasBunNix  = builtins.pathExists bunNix;
 
-  _ = if !hasBunLockb || !hasBunNix then
+  _ = if !hasBunLock || !hasBunNix then
     throw ''
 
       Missing Bun lock artifacts in source:
 
-        bun.lockb present: ${toString hasBunLockb}
+        bun.lock present: ${toString hasBunLock}
         bun.nix present:  ${toString hasBunNix}
 
       To fix:
-        bun install                    # Generates bun.lockb
-        bunx bun2nix -o bun.nix       # Generates bun.nix from bun.lockb
+        bun install                    # Generates bun.lock
+        bunx bun2nix -o bun.nix       # Generates bun.nix from bun.lock
         # Or use Nix app:
         nix run .#update-lockfiles
-        git add bun.lockb bun.nix
+        git add bun.lock bun.nix
 
     ''
   else
@@ -41,10 +41,9 @@ let
   };
 
   # Offline Bun dependency cache from bun.nix
-  # bun2nix.fetchBunDeps pre-fetches all dependencies offline
+  # Use pkgs.bun2nix from overlay (tag 2.0.1 should have passthru attributes)
+  # Use the bunNix parameter passed from flake.nix
   bunDeps = pkgs.bun2nix.fetchBunDeps {
-    src = srcPatched;
-    bunLock = ./bun.lockb;
     bunNix = bunNix;
   };
 
@@ -59,11 +58,10 @@ let
       pkgs.bun
       pkgs.nodejs
       pkgs.bun2nix.hook  # setup hook for offline installs (from overlay)
-      bunDeps             # pre-fetched dependencies
     ];
 
-    # bun2nix.hook will automatically set up the offline cache via bunDeps
-    # The hook runs bunNodeModulesInstallPhase which uses the offline cache
+    # bun2nix.hook uses this to find the offline cache
+    inherit bunDeps;
     buildPhase = ''
       export HOME="$TMPDIR/home"
       mkdir -p "$HOME"

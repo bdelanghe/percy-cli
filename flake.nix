@@ -65,25 +65,25 @@
             bunNix = "${srcPatched}/bun.nix";
           };
 
-          # Layer 2: node tree build using bun2nix
-          nodeTree = pkgs.stdenv.mkDerivation {
+          # Layer 2: node tree build using bun2nix.mkDerivation
+          nodeTree = pkgs.bun2nix.mkDerivation {
             pname   = "percy-cli-node-tree";
             version = cfg.version;
-            src     = srcPatched;
 
-            nativeBuildInputs = with pkgs; [
-              bun
-              nodejs
-              pkgs.bun2nix.hook  # from overlay
-            ];
+            # bun workspace root (your patched source)
+            src         = srcPatched;
+            packageJson = "${srcPatched}/package.json";
 
+            # bun2nix v2-style input
             inherit bunDeps;
 
+            # Your custom build logic on top of the default phases
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
 
               echo "Installing dependencies from bun2nix cache..."
+              # cache is already wired by mkDerivation + bunDeps
               bun install --frozen-lockfile --no-save
 
               export PATH="$PWD/node_modules/.bin:$PATH"

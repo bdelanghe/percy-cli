@@ -296,6 +296,152 @@ bunx bun2nix -o bun.nix        # Regenerate bun.nix
 
 **Important**: Both `bun.lockb` and `bun.nix` must be committed to version control for reproducible Nix builds.
 
+### Troubleshooting
+
+#### Bun not found
+If you see "bun not found" errors:
+- Ensure Bun is available in nixpkgs for your system
+- Check that `nativeBuildInputs` includes `bun` in `flake.nix`
+- Verify Bun is installed in the dev shell: `nix develop`
+
+#### Lockfile issues
+If `bun.lockb` doesn't exist:
+- Bun will generate it automatically during `bun install`
+- For reproducible builds, commit `bun.lockb` to version control
+- Use `bun install --frozen-lockfile` in CI/Nix builds
+
+If `bun.nix` doesn't exist or is outdated:
+- Regenerate it using Nix: `nix run .#bun2nix-generate`
+- Or manually: `bunx bun2nix -o bun.nix`
+- Commit the updated `bun.nix` file
+- The build will fail if `bun.nix` is missing or doesn't match `bun.lockb`
+
+#### Build failures
+- Check the build logs: `nix log /nix/store/...`
+- Verify all source files are present
+- Ensure `bun.lockb` is up to date (or let Bun generate it)
+- Check that workspace packages are correctly configured
+
+#### Native module issues
+If you encounter native module issues:
+- Verify the native module is compatible with Bun
+- Check that platform-specific packages (e.g., `@nx/nx-darwin-arm64`) are included
+- Ensure Bun is using the correct Node.js version for compatibility
+
+### Building x86_64-darwin on Apple Silicon
+
+If you're on an Apple Silicon (aarch64-darwin) Mac and want to build x86_64-darwin (Intel) binaries locally, you can use Rosetta 2 emulation.
+
+#### Setup
+
+1. **Install Rosetta 2** (if not already installed):
+   ```bash
+   softwareupdate --install-rosetta
+   ```
+
+2. **Configure Nix to support x86_64-darwin**:
+
+   Add to your Nix configuration:
+   
+   **For `/etc/nix/nix.conf` or `~/.config/nix/nix.conf`:**
+   ```conf
+   extra-platforms = x86_64-darwin
+   ```
+   
+   **For Nix-Darwin or Home Manager:**
+   ```nix
+   nix.settings.extra-platforms = [ "x86_64-darwin" ];
+   ```
+
+3. **Build the x86_64-darwin package**:
+   ```bash
+   nix build .#packages.x86_64-darwin.percy-cli
+   ```
+   
+   Or using the default package:
+   ```bash
+   nix build .#percy-cli --system x86_64-darwin
+   ```
+
+#### How It Works
+
+- Nix will use your aarch64 host to run x86_64 tools under Rosetta 2
+- The build will produce a store path for x86_64-darwin (Intel binary)
+- This allows you to build Intel macOS binaries locally without needing a separate Intel Mac
+
+#### Alternative: Remote Builder
+
+If you have an Intel Mac (or CI runner) available, you can configure it as a remote Nix builder for faster, native x86_64-darwin builds:
+
+```conf
+builders = ssh://builder@intel-mac x86_64-darwin - 4 1 big-parallel,kvm
+```
+
+Then use the same build commands - Nix will automatically offload to the remote builder.
+
+### Flake Check Usage
+
+The flake defines packages for multiple systems (x86_64-linux, aarch64-linux, x86_64-darwin, aarch64-darwin), but local development machines typically can only build for their native system.
+
+#### Local Development
+
+On your local machine (e.g., an aarch64-darwin Mac), use:
+
+```bash
+# Check only the current system (recommended)
+nix flake check
+
+# Or explicitly specify the system
+nix flake check --system aarch64-darwin
+```
+
+This will:
+- Only check packages for systems that can be built locally (darwin systems on macOS)
+- Skip Linux packages that require remote builders or cross-compilation
+- Avoid errors about "required system not available"
+
+The flake defines conditional checks that only run for darwin systems when on macOS, allowing local checks to succeed while keeping multi-system package definitions for CI.
+
+#### Why `--all-systems` Fails Locally
+
+Running `nix flake check --all-systems` on a macOS machine will fail because:
+
+1. It attempts to build Linux packages (x86_64-linux, aarch64-linux) that cannot be built on macOS without:
+   - Remote Linux builders configured in `nix.conf`
+   - Cross-compilation setup
+   - A Linux VM or container
+
+2. The error messages will show:
+   ```
+   Required system: 'x86_64-linux'
+   Current system: 'aarch64-darwin'
+   Reason: required system or feature not available
+   ```
+
+This is expected behavior - your local machine simply cannot build those systems.
+
+#### CI Usage
+
+In CI environments (like GitHub Actions) that have proper builders for all target systems, you can use:
+
+```bash
+nix flake check --all-systems
+```
+
+The CI workflow (`.github/workflows/nix/executable.yml`) builds each system separately on appropriate runners, which is the correct approach for multi-system builds.
+
+### Nix Build System Files
+
+- `flake.nix` - Main flake configuration with bun2nix integration
+- `default.nix` - Main package definition using bun2nix
+- `bun.nix` - Pre-generated dependency cache (committed to version control)
+- `bun.lockb` - Bun's binary lockfile (committed to version control)
+- `nix/src-patched.nix` - Source patching layer
+- `nix/prepared-cli.nix` - CLI preparation layer
+- `nix/pkg-wrapper.nix` - pkg binary wrapper
+- `nix/percy-config.nix` - Build configuration (versions, targets)
+- `nix/dev-shell.nix` - Development shell with Bun
+
 ## Historical Reference: Karma Migration
 
 This section documents the original migration plan from Karma to modern browser testing. The migration was completed using **Vitest + jsdom** instead of the originally recommended Playwright.

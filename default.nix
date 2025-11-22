@@ -342,31 +342,11 @@ let
       echo "Dist index.js: $(test -f ./packages/cli/dist/index.js && echo 'yes' || echo 'no')" >&2
       echo "Node modules: $(test -d node_modules && echo 'yes' || echo 'no')" >&2
       
-      # Create a wrapper entry point that imports from dist
-      # Bun compile needs a JS file, and we want to use the built dist files
-      cat > ./percy-entry.js << 'EOF'
-#!/usr/bin/env bun
-import { percy, checkForUpdate } from './packages/cli/dist/index.js';
-
-(async () => {
-  await checkForUpdate();
-  await percy(process.argv.slice(2));
-})();
-EOF
-      chmod +x ./percy-entry.js
-      
-      # First bundle everything into a single file, then compile
-      # This ensures all dependencies are included
-      echo "Step 1: Bundling with bun build..." >&2
-      bun build ./percy-entry.js --outfile=./percy-bundle.js --minify=false 2>&1 || {
-        echo "Error: bun build failed" >&2
-        exit 1
-      }
-      
-      # Now compile the bundled file
-      echo "Step 2: Compiling bundled file with bun build --compile..." >&2
+      # Bun can compile TypeScript directly, so use the source file
+      # It will bundle all dependencies automatically
+      echo "Compiling with bun build --compile from source TypeScript..." >&2
       set +e
-      bun build ./percy-bundle.js --compile --outfile=./percy 2>&1
+      bun build ./packages/cli/src/bin.ts --compile --outfile=./percy 2>&1
       BUILD_EXIT=$?
       set -e
       

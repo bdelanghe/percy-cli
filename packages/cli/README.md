@@ -49,27 +49,26 @@ request](https://www.browserstack.com/contact?ref=percy#technical-support).
 
 ## Developing
 
-This project is built with [lerna](https://lerna.js.org/). The core libraries and CLI plugins are
+This project uses Bun for package management and builds. The core libraries and CLI plugins are
 located in [./packages](./packages). Run `bun install` to install dependencies after cloning the repo and
 use the following scripts for various development tasks:
 
-- `yarn build` - build all packages
-- `yarn build:watch` - build and watch all packages in parallel
-- `yarn clean` - clean up build and coverage output
-- `yarn lint` - lint all packages
-- `yarn readme` - generate cli commands readme usage
-- `yarn test` - run all tests, one package after another
-- `yarn test:coverage` - run all tests with coverage, one package after another
-- `yarn global:link` - links all packages being developed as global.
-    - requires `yarn build` to be run before consuming.
+- `bun run build` - build all packages
+- `bun run build:watch` - build and watch all packages in parallel
+- `bun run clean` - clean up build and coverage output
+- `bun run lint` - lint all packages
+- `bun run readme` - generate cli commands readme usage
+- `bun test` - run all tests
+- `bun test --coverage` - run all tests with coverage
+- `bun link` - links all packages being developed as global
+    - requires `bun run build` to be run before consuming
     - we can then consume this package using
-        `yarn link @percy/[core|cli..]`
+        `bun link @percy/[core|cli..]`
     - **Note**: linking is only required once, subsequent changes for development requires running build command. 
     
-- `yarn global:unlink` - unlinks all packages globally
+- `bun unlink` - unlinks all packages globally
 
-Individual package scripts can be invoked using yarn's
-[workspace](https://classic.yarnpkg.com/en/docs/cli/workspace/) command. For example:
+Individual package scripts can be invoked using Bun's workspace filtering. For example:
 
 ```sh-session
 $ bun run --filter '@percy/core' test

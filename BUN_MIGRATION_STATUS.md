@@ -46,9 +46,10 @@ The following need to be tested to ensure they work correctly:
 - ⚠️ **Jasmine/Karma kept**: Still needed for browser tests (Karma) and some Node tests (Jasmine)
 
 ### Documentation Updates
-- [ ] Update README.md to mention Bun instead of Yarn/Lerna
+- ✅ **packages/cli/README.md**: Updated to mention Bun instead of Lerna/Yarn
 - [ ] Update CONTRIBUTING.md if it references Yarn/Lerna
 - ✅ **nix/README.md**: Updated to reflect Bun usage instead of dream2nix
+- ✅ **scripts/nix/README.md**: Updated to reflect Bun instead of Yarn
 
 ### CI/CD Updates
 - ✅ **.github/workflows/test.yml**: Updated to use Bun instead of Yarn

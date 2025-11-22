@@ -75,7 +75,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 name = match.group(2)
                 version = match.group(3)
                 if scope:
-                    filename = '_' + scope.replace('@', '').replace('/', '_') + '_' + name + '___' + name + '-' + version + '.tgz'
+                filename = '_' + scope.replace('@', '').replace('/', '_') + '_' + name + '___' + name + '-' + version + '.tgz';
                 else:
                     filename = name + '___' + name + '-' + version + '.tgz'
                 self.path = '/' + filename

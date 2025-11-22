@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url       = "github:NixOS/nixpkgs/nixos-24.05";
     flake-schemas.url = "github:DeterminateSystems/flake-schemas";
-    bun2nix.url       = "github:nix-community/bun2nix/v2";
+    bun2nix.url       = "github:nix-community/bun2nix/21f2aed3b1f1d4af93df1a6d34cb3e3f703ac6f9";
     bun2nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 

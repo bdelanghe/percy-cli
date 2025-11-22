@@ -160,16 +160,19 @@ nix run .#lint             # Lint all packages
 
 ### Lockfile Updates
 
+**Important**: Both `bun.lockb` and `bun.nix` must exist and be committed for reproducible Nix builds.
+
 ```bash
-# Recommended: update both lockfiles via Nix app
+# Recommended: update both lockfiles via Nix app (requires clean git state)
 nix run .#update-lockfiles
 
-# Or manually:
-bun install
-bunx bun2nix -o bun.nix
+# Or manually (if Bun is installed):
+bun install                    # Generates bun.lockb
+bunx bun2nix -o bun.nix       # Generates bun.nix from bun.lockb
+git add bun.lockb bun.nix
 ```
 
-Both bun.lockb and bun.nix must be committed for reproducible Nix builds.
+**Note**: If `bun.lockb` is missing, `nix build` will fail because Bun needs the lockfile to resolve dependencies offline. Generate it first using one of the methods above.
 
 ## Nix Build System
 
@@ -211,6 +214,8 @@ This provides:
 - **Speed**: Bun's fast installs combined with Nix's binary cache
 
 ### Building
+
+**Prerequisites**: `bun.lockb` and `bun.nix` must exist. If missing, run `nix run .#update-lockfiles` first (requires clean git state).
 
 ```bash
 # Build the binary for your system

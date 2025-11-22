@@ -24,8 +24,10 @@ let
         bun.nix present:  ${toString hasBunNix}
 
       To fix:
-        bun install
-        bunx bun2nix -o bun.nix
+        bun install                    # Generates bun.lock
+        bunx bun2nix -o bun.nix       # Generates bun.nix from bun.lock
+        # Or use Nix app:
+        nix run .#update-lockfiles
         git add bun.lock bun.nix
 
     ''
@@ -61,13 +63,24 @@ let
     # bun2nix.hook uses this to find the offline cache
     inherit bunDeps;
 
+    # Disable the hook's automatic install phase and do it manually
+    # This gives us more control over the install process
+    dontBunInstall = true;
+
     buildPhase = ''
       export HOME="$TMPDIR/home"
       mkdir -p "$HOME"
 
-      echo "Installing dependencies from bun2nix cache..."
-      # bun2nix.hook automatically sets up the cache via bunDeps
-      bun install --frozen-lockfile --no-save
+      # Set up offline cache from bunDeps
+      # The bun2nix hook should have set BUN_INSTALL_CACHE, but we'll ensure it's set
+      export BUN_INSTALL_CACHE="${bunDeps}"
+
+      echo "Installing dependencies from bun2nix cache at: $BUN_INSTALL_CACHE"
+      echo "Cache contents:"
+      ls -la "$BUN_INSTALL_CACHE" | head -20 || true
+
+      # Install dependencies using the offline cache
+      bun install --frozen-lockfile --no-save --backend=symlink
 
       export PATH="$PWD/node_modules/.bin:$PATH"
 

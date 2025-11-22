@@ -60,8 +60,8 @@
             null;
 
           # Offline Bun dependency cache from bun.nix (via bun2nix flake package)
-          # Access fetchBunDeps directly from the package to avoid module evaluation issues
-          bunDeps = (bun2nix.packages.${system}.bun2nix).fetchBunDeps {
+          # Use bun2nixPkg.fetchBunDeps as documented
+          bunDeps = bun2nixPkg.fetchBunDeps {
             bunNix = "${srcPatched}/bun.nix";
           };
 
@@ -77,7 +77,7 @@
             nativeBuildInputs = with pkgs; [
               bun
               nodejs
-              (bun2nix.packages.${system}.bun2nix).hook  # setup hook for offline installs
+              bun2nixPkg.hook  # setup hook for offline installs (as per bun2nix docs)
             ];
 
             # bun2nix.hook uses this to find the offline cache

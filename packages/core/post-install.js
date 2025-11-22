@@ -34,7 +34,7 @@ try {
   } else if (!process.send && fs.existsSync('./src')) {
     // In development, fork this script with the development loader and always install
     await import('child_process').then(cp => cp.fork('./post-install.js', {
-      execArgv: ['--no-warnings', '--loader=../../scripts/loader.js'],
+      execArgv: ['--no-warnings', '--loader=../../scripts/loader.ts'],
       env: { PERCY_POSTINSTALL_BROWSER: true }
     }));
   }

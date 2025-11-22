@@ -39,13 +39,6 @@
             modules = [
               # Pass module as a bare path - the module system will call it with proper args
               ./nix/dream2nix-config.nix
-              {
-                paths.projectRoot = srcPatched;
-                paths.package = srcPatched;
-                paths.projectRootFile = "package.json";
-                name = "percy-cli";
-                # dream2nix will auto-detect translator from yarn.lock
-              }
             ];
             # specialArgs provides extra arguments to all modules
             specialArgs = {

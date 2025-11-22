@@ -4,16 +4,23 @@
 { dream2nix, config, lib, srcPatched, ... }:
 
 {
-  imports = [
-    dream2nix.modules.dream2nix.core
-    dream2nix.modules.dream2nix.mkDerivation
+  # Use nodejs-package-json-v3 module for yarn.lock support
+  imports = with dream2nix.modules.dream2nix; [
+    nodejs-package-json-v3
+    mkDerivation
   ];
 
   # Package name
   name = "percy-cli";
   
-  # Default paths (can be overridden by inline module in flake.nix)
+  # Project root (valid top-level option)
   paths.projectRoot = srcPatched;
+  
+  # NodeJS module-specific options go under the module's namespace
+  nodejs-package-json-v3 = {
+    packageJson = "${srcPatched}/package.json";
+    yarnLock = "${srcPatched}/yarn.lock";
+  };
   
   # mkDerivation configuration
   mkDerivation = {

@@ -30,6 +30,21 @@ stdenv.mkDerivation {
       -not -path "*/dom/*" \
       -not -path "*/sdk-utils/*" \
       -exec sed -i '/"type": "module",/d' {} \;
+
+    # Add bun2nix postinstall script to root package.json
+    # This will generate bun.nix after bun install runs
+    if ! grep -q '"postinstall".*"bun2nix"' package.json; then
+      # Use jq if available, otherwise use sed
+      if command -v jq >/dev/null 2>&1; then
+        jq '.scripts.postinstall = "bun2nix -o bun.nix"' package.json > package.json.tmp && mv package.json.tmp package.json
+      else
+        # Fallback: use sed to add postinstall script
+        # Find the scripts section and add postinstall
+        sed -i '/"scripts": {/a\
+    "postinstall": "bun2nix -o bun.nix",
+' package.json
+      fi
+    fi
   '';
 }
 

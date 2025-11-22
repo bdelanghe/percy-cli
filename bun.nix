@@ -406,6 +406,46 @@
      url = "https://registry.npmjs.org/@types/yauzl/-/yauzl-2.9.1.tgz";
      hash = "sha512-A1b8SU4D10uoPjwb0lnHmmu8wZhR9d+9o2PKBQT2jU5YPTKsxac6M2qGAdY7VcL+dHHhARVUDmeg0rOrcd9EjA==";
   };
+  "@typescript-eslint/eslint-plugin@8.47.0" = fetchurl {
+     url = "https://registry.npmjs.org/@typescript-eslint/eslint-plugin/-/eslint-plugin-8.47.0.tgz";
+     hash = "sha512-fe0rz9WJQ5t2iaLfdbDc9T80GJy0AeO453q8C3YCilnGozvOyCG5t+EZtg7j7D88+c3FipfP/x+wzGnh1xp8ZA==";
+  };
+  "@typescript-eslint/parser@8.47.0" = fetchurl {
+     url = "https://registry.npmjs.org/@typescript-eslint/parser/-/parser-8.47.0.tgz";
+     hash = "sha512-lJi3PfxVmo0AkEY93ecfN+r8SofEqZNGByvHAI3GBLrvt1Cw6H5k1IM02nSzu0RfUafr2EvFSw0wAsZgubNplQ==";
+  };
+  "@typescript-eslint/project-service@8.47.0" = fetchurl {
+     url = "https://registry.npmjs.org/@typescript-eslint/project-service/-/project-service-8.47.0.tgz";
+     hash = "sha512-2X4BX8hUeB5JcA1TQJ7GjcgulXQ+5UkNb0DL8gHsHUHdFoiCTJoYLTpib3LtSDPZsRET5ygN4qqIWrHyYIKERA==";
+  };
+  "@typescript-eslint/scope-manager@8.47.0" = fetchurl {
+     url = "https://registry.npmjs.org/@typescript-eslint/scope-manager/-/scope-manager-8.47.0.tgz";
+     hash = "sha512-a0TTJk4HXMkfpFkL9/WaGTNuv7JWfFTQFJd6zS9dVAjKsojmv9HT55xzbEpnZoY+VUb+YXLMp+ihMLz/UlZfDg==";
+  };
+  "@typescript-eslint/tsconfig-utils@8.47.0" = fetchurl {
+     url = "https://registry.npmjs.org/@typescript-eslint/tsconfig-utils/-/tsconfig-utils-8.47.0.tgz";
+     hash = "sha512-ybUAvjy4ZCL11uryalkKxuT3w3sXJAuWhOoGS3T/Wu+iUu1tGJmk5ytSY8gbdACNARmcYEB0COksD2j6hfGK2g==";
+  };
+  "@typescript-eslint/type-utils@8.47.0" = fetchurl {
+     url = "https://registry.npmjs.org/@typescript-eslint/type-utils/-/type-utils-8.47.0.tgz";
+     hash = "sha512-QC9RiCmZ2HmIdCEvhd1aJELBlD93ErziOXXlHEZyuBo3tBiAZieya0HLIxp+DoDWlsQqDawyKuNEhORyku+P8A==";
+  };
+  "@typescript-eslint/types@8.47.0" = fetchurl {
+     url = "https://registry.npmjs.org/@typescript-eslint/types/-/types-8.47.0.tgz";
+     hash = "sha512-nHAE6bMKsizhA2uuYZbEbmp5z2UpffNrPEqiKIeN7VsV6UY/roxanWfoRrf6x/k9+Obf+GQdkm0nPU+vnMXo9A==";
+  };
+  "@typescript-eslint/typescript-estree@8.47.0" = fetchurl {
+     url = "https://registry.npmjs.org/@typescript-eslint/typescript-estree/-/typescript-estree-8.47.0.tgz";
+     hash = "sha512-k6ti9UepJf5NpzCjH31hQNLHQWupTRPhZ+KFF8WtTuTpy7uHPfeg2NM7cP27aCGajoEplxJDFVCEm9TGPYyiVg==";
+  };
+  "@typescript-eslint/utils@8.47.0" = fetchurl {
+     url = "https://registry.npmjs.org/@typescript-eslint/utils/-/utils-8.47.0.tgz";
+     hash = "sha512-g7XrNf25iL4TJOiPqatNuaChyqt49a/onq5YsJ9+hXeugK+41LVg7AxikMfM02PC6jbNtZLCJj6AUcQXJS/jGQ==";
+  };
+  "@typescript-eslint/visitor-keys@8.47.0" = fetchurl {
+     url = "https://registry.npmjs.org/@typescript-eslint/visitor-keys/-/visitor-keys-8.47.0.tgz";
+     hash = "sha512-SIV3/6eftCy1bNzCQoPmbWsRLujS8t5iDIZ4spZOBHqrM+yfX2ogg8Tt3PDTAVKw3sSCiUgg30uOAvK2r9zGjQ==";
+  };
   "@vitest/coverage-v8@2.1.9" = fetchurl {
      url = "https://registry.npmjs.org/@vitest/coverage-v8/-/coverage-v8-2.1.9.tgz";
      hash = "sha512-Z2cOr0ksM00MpEfyVE8KXIYPEcBFxdbLSs56L8PO0QQMxt/6bDj45uQfxoc96v05KW3clk7vvgP0qfDit9DmfQ==";
@@ -962,10 +1002,6 @@
      url = "https://registry.npmjs.org/form-data/-/form-data-4.0.5.tgz";
      hash = "sha512-8RipRLol37bNs2bhoV67fiTEvdTrbMUYcFTiy3+wuuOnUog2QBHCZWXDRijWQfAkhBj2Uf5UnVaiWwA5vdd82w==";
   };
-  "fs-monkey@1.1.0" = fetchurl {
-     url = "https://registry.npmjs.org/fs-monkey/-/fs-monkey-1.1.0.tgz";
-     hash = "sha512-QMUezzXWII9EV5aTFXW1UBVUO77wYPpjqIF8/AviUCThNeSYZykpoTixUeaNNBwmCev0AMDWMAni+f8Hxb1IFw==";
-  };
   "fs.realpath@1.0.0" = fetchurl {
      url = "https://registry.npmjs.org/fs.realpath/-/fs.realpath-1.0.0.tgz";
      hash = "sha1-FQStJSMVjKpA20onh8sBQRmU6k8=";
@@ -1078,6 +1114,10 @@
      url = "https://registry.npmjs.org/gopd/-/gopd-1.2.0.tgz";
      hash = "sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==";
   };
+  "graphemer@1.4.0" = fetchurl {
+     url = "https://registry.npmjs.org/graphemer/-/graphemer-1.4.0.tgz";
+     hash = "sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag==";
+  };
   "has-bigints@1.0.2" = fetchurl {
      url = "https://registry.npmjs.org/has-bigints/-/has-bigints-1.0.2.tgz";
      hash = "sha512-tSvCKtBr9lkF0Ex0aQiP9N+OpV4zi2r/Nee5VkRDbaqv35RLYMzbwQfFSZZH0kR+Rd6302UJZ2p/bJCEoR3VoQ==";
@@ -1169,6 +1209,10 @@
   "ignore@5.3.2" = fetchurl {
      url = "https://registry.npmjs.org/ignore/-/ignore-5.3.2.tgz";
      hash = "sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==";
+  };
+  "ignore@7.0.5" = fetchurl {
+     url = "https://registry.npmjs.org/ignore/-/ignore-7.0.5.tgz";
+     hash = "sha512-Hs59xBNfUIunMFgWAbGX5cq6893IbWg4KnrjbYwX3tx0ztorVgTDA6B2sxf8ejHJ4wz8BqGUMYlnzNBer5NvGg==";
   };
   "image-size@1.0.2" = fetchurl {
      url = "https://registry.npmjs.org/image-size/-/image-size-1.0.2.tgz";
@@ -1505,10 +1549,6 @@
   "math-intrinsics@1.1.0" = fetchurl {
      url = "https://registry.npmjs.org/math-intrinsics/-/math-intrinsics-1.1.0.tgz";
      hash = "sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==";
-  };
-  "memfs@3.6.0" = fetchurl {
-     url = "https://registry.npmjs.org/memfs/-/memfs-3.6.0.tgz";
-     hash = "sha512-EGowvkkgbMcIChjMTMkESFDbZeSh8xZ7kNSF0hAiAN4Jh6jgHCRS0Ga/+C8y6Au+oqpezRHCfPsmJ2+DwAgiwQ==";
   };
   "merge2@1.4.1" = fetchurl {
      url = "https://registry.npmjs.org/merge2/-/merge2-1.4.1.tgz";
@@ -2061,6 +2101,10 @@
   "tr46@5.1.1" = fetchurl {
      url = "https://registry.npmjs.org/tr46/-/tr46-5.1.1.tgz";
      hash = "sha512-hdF5ZgjTqgAntKkklYw0R03MG2x/bSzTtkxmIRw/sTNV8YXsCJ1tfLAX23lhxhHJlEf3CRCOCGGWw3vI3GaSPw==";
+  };
+  "ts-api-utils@2.1.0" = fetchurl {
+     url = "https://registry.npmjs.org/ts-api-utils/-/ts-api-utils-2.1.0.tgz";
+     hash = "sha512-CUgTZL1irw8u29bzrOD/nH85jqyc74D6SshFgujOIA7osm2Rz7dYH77agkx7H4FBNxDq7Cjf+IjaX/8zwFW+ZQ==";
   };
   "tsconfig-paths@3.15.0" = fetchurl {
      url = "https://registry.npmjs.org/tsconfig-paths/-/tsconfig-paths-3.15.0.tgz";

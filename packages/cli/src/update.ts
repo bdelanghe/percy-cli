@@ -13,25 +13,28 @@ const CACHE_MAX_AGE = 3 * 24 * 60 * 60 * 1000;
 // Safely read from CACHE_FILE and return an object containing `data` mirroring what was previously
 // written using `writeToCache(data)`. An empty object is returned when older than CACHE_MAX_AGE,
 // and an `error` will be present if one was encountered.
-function readFromCache() {
-  let cached = {};
+function readFromCache(): { data?: any; error?: any } {
+  let cached: { data?: any; error?: any } = {};
 
   try {
     if (fs.existsSync(CACHE_FILE)) {
-      let { createdAt, data } = JSON.parse(fs.readFileSync(CACHE_FILE));
+      const fileContent = fs.readFileSync(CACHE_FILE);
+      const content = typeof fileContent === 'string' ? fileContent : fileContent.toString('utf-8');
+      let { createdAt, data } = JSON.parse(content);
       if ((Date.now() - createdAt) < CACHE_MAX_AGE) cached.data = data;
     }
   } catch (error) {
     let log = logger('cli:update:cache');
     log.debug('Unable to read from cache');
-    log.debug(cached.error = error);
+    log.debug(error);
+    cached.error = error;
   }
 
   return cached;
 }
 
 // Safely write data to CACHE_FILE with the current timestamp.
-function writeToCache(data) {
+function writeToCache(data: any) {
   try {
     fs.writeFileSync(CACHE_FILE, JSON.stringify({
       createdAt: Date.now(),

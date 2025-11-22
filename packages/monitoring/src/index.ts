@@ -112,13 +112,13 @@ export default class Monitoring {
   }
 
   async monitoringCPUUsage() {
-    const cpuInfo = await getCPUUsageInfo(this.os, { containerLevel: this.isContainer, machineLevel: this.isMachine });
+    const cpuInfo = await getCPUUsageInfo(this.os);
     this.cpuInfo = cpuInfo;
     this.log.debug(`cpuInfo: ${JSON.stringify(cpuInfo)}`);
   }
 
   async monitorMemoryUsage() {
-    const memoryInfo = await getMemoryUsageInfo(this.os, { containerLevel: this.isContainer, machineLevel: this.isMachine });
+    const memoryInfo = await getMemoryUsageInfo(this.os);
     this.memoryUsageInfo = memoryInfo;
     this.log.debug(`memoryInfo: ${JSON.stringify(memoryInfo)}`);
   }

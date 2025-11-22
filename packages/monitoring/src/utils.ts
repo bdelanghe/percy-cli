@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 
-async function pathsExist(paths) {
+async function pathsExist(paths: string[]) {
   let exists = true;
   try {
     for (const file of paths) {

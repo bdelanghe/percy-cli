@@ -340,17 +340,19 @@ async function normalizeCommand(command, properties) {
 }
 
 // Parses and validates command-line arguments according to a command definition.
-export async function parse(command, argv) {
+export async function parse(command: any, argv: any[]) {
   // initial input and output
-  let input = argv.slice().filter(a => a != null);
+  let input = argv.slice().filter((a: any) => a != null);
 
-  let parsed = {
-    command: await normalizeCommand(command),
+  let parsed: any = {
+    command: await normalizeCommand(command, undefined),
     operators: new Map(),
     log: logger('cli'),
     flags: {},
     args: {},
-    argv: []
+    argv: [],
+    help: false,
+    version: false
   };
 
   // while there is input left, parse it
@@ -397,7 +399,7 @@ export async function parse(command, argv) {
 
       // a deprecated arg might be mapped to a flag
       if (arg.deprecated?.[1]?.startsWith('--') &&
-          findFlag(arg.deprecated[1], parsed)) {
+          findFlag(arg.deprecated[1], parsed, undefined)) {
         (parsed.flags as Record<string, any>)[attributeName(arg, parsed)] = value;
       } else {
         (parsed.args as Record<string, any>)[attributeName(arg, parsed)] = value;

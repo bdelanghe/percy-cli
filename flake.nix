@@ -15,19 +15,22 @@
         "aarch64-darwin"
       ];
 
-      # Pass both pkgs and bun2nixPkg into each per-system function
+      # Use overlay approach like bun2nix templates
+      # This puts bun2nix directly in pkgs, avoiding module functor evaluation issues
+      pkgsFor = nixpkgs.lib.genAttrs systems (system:
+        import nixpkgs {
+          inherit system;
+          overlays = [ bun2nix.overlays.default ];
+        }
+      );
+
       forAllSystems = f:
         nixpkgs.lib.genAttrs systems (system:
-          let
-            pkgs = import nixpkgs { inherit system; };
-            # Access bun2nix package - the package has passthru attributes hook and fetchBunDeps
-            # Note: This may trigger module evaluation, but it's the documented way to access bun2nix
-            bun2nixPkg = bun2nix.packages.${system}.bun2nix;
-          in
-          f pkgs bun2nixPkg system);
+          f pkgsFor.${system} system);
 
       # Build graph for each system (src → nodeTree → preparedCli → percyCli)
-      perSystemPackages = forAllSystems (pkgs: bun2nixPkg: system:
+      # Access bun2nix package directly here to avoid module functor evaluation issues
+      perSystemPackages = forAllSystems (pkgs: system:
         let
           cfg = import ./nix/percy-config.nix { inherit pkgs; };
 
@@ -58,9 +61,9 @@
           else
             null;
 
-          # Offline Bun dependency cache from bun.nix (via bun2nix flake package)
-          # Use bun2nixPkg.fetchBunDeps as documented
-          bunDeps = bun2nixPkg.fetchBunDeps {
+          # Offline Bun dependency cache from bun.nix (via bun2nix overlay)
+          # bun2nix is available in pkgs via the overlay
+          bunDeps = pkgs.bun2nix.fetchBunDeps {
             bunNix = "${srcPatched}/bun.nix";
           };
 
@@ -76,7 +79,7 @@
             nativeBuildInputs = with pkgs; [
               bun
               nodejs
-              bun2nixPkg.hook  # setup hook for offline installs (as per bun2nix docs)
+              bun2nix.hook  # setup hook for offline installs (from overlay, as per bun2nix docs)
             ];
 
             # bun2nix.hook uses this to find the offline cache
@@ -140,8 +143,7 @@
 
       packages = perSystemPackages;
 
-      # apps/devShells/checks also need the bun2nixPkg arg now
-      apps = forAllSystems (pkgs: bun2nixPkg: system: {
+      apps = forAllSystems (pkgs: system: {
         percy-cli = {
           type = "app";
           program = "${perSystemPackages.${system}.percy-cli}/bin/percy";
@@ -149,11 +151,11 @@
         };
       });
 
-      devShells = forAllSystems (pkgs: bun2nixPkg: system: {
+      devShells = forAllSystems (pkgs: system: {
         default = import ./nix/dev-shell.nix { inherit pkgs; };
       });
 
-      checks = forAllSystems (pkgs: bun2nixPkg: system:
+      checks = forAllSystems (pkgs: system:
         let
           p = perSystemPackages.${system};
           percyCli = p.percy-cli;

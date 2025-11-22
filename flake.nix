@@ -22,7 +22,7 @@
         nixpkgs.lib.genAttrs systems (system:
           let
             pkgs       = import nixpkgs { inherit system; };
-            bun2nixPkg = bun2nix.packages.${system}.default;
+            bun2nixPkg = bun2nix.packages.${system}.bun2nix;
           in
           f pkgs bun2nixPkg system);
 

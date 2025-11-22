@@ -57,7 +57,8 @@
 
           # Extract the built package from dream2nix
           # dream2nix handles: node_modules install (with devDependencies) + lerna build + babel
-          nodeTree = dream2nixPackage.packages."percy-cli" or dream2nixPackage;
+          # Try accessing via packages attribute, fallback to direct access
+          nodeTree = dream2nixPackage.packages."percy-cli" or dream2nixPackage.packages.percy-cli or dream2nixPackage;
 
           # Layer 3: prepared CLI tree (patched for pkg)
           preparedCli = import ./nix/prepared-cli.nix {

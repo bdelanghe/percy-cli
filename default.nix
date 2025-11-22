@@ -10,21 +10,15 @@ let
   # Configuration
   cfg = import ./nix/percy-config.nix { inherit pkgs; };
 
-  # Layer 1: Patched source tree
-  srcPatched = import ./nix/src-patched.nix {
-    inherit pkgs;
-    version = cfg.version;
-  };
-
-  # Ensure bun.lock + bun.nix are present in src
+  # Check for bun.lock and bun.nix in source before building
   # These should be generated outside Nix and committed to version control
-  hasBunLock = builtins.pathExists "${srcPatched}/bun.lock";
-  hasBunNix  = builtins.pathExists "${srcPatched}/bun.nix";
+  hasBunLock = builtins.pathExists ./bun.lock;
+  hasBunNix  = builtins.pathExists ./bun.nix;
 
   _ = if !hasBunLock || !hasBunNix then
     throw ''
 
-      Missing Bun lock artifacts in src:
+      Missing Bun lock artifacts in source:
 
         bun.lock present: ${toString hasBunLock}
         bun.nix present:  ${toString hasBunNix}
@@ -38,10 +32,17 @@ let
   else
     null;
 
+  # Layer 1: Patched source tree
+  srcPatched = import ./nix/src-patched.nix {
+    inherit pkgs;
+    version = cfg.version;
+  };
+
   # Offline Bun dependency cache from bun.nix
   # Use pkgs.bun2nix from overlay (tag 2.0.1 should have passthru attributes)
+  # Note: bun.nix will be copied to srcPatched, so we reference it there
   bunDeps = pkgs.bun2nix.fetchBunDeps {
-    bunNix = "${srcPatched}/bun.nix";
+    bunNix = ./bun.nix;
   };
 
   # Layer 2: node tree build using bun2nix

@@ -44,8 +44,10 @@
     {
       packages = eachSystem (system: {
         # Produce a package for this template with bun2nix in
-        # the overlay
-        default = pkgsFor.${system}.callPackage ./default.nix { };
+          # the overlay
+        default = pkgsFor.${system}.callPackage ./default.nix {
+          bunNix = ./bun.nix;
+        };
       });
 
       devShells = eachSystem (system: {

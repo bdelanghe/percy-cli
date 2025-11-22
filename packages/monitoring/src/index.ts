@@ -7,6 +7,18 @@ import { getMemoryUsageInfo, getClientMemoryDetails } from './memory.js';
 import { getDiskSpaceInfo } from './disk.js';
 
 export default class Monitoring {
+  os: string;
+  monitoringId: NodeJS.Timeout | null;
+  running: boolean;
+  isContainer: boolean;
+  isPod: boolean;
+  isMachine: boolean;
+  lastExecutedAt: number | null;
+  pod: boolean;
+  cpuInfo: Record<string, any>;
+  memoryUsageInfo: Record<string, any>;
+  log: ReturnType<typeof logger>;
+
   constructor() {
     this.os = this.getOS();
     this.monitoringId = null;

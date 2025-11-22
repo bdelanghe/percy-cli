@@ -10,11 +10,11 @@ const log = logger('monitoring:memory');
 
 /**
  * Retrieves CPU information.
- * @param {*} os - The OS module (if needed, otherwise remove this parameter).
+ * @param {string} os - The OS platform string.
  * @param {*} param1 - An object containing CPU details.
  * @returns {{ currentUsagePercent: number, totalMemory: number }} Memory information.
  */
-async function getMemoryUsageInfo(os) {
+async function getMemoryUsageInfo(os: string) {
   try {
     if (os.includes('linux') && await pathsExist(CGROUP_FILES)) {
       return await getLinuxMemoryUsage();
@@ -47,8 +47,9 @@ async function getTotalMemory() {
     let maxMemory = await fs.readFile(CGROUP_MEMORY_MAX);
     // if memory_max == max ( take system max value )
     // as there is no limit set, it's the max value
-    if (maxMemory !== 'max') {
-      maxAllocatedMemory = parseInt(maxMemory);
+    const maxMemoryStr = maxMemory.toString('utf-8');
+    if (maxMemoryStr !== 'max') {
+      maxAllocatedMemory = parseInt(maxMemoryStr);
     }
   } catch (error) {
     // suppressing this err, as we will use system level metric
@@ -66,7 +67,8 @@ async function getTotalMemory() {
 async function getLinuxMemoryUsage() {
   try {
     const maxAllocatedMemory = await getTotalMemory(); // in bytes
-    const currentMemoryUsage = parseInt(await fs.readFile(CGROUP_MEMORY_CURRENT)); // in bytes
+    const currentMemoryUsageBuffer = await fs.readFile(CGROUP_MEMORY_CURRENT);
+    const currentMemoryUsage = parseInt(currentMemoryUsageBuffer.toString('utf-8')); // in bytes
     const memoryUsagePercentage = (currentMemoryUsage / maxAllocatedMemory) * 100;
 
     return {

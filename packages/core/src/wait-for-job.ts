@@ -97,7 +97,13 @@ export class WaitForJob {
 }
 
 export class JobData {
-  constructor(id, nextPoll, resolve, reject) {
+  id: string;
+  nextPoll: number;
+  timeout: number;
+  resolve: (value: string) => void;
+  reject: (error: any) => void;
+
+  constructor(id: string, nextPoll: number | undefined, resolve: (value: string) => void, reject: (error: any) => void) {
     this.id = id;
     this.nextPoll = nextPoll || 60;
     this.timeout = Date.now() + JOB_TIMEOUT;

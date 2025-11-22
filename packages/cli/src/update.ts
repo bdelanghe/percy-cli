@@ -45,8 +45,9 @@ function writeToCache(data) {
 }
 
 // Fetch and return release information for @percy/cli.
-async function fetchReleases(pkg) {
-  let { request } = await import('@percy/client/utils');
+async function fetchReleases(pkg: { name: string }) {
+  let clientUtils = await import('@percy/client/utils');
+  let { request } = clientUtils;
 
   // fetch releases from the github api without retries
   let api = 'https://api.github.com/repos/percy/cli/releases';
@@ -56,7 +57,7 @@ async function fetchReleases(pkg) {
   });
 
   // return relevant information
-  return data.map(r => ({
+  return data.map((r: { tag_name: string; prerelease: boolean }) => ({
     tag: r.tag_name,
     prerelease: r.prerelease
   }));
@@ -65,7 +66,9 @@ async function fetchReleases(pkg) {
 // Check for updates by comparing latest releases with the current version. The result of the check
 // is cached to speed up subsequent CLI usage.
 export async function checkForUpdate() {
-  let { data: releases, error: cacheError } = readFromCache();
+  let cached = readFromCache();
+  let releases = cached.data;
+  let cacheError = cached.error;
   let pkg = getPackageJSON(import.meta.url);
   let log = logger('cli:update');
 
@@ -78,12 +81,12 @@ export async function checkForUpdate() {
     // request new release information if needed
     if (!releases) {
       releases = await fetchReleases(pkg);
-      if (!cacheError) writeToCache(releases, log);
+      if (!cacheError) writeToCache(releases);
     }
 
     // check the current package version against released versions
     // don't include prerelease - alpha/beta versions
-    let versions = releases.filter(r => !r.prerelease).map(r => r.tag.substr(1));
+    let versions = releases.filter((r: { prerelease: boolean; tag: string }) => !r.prerelease).map((r: { tag: string }) => r.tag.substr(1));
     let age = versions.indexOf(pkg.version);
 
     // a new version is available

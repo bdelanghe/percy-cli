@@ -5,11 +5,9 @@
 
 {
   # Import required dream2nix modules
-  # dream2nix-core provides library functions like getFirstOutput
   # nodejs-package-json provides the translator for yarn.lock
-  # mkDerivation provides the build derivation
+  # mkDerivation provides the build derivation (includes library functions)
   imports = [
-    dream2nix.modules.dream2nix-core
     dream2nix.modules.dream2nix.nodejs-package-json
     dream2nix.modules.dream2nix.mkDerivation
   ];

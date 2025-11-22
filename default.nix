@@ -84,6 +84,15 @@ let
     # mkBunDerivation uses bunDeps to set up offline cache automatically
     bunDeps = bunDeps;
     bunNix = bunNix;
+    
+    # Set up writable directories for Bun
+    # Bun needs HOME and TMPDIR to be writable
+    preBuild = ''
+      export HOME="$TMPDIR/home"
+      mkdir -p "$HOME"
+      export TMPDIR="$TMPDIR"
+      mkdir -p "$TMPDIR"
+    '';
 
     # Add diagnostic output before install phase
     # This helps verify what's happening during bunNodeModulesInstallPhase

@@ -41,7 +41,6 @@
             nativeBuildInputs = with pkgs; [
               bun
               nodejs
-              python3
             ];
             
             # Make offline cache available as build input
@@ -52,68 +51,21 @@
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
 
-              # Set up simple local registry server for offline cache
-              REGISTRY_PORT=4873
-              REGISTRY_URL="http://localhost:$REGISTRY_PORT"
+              # Populate Bun's install cache with offline packages
+              BUN_CACHE="$HOME/.bun/install/cache"
+              mkdir -p "$BUN_CACHE"
               
-              # Create minimal registry server that maps npm URLs to yarnpkg cache filenames
-              cat > "$TMPDIR/registry-server.py" <<'PYEOF'
-import http.server
-import socketserver
-import os
-import re
-import sys
-
-CACHE_DIR = sys.argv[1]
-PORT = int(sys.argv[2])
-
-class Handler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=CACHE_DIR, **kwargs)
-    
-    def do_GET(self):
-        # Convert npm registry URL to yarnpkg cache filename
-        # /@scope/name/-/name-version.tgz -> _scope_name___name-version.tgz
-        if self.path.endswith('.tgz'):
-            match = re.match(r'/(@[^/]+/)?([^/]+)/-/\2-([^/]+)\.tgz$', self.path)
-            if match:
-                scope = (match.group(1) or '').replace('@', '').replace('/', '_')
-                name = match.group(2)
-                version = match.group(3)
-                filename = ('_' + scope + '_' if scope else '') + name + '___' + name + '-' + version + '.tgz'
-                self.path = '/' + filename
-        return super().do_GET()
-    
-    def log_message(self, *args):
-        pass
-
-with socketserver.TCPServer(("", PORT), Handler) as httpd:
-    httpd.serve_forever()
-PYEOF
+              # Copy offline cache to Bun's cache directory
+              # Bun will use these files if they match what it needs
+              echo "Setting up offline cache for Bun..."
+              cp -r ${offlineCacheFiles.offline_cache}/* "$BUN_CACHE/" 2>/dev/null || true
               
-              # Start registry server
-              python3 "$TMPDIR/registry-server.py" ${offlineCacheFiles.offline_cache} $REGISTRY_PORT > /dev/null 2>&1 &
-              REGISTRY_PID=$!
-              
-              # Ensure server is killed on exit
-              trap "kill $REGISTRY_PID 2>/dev/null || true" EXIT
-              
-              # Wait for server to start
-              sleep 1
-
-              # Configure Bun to use local registry
-              export BUN_INSTALL_REGISTRY="$REGISTRY_URL"
-              export npm_config_registry="$REGISTRY_URL"
-              echo "registry=$REGISTRY_URL" > .npmrc
+              # Configure Bun for offline installation
               export BUN_INSTALL_OFFLINE=1
 
               # Install dependencies with Bun using offline cache
               echo "Installing dependencies from offline cache..."
               bun install --frozen-lockfile --no-save || bun install --no-save
-
-              # Stop server
-              kill $REGISTRY_PID 2>/dev/null || true
-              trap - EXIT
 
               # Add node_modules/.bin to PATH for build tools
               export PATH="$PWD/node_modules/.bin:$PATH"

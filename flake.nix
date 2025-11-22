@@ -4,20 +4,22 @@
   inputs = {
     nixpkgs.url       = "github:NixOS/nixpkgs/nixos-24.05";
     flake-schemas.url = "github:DeterminateSystems/flake-schemas";
-    bun2nix.url       = "github:nix-community/bun2nix/21f2aed3b1f1d4af93df1a6d34cb3e3f703ac6f9";
+    systems.url        = "github:nix-systems/default";
+    bun2nix.url       = "github:nix-community/bun2nix?tag=2.0.1";
     bun2nix.inputs.nixpkgs.follows = "nixpkgs";
+    bun2nix.inputs.systems.follows = "systems";
   };
 
-  outputs = { self, nixpkgs, flake-schemas, bun2nix }:
+  outputs = { self, nixpkgs, flake-schemas, systems, bun2nix }:
     let
       # Start with just aarch64-darwin to debug the bun2nix issue
-      systems = [
+      systemList = [
         "aarch64-darwin"
       ];
 
       # Use overlay approach like bun2nix templates
       # This puts bun2nix directly in pkgs, avoiding module functor evaluation issues
-      pkgsFor = nixpkgs.lib.genAttrs systems (system:
+      pkgsFor = nixpkgs.lib.genAttrs systemList (system:
         import nixpkgs {
           inherit system;
           overlays = [ bun2nix.overlays.default ];
@@ -25,7 +27,7 @@
       );
 
       forAllSystems = f:
-        nixpkgs.lib.genAttrs systems (system:
+        nixpkgs.lib.genAttrs systemList (system:
           f pkgsFor.${system} system);
 
       # Build graph for each system (src → nodeTree → preparedCli → percyCli)
@@ -62,9 +64,8 @@
             null;
 
           # Offline Bun dependency cache from bun.nix
-          # Get bun2nix package - try overlay first, fallback to direct access
-          bun2nixPkg = pkgs.bun2nix or (builtins.getAttr "bun2nix" pkgs);
-          bunDeps = bun2nixPkg.fetchBunDeps {
+          # Use pkgs.bun2nix from overlay (tag 2.0.1 should have passthru attributes)
+          bunDeps = pkgs.bun2nix.fetchBunDeps {
             bunNix = "${srcPatched}/bun.nix";
           };
 
@@ -80,7 +81,7 @@
             nativeBuildInputs = [
               pkgs.bun
               pkgs.nodejs
-              bun2nixPkg.hook  # setup hook for offline installs
+              pkgs.bun2nix.hook  # setup hook for offline installs (from overlay)
             ];
 
             # bun2nix.hook uses this to find the offline cache

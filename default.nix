@@ -355,11 +355,18 @@ import { percy, checkForUpdate } from './packages/cli/dist/index.js';
 EOF
       chmod +x ./percy-entry.js
       
-      # Build the binary using Bun compile from the entry point
-      # This creates a standalone executable with Bun runtime
-      echo "Running: bun build ./percy-entry.js --compile --outfile=./percy" >&2
+      # First bundle everything into a single file, then compile
+      # This ensures all dependencies are included
+      echo "Step 1: Bundling with bun build..." >&2
+      bun build ./percy-entry.js --outfile=./percy-bundle.js --target bun --minify=false 2>&1 || {
+        echo "Error: bun build failed" >&2
+        exit 1
+      }
+      
+      # Now compile the bundled file
+      echo "Step 2: Compiling bundled file with bun build --compile..." >&2
       set +e
-      bun build ./percy-entry.js --compile --outfile=./percy 2>&1
+      bun build ./percy-bundle.js --compile --outfile=./percy 2>&1
       BUILD_EXIT=$?
       set -e
       

@@ -86,15 +86,15 @@
             nativeBuildInputs = with pkgs; [
               bun
               nodejs
-              bun2nix.hook  # setup hook for offline installs
             ];
-
-            # Used by bun2nix.hook
-            inherit bunDeps;
 
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
+
+              # Configure Bun to use the offline cache from bun2nix
+              # bunDeps contains the offline cache directory
+              export BUN_INSTALL_CACHE_DIR="${bunDeps}"
 
               echo "Installing dependencies from bun2nix cache..."
               bun install --frozen-lockfile --no-save

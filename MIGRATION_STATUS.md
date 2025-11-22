@@ -156,6 +156,32 @@ This document tracks the migration from the legacy toolchain (Lerna + Yarn + Bab
 - ✅ Native ESM support
 - ✅ Unified test runner (can use Vitest for both Node and browser tests)
 
+**Next Steps for Completion**:
+
+1. **Install dependencies via Nix/bun2nix**
+   - The new Vitest packages (`vitest`, `@vitest/ui`, `@vitest/coverage-v8`, `jsdom`) are in `package.json`
+   - Run `bun install` or use Nix to install dependencies
+   - Regenerate `bun.nix` if using bun2nix: `nix run .#bun2nix-generate`
+
+2. **Run tests to verify everything works**
+   - Run browser tests: `bun test:browser` or `vitest run`
+   - Run all tests: `bun test` (Node tests) + `bun test:browser` (browser tests)
+   - Run with coverage: `vitest run --coverage`
+
+3. **Fix any test failures**
+   - Most Jasmine syntax should work with Vitest (describe/it/expect)
+   - Potential fixes needed:
+     - `expectAsync().toBeResolvedTo()` → `await expect(...).resolves.toBe(...)`
+     - `jasmine.any(String)` → `expect.any(String)` or use Vitest's matchers
+     - Browser-specific conditionals may need adjustment (jsdom doesn't distinguish browsers)
+   - Update any remaining Jasmine-specific matchers to Vitest equivalents
+
+4. **Update CI/CD if needed**
+   - Update GitHub Actions workflows to use Vitest instead of Karma
+   - Remove any Karma-specific setup steps
+   - Ensure Vitest and jsdom are available in CI environment
+   - Update test commands to use `vitest run` for browser tests
+
 ### Phase 6: Final Cleanup ✅
 
 **Status**: ✅ Complete
@@ -246,9 +272,10 @@ All changes are in version control, so rollback is straightforward.
 
 ## Related Documentation
 
-- [Karma Migration Plan](./KARMA_MIGRATION_PLAN.md) - Detailed plan for migrating browser tests from Karma to Playwright
+- [Karma Migration Plan](./KARMA_MIGRATION_PLAN.md) - Original migration plan (completed with Vitest instead of Playwright)
 - [Nix Build System Documentation](./nix/README.md)
 - [Bun Documentation](https://bun.sh/docs)
 - [bun2nix Documentation](https://github.com/nix-community/bun2nix)
-- [Playwright Test Documentation](https://playwright.dev/docs/test-intro)
+- [Vitest Documentation](https://vitest.dev/)
+- [jsdom Documentation](https://github.com/jsdom/jsdom)
 

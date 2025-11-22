@@ -28,9 +28,6 @@
         let
           cfg        = import ./nix/percy-config.nix { inherit pkgs; };
           srcPatched = import ./nix/src-patched.nix { inherit pkgs; version = cfg.version; };
-          offlineCacheFiles = import ./nix/offline-cache.nix { 
-            inherit (pkgs) fetchurl fetchgit linkFarm runCommand gnutar;
-          };
 
           # Layer 2: node tree build using Bun
           # Bun provides fast, reproducible builds with native workspace support
@@ -54,44 +51,26 @@
               REGISTRY_PORT=4873
               REGISTRY_URL="http://localhost:$REGISTRY_PORT"
               
-              python3 -c "
-import http.server
-import socketserver
-import re
-
-CACHE_DIR = '${offlineCacheFiles.offline_cache}'
-PORT = $REGISTRY_PORT
-
-class Handler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=CACHE_DIR, **kwargs)
-    
-    def do_GET(self):
-        # Convert npm registry URLs to yarnpkg cache filename format
-        if self.path.endswith('.tgz'):
-            match = re.match(r'/(@[^/]+/)?([^/]+)/-/\2-([^/]+)\.tgz$', self.path)
-            if match:
-                scope = match.group(1)
-                name = match.group(2)
-                version = match.group(3)
-                if scope:
-                filename = '_' + scope.replace('@', '').replace('/', '_') + '_' + name + '___' + name + '-' + version + '.tgz';
-                else:
-                    filename = name + '___' + name + '-' + version + '.tgz'
-                self.path = '/' + filename
-        # Return 404 for metadata requests (Bun uses lockfile, not registry metadata)
-        elif not self.path.endswith('.tgz'):
-            self.send_response(404)
-            self.end_headers()
-            return
-        return super().do_GET()
-    
-    def log_message(self, *args):
-        pass
-
-with socketserver.TCPServer(('', PORT), Handler) as httpd:
-    httpd.serve_forever()
-" > /dev/null 2>&1 &
+              python3 -c 'import http.server, socketserver, re, os; \
+CACHE_DIR = "${offlineCacheFiles.offline_cache}"; \
+PORT = 4873; \
+class Handler(http.server.SimpleHTTPRequestHandler): \
+    def __init__(self, *args, **kwargs): \
+        super().__init__(*args, directory=CACHE_DIR, **kwargs); \
+    def do_GET(self): \
+        if self.path.endswith(".tgz"): \
+            m = re.match(r"/(@[^/]+/)?([^/]+)/-/\2-([^/]+)\.tgz$", self.path); \
+            if m: \
+                scope, name, version = m.group(1), m.group(2), m.group(3); \
+                fn = ("_" + scope.replace("@", "").replace("/", "_") + "_" + name + "___" + name + "-" + version + ".tgz") if scope else (name + "___" + name + "-" + version + ".tgz"); \
+                self.path = "/" + fn; \
+        elif not self.path.endswith(".tgz"): \
+            self.send_response(404); \
+            self.end_headers(); \
+            return; \
+        return super().do_GET(); \
+    def log_message(self, *args): pass; \
+socketserver.TCPServer(("", PORT), Handler).serve_forever()' > /dev/null 2>&1 &
               REGISTRY_PID=$!
               trap "kill $REGISTRY_PID 2>/dev/null || true" EXIT
               sleep 1

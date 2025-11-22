@@ -10,14 +10,21 @@ rec {
   };
 
   # Diagnostic script to check cache setup
+  # Can optionally take cache dir as first argument, otherwise uses BUN_INSTALL_CACHE_DIR env var
   checkCacheSetup = pkgs.writeShellScript "check-bun-cache" ''
     set -e
+    
+    # Allow cache dir to be passed as first argument, or use env var
+    if [ -n "$1" ]; then
+      cache_dir="$1"
+    else
+      cache_dir="''${BUN_INSTALL_CACHE_DIR:-}"
+    fi
     
     echo "=== Bun Cache Diagnostics ===" >&2
     echo "" >&2
     
-    # Check BUN_INSTALL_CACHE_DIR (use $${...:-} to handle unset variable)
-    cache_dir="''${BUN_INSTALL_CACHE_DIR:-}"
+    # Use cache_dir from argument or environment variable
     if [ -n "$cache_dir" ]; then
       echo "✓ BUN_INSTALL_CACHE_DIR is set: $cache_dir" >&2
       
@@ -70,19 +77,28 @@ rec {
       preInstall = ''
         echo "=== Manual Cache Setup Test ===" >&2
         
-        # Set cache directory
+        # Set cache directory and ensure it's exported
         export BUN_INSTALL_CACHE_DIR=${bunDeps}
         export HOME="$TMPDIR/home"
         mkdir -p "$HOME"
         
-        # Run diagnostics
-        check-bun-cache
+        # Verify variable is set before running diagnostics
+        echo "BUN_INSTALL_CACHE_DIR is set to: $BUN_INSTALL_CACHE_DIR" >&2
+        
+        # Run diagnostics - pass cache dir explicitly to ensure it's available
+        check-bun-cache "$BUN_INSTALL_CACHE_DIR"
         
         echo "" >&2
         echo "Running bun install with --prefer-offline..." >&2
       '';
 
       installPhase = ''
+        # Ensure BUN_INSTALL_CACHE_DIR is set for bun install
+        # (preInstall sets it for diagnostics, but we need it here too)
+        export BUN_INSTALL_CACHE_DIR=${bunDeps}
+        export HOME="$TMPDIR/home"
+        mkdir -p "$HOME"
+        
         # Try bun install with offline flags
         # Capture output to see if it tries to hit network
         set +e

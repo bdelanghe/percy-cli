@@ -622,6 +622,10 @@
      url = "https://registry.npmjs.org/color-name/-/color-name-1.1.4.tgz";
      hash = "sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==";
   };
+  "colors@1.4.0" = fetchurl {
+     url = "https://registry.npmjs.org/colors/-/colors-1.4.0.tgz";
+     hash = "sha512-a+UqTh4kgZg/SlGvfbzDHpgRu7AAQOmmqRHJnxhRZICKFUT91brVhNNt58CMWU9PsBbv3PDCZUHbVxuDiH2mtA==";
+  };
   "concat-map@0.0.1" = fetchurl {
      url = "https://registry.npmjs.org/concat-map/-/concat-map-0.0.1.tgz";
      hash = "sha1-2Klr13/Wjfd5OnMDajug1UBdR3s=";

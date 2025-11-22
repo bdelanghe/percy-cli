@@ -195,6 +195,9 @@ jobs:
         with:
           node-version: 20
       
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v1
+      
       - name: Download prepared CLI artifact
         uses: actions/download-artifact@v4
         with:
@@ -209,7 +212,7 @@ jobs:
       - name: Build Windows executable
         run: |
           cd prepared-cli
-          npx -y pkg ./packages/cli/bin/run.cjs -t node20-win-x64 -d
+          bunx pkg ./packages/cli/bin/run.cjs -t node20-win-x64 -d
           # pkg generates run-<target> when using a single target specification
           # Check for run-node20-win-x64.exe first, then fallback patterns
           for name in run-node20-win-x64.exe run-node20-win-x64 run-win.exe run.exe; do

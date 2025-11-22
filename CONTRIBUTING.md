@@ -24,8 +24,7 @@ Here is a summary of the steps to follow:
 ```bash
 $ git checkout master
 $ git pull upstream master
-$ rm -rf node_modules
-$ yarn
+$ nix develop  # This will automatically install dependencies via bun
 ```
 3. Create a new topic branch (off the main project development branch) to contain your feature, change, or fix:
 ```bash
@@ -77,32 +76,34 @@ $ git clone https://github.com/percy/cli
 $ cd cli
 # Assign the original repo to a remote called "upstream"
 $ git remote add upstream https://github.com/percy/cli
-# Install the dependencies
-$ yarn
+# Enter the Nix development shell (automatically installs dependencies)
+$ nix develop
 ```
+
+**Note**: This project uses Nix for dependency management. The development shell will automatically run `bun install` to set up `node_modules`. If you don't have Nix installed, see [Nix installation guide](https://nixos.org/download.html).
 
 ### Lint
 
 [@percy/cli](https://github.com/percy/cli) uses [eslint](https://github.com/eslint/eslint) for linting.
 
-Before pushing your code changes make sure there are no linting errors with `yarn lint`.
+Before pushing your code changes make sure there are no linting errors with `bun run lint`.
 
 ### Tests
 
 You can run the tests with:
 
 ```bash
-$ yarn test
+$ bun test
 ```
 
 You can limit tests for a specific package with:
 ```bash
-$ yarn workspace @percy/core test
+$ bun run --filter @percy/core test
 ```
 
 And get the coverage number for tests with:
 
 ```bash
-$ yarn test:coverage
+$ bun test --coverage
 ```
 

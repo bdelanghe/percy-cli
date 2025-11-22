@@ -92,7 +92,7 @@ function prepare_build() {
   fi
 
   # Convert ES6 code to cjs (runs in temp directory)
-  npm run build_cjs || true
+  bun run build_cjs || true
   if [ -d build ]; then
     cp -R ./build/* packages/
   fi
@@ -104,7 +104,7 @@ function build_windows() {
   cd "$BUILD_TMP"
   
   echo "Building Windows executable for: x64"
-  npx -y pkg ./packages/cli/bin/run.cjs -t node20-win-x64 -d
+  bunx pkg ./packages/cli/bin/run.cjs -t node20-win-x64 -d
   
   # Handle Windows executable
   # pkg generates run-<target> when using a single target specification

@@ -24,7 +24,7 @@ export default defineConfig({
 
     // Hook in test helpers - check for package-level helpers first, then root
     setupFiles: (() => {
-      const setupFiles = [];
+      const setupFiles: string[] = [];
       // Try package-level test-helpers first (if exists)
       const pkgHelpers = path.resolve(CWD, 'test/helpers.js');
       if (existsSync(pkgHelpers)) {

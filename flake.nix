@@ -76,6 +76,8 @@
         let
           bun = pkgsFor.${system}.bun;
           bun2nix = pkgsFor.${system}.bun2nix;
+          nodejs = pkgsFor.${system}.nodejs;
+          git = pkgsFor.${system}.git;
           # Ensure Bun is in PATH for postinstall scripts
           bunPath = "${bun}/bin";
         in
@@ -125,6 +127,166 @@
               echo ""
               echo "✓ Both lockfiles updated. Don't forget to commit:"
               echo "  git add bun.lock bun.nix"
+            '');
+          };
+
+          # Run postinstall scripts for all packages
+          postinstall = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "postinstall" ''
+              set -e
+              export PATH="${bunPath}:$PATH"
+              ${bun}/bin/bun run --filter './packages/*' postinstall
+            '');
+          };
+
+          # Build scripts
+          build-cjs = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "build-cjs" ''
+              set -e
+              export PATH="${bunPath}:$PATH"
+              ${bun}/bin/bun run --filter './packages/*' build --node
+            '');
+          };
+
+          build = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "build" ''
+              set -e
+              export PATH="${bunPath}:$PATH"
+              ${bun}/bin/bun run --filter './packages/*' build
+            '');
+          };
+
+          build-watch = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "build-watch" ''
+              set -e
+              export PATH="${bunPath}:$PATH"
+              ${bun}/bin/bun run --filter './packages/*' build --watch
+            '');
+          };
+
+          build-pack = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "build-pack" ''
+              set -e
+              export PATH="${bunPath}:$PATH"
+              mkdir -p ./packs
+              for pkg in packages/*; do
+                (cd "$pkg" && ${bun}/bin/bun pack) && mv "$pkg"/*.tgz ./packs/ 2>/dev/null || true
+              done
+            '');
+          };
+
+          chromium-revision = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "chromium-revision" ''
+              set -e
+              export PATH="${nodejs}/bin:$PATH"
+              ${nodejs}/bin/node ./scripts/chromium-revision.js
+            '');
+          };
+
+          clean = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "clean" ''
+              set -e
+              ${git}/bin/git clean -Xdf
+            '');
+          };
+
+          lint = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "lint" ''
+              set -e
+              export PATH="''$(pwd)/node_modules/.bin:''$PATH"
+              if [ ! -f node_modules/.bin/eslint ]; then
+                echo "Error: eslint not found. Run 'nix run .#bun-install' first." >&2
+                exit 1
+              fi
+              ./node_modules/.bin/eslint --ignore-path .gitignore .
+            '');
+          };
+
+          readme = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "readme" ''
+              set -e
+              export PATH="${bunPath}:$PATH"
+              ${bun}/bin/bun run --filter './packages/*' readme
+            '');
+          };
+
+          test = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "test" ''
+              set -e
+              export PATH="${bunPath}:$PATH"
+              ${bun}/bin/bun test
+            '');
+          };
+
+          test-browser = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "test-browser" ''
+              set -e
+              export PATH="''$(pwd)/node_modules/.bin:''$PATH"
+              if [ ! -f node_modules/.bin/vitest ]; then
+                echo "Error: vitest not found. Run 'nix run .#bun-install' first." >&2
+                exit 1
+              fi
+              ./node_modules/.bin/vitest run
+            '');
+          };
+
+          test-watch = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "test-watch" ''
+              set -e
+              export PATH="''$(pwd)/node_modules/.bin:''$PATH"
+              if [ ! -f node_modules/.bin/vitest ]; then
+                echo "Error: vitest not found. Run 'nix run .#bun-install' first." >&2
+                exit 1
+              fi
+              ./node_modules/.bin/vitest
+            '');
+          };
+
+          test-coverage = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "test-coverage" ''
+              set -e
+              export PATH="${bunPath}:$PATH"
+              ${bun}/bin/bun test --coverage
+            '');
+          };
+
+          test-types = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "test-types" ''
+              set -e
+              export PATH="${bunPath}:$PATH"
+              ${bun}/bin/bun run --filter './packages/*' test:types
+            '');
+          };
+
+          global-link = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "global-link" ''
+              set -e
+              export PATH="${bunPath}:$PATH"
+              ${bun}/bin/bun link
+            '');
+          };
+
+          global-unlink = {
+            type = "app";
+            program = toString (pkgsFor.${system}.writeShellScript "global-unlink" ''
+              set -e
+              export PATH="${bunPath}:$PATH"
+              ${bun}/bin/bun unlink
             '');
           };
         });

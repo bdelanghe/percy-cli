@@ -8,7 +8,6 @@ function cleanup {
 }
 
 brew install gnu-sed
-npm install -g pkg
 
 bun install
 bun run build
@@ -41,12 +40,12 @@ $(cat ./packages/cli/dist/percy.js)" > ./packages/cli/dist/percy.js
 gsed -i '/Update NODE_ENV for executable/{s//\nprocess.env.NODE_ENV = "executable";/;h};${x;/./{x;q0};x;q1}' ./packages/cli/bin/run.cjs
 
 # Convert ES6 code to cjs
-npm run build_cjs
+bun run build_cjs
 cp -R ./build/* packages/
 
 # Create executables
 # Note: package.json specifies bin as ./bin/run.cjs (not run.js)
-pkg ./packages/cli/bin/run.cjs -d
+bunx pkg ./packages/cli/bin/run.cjs -d
 
 # Rename executables
 mv run-linux percy && chmod +x percy

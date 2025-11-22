@@ -8,25 +8,6 @@
     "type": "git",
     "url": "https://github.com/percy/cli"
   },
-  "scripts": {
-    "build_cjs": "bun run --filter './packages/*' build --node",
-    "build": "bun run --filter './packages/*' build",
-    "build:watch": "bun run --filter './packages/*' build --watch",
-    "build:pack": "mkdir -p ./packs && for pkg in packages/*; do (cd \"$pkg\" && bun pack) && mv \"$pkg\"/*.tgz ./packs/ 2>/dev/null || true; done",
-    "bump-version": "echo 'Version bumping - implement with Bun workspace versioning'",
-    "chromium-revision": "./scripts/chromium-revision.js",
-    "clean": "git clean -Xdf -e !node_modules -e !**/node_modules/**",
-    "lint": "eslint --ignore-path .gitignore .",
-    "readme": "bun run --filter './packages/*' readme",
-    "postinstall": "bun run --filter './packages/*' postinstall",
-    "test": "bun test",
-    "test:browser": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "bun test --coverage",
-    "test:types": "bun run --filter './packages/*' test:types",
-    "global:link": "bun link",
-    "global:unlink": "bun unlink"
-  },
   "devDependencies": {
     "@babel/eslint-parser": "^7.14.7",
     "cross-env": "^7.0.2",

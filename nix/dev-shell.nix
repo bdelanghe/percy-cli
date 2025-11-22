@@ -8,7 +8,7 @@ let
   # Base build inputs (always included)
   baseInputs = with pkgs; [
     nodejs
-    yarn
+    bun
     git
     zip
     coreutils

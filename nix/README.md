@@ -1,10 +1,10 @@
 # Nix Build System for Percy CLI
 
-This directory contains Nix-specific build configuration for building the Percy CLI binary using `dream2nix`.
+This directory contains Nix-specific build configuration for building the Percy CLI binary using Bun.
 
 ## Overview
 
-The build uses `dream2nix` to manage Node.js dependencies and build the Percy CLI monorepo. Dream2nix reads `yarn.lock` directly and builds `node_modules` in the Nix store, providing better reproducibility and handling of native dependencies compared to `mkYarnPackage`.
+The build uses Bun to manage Node.js dependencies and build the Percy CLI monorepo. Bun reads `bun.lockb` (or generates it) and installs dependencies directly, providing fast, reproducible builds with native workspace support.
 
 ## Architecture
 
@@ -15,10 +15,10 @@ The build follows a multi-layer architecture:
    - Ensures consistent CommonJS semantics throughout the build
 
 2. **Layer 2: Node Tree** (`flake.nix` - nodeTree)
-   - Uses `dream2nix` to build `node_modules` from `yarn.lock`
-   - Includes all devDependencies (lerna, babel, etc.)
-   - Runs `lerna run build` to compile all packages
-   - Runs `babel` to convert ES6 to CommonJS
+   - Uses Bun to install dependencies from `bun.lockb`
+   - Includes all devDependencies (babel, etc.)
+   - Runs `bun run build` to compile all packages using Bun's workspace support
+   - Runs `babel` to convert ES6 to CommonJS (if needed)
 
 3. **Layer 3: Prepared CLI** (`nix/prepared-cli.nix`)
    - Applies CLI-specific patches for pkg packaging
@@ -28,15 +28,18 @@ The build follows a multi-layer architecture:
    - Uses `pkg` to create platform-specific binaries
    - Supports: x86_64-linux, aarch64-linux, x86_64-darwin, aarch64-darwin
 
-## How Dream2nix Works
+## How Bun Works
 
-Dream2nix is configured in `flake.nix` to:
-- Read `yarn.lock` directly (translator: `yarn-lock`)
-- Include devDependencies (needed for build tools like lerna, babel)
-- Build node_modules in the Nix store
-- Provide binaries from `node_modules/.bin` in the build environment
+Bun is integrated directly in `flake.nix` using `stdenv.mkDerivation`:
+- Installs dependencies using `bun install` (reads or generates `bun.lockb`)
+- Uses Bun's native workspace support to build all packages
+- Provides binaries from `node_modules/.bin` in the build environment
+- Faster than traditional package managers (10-100x faster installs)
 
-The configuration is in `nix/dream2nix-config.nix` and is used via `dream2nix.lib.evalModules`.
+The build phase in `flake.nix` runs:
+1. `bun install` to install all dependencies
+2. `bun run build` to build all packages using workspace support
+3. `babel` for CJS conversion (if needed)
 
 ## Building
 
@@ -78,11 +81,11 @@ nix build .#checks.aarch64-darwin.binary_smoke_test
 
 ## Updating Dependencies
 
-When `yarn.lock` changes:
+When dependencies change:
 
-1. Update the flake lock:
+1. Update `bun.lockb` (if not committed):
    ```bash
-   nix flake update dream2nix
+   bun install
    ```
 
 2. Rebuild:
@@ -90,40 +93,45 @@ When `yarn.lock` changes:
    nix build
    ```
 
-Dream2nix will automatically detect changes in `yarn.lock` and rebuild `node_modules` accordingly.
+Bun will automatically detect changes and rebuild `node_modules` accordingly. For Nix reproducibility, consider committing `bun.lockb` to version control.
 
 ## Troubleshooting
 
-### Lerna not found
-If you see "lerna not found" errors:
-- Ensure `includeDevDependencies = true` in dream2nix configuration
-- Check that `yarn.lock` includes lerna in devDependencies
-- Verify dream2nix is building node_modules correctly
+### Bun not found
+If you see "bun not found" errors:
+- Ensure Bun is available in nixpkgs for your system
+- Check that `nativeBuildInputs` includes `bun` in `flake.nix`
+- Verify Bun is installed in the dev shell: `nix develop`
 
-### Native module issues
-Dream2nix handles native modules better than mkYarnPackage, but if you encounter issues:
-- Check that the native module is in `yarn.lock`
-- Verify the platform-specific package (e.g., `@nx/nx-darwin-arm64`) is included
-- Ensure dream2nix is using the correct Node.js version
+### Lockfile issues
+If `bun.lockb` doesn't exist:
+- Bun will generate it automatically during `bun install`
+- For reproducible builds, commit `bun.lockb` to version control
+- Use `bun install --frozen-lockfile` in CI/Nix builds
 
 ### Build failures
 - Check the build logs: `nix log /nix/store/...`
 - Verify all source files are present
-- Ensure yarn.lock is up to date
+- Ensure `bun.lockb` is up to date (or let Bun generate it)
+- Check that workspace packages are correctly configured
+
+### Native module issues
+If you encounter native module issues:
+- Verify the native module is compatible with Bun
+- Check that platform-specific packages (e.g., `@nx/nx-darwin-arm64`) are included
+- Ensure Bun is using the correct Node.js version for compatibility
 
 ## Files
 
-- `flake.nix` - Main flake configuration with dream2nix integration
-- `nix/dream2nix-config.nix` - Dream2nix module configuration
+- `flake.nix` - Main flake configuration with Bun integration
 - `nix/src-patched.nix` - Source patching layer
 - `nix/prepared-cli.nix` - CLI preparation layer
 - `nix/pkg-wrapper.nix` - pkg binary wrapper
 - `nix/percy-config.nix` - Build configuration (versions, targets)
-- `nix/dev-shell.nix` - Development shell
+- `nix/dev-shell.nix` - Development shell with Bun
 
 ## Related Documentation
 
-- [Dream2nix Documentation](https://dream2nix.dev/)
+- [Bun Documentation](https://bun.sh/docs)
 - [Nix Flakes](https://nixos.wiki/wiki/Flakes)
 - [Percy CLI Development Guide](../packages/cli/README.md)
-

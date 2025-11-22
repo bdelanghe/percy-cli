@@ -1,0 +1,11 @@
+# Bun configuration for Percy CLI monorepo
+[install]
+# Use production installs by default in CI
+production = false
+
+# Cache configuration
+cache = true
+
+# Lockfile configuration
+lockfile = "bun.lockb"
+

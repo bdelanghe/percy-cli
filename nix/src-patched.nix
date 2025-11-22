@@ -25,15 +25,6 @@ stdenv.mkDerivation {
     # Remove "type": "module" from root package.json
     sed -i '/"type": "module",/d' package.json
 
-    # Add name field to root package.json for mkYarnPackage compatibility
-    if ! grep -q '"name":' package.json; then
-      {
-        echo '{'
-        echo '  "name": "percy-cli",'
-        tail -n +2 package.json
-      } > package.json.tmp && mv package.json.tmp package.json
-    fi
-
     # Remove "type": "module" from all package.json except dom and sdk-utils
     find packages -name package.json \
       -not -path "*/dom/*" \

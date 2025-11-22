@@ -1,3 +1,4 @@
+# Using @babel/eslint-parser for now (can be replaced with ESLint's native parser in future)
 parser: '@babel/eslint-parser'
 extends: standard
 plugins:

@@ -10,8 +10,8 @@ function cleanup {
 brew install gnu-sed
 npm install -g pkg
 
-yarn install
-yarn build
+bun install
+bun run build
 
 # Remove type from package.json files
 gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' ./package.json

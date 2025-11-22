@@ -18,7 +18,6 @@ in {
 
   node    = pkgs.nodejs_20;
   pkgTool = pkgs.nodePackages.pkg;
-  # Note: lerna is provided via nativeBuildInputs in flake.nix using
-  # pkgs.nodePackages.lerna (version 8.1.2 from nixpkgs)
+  # Note: Bun is used for package management and builds (replaces lerna/yarn)
 }
 

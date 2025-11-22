@@ -29,35 +29,43 @@
           cfg        = import ./nix/percy-config.nix { inherit pkgs; };
           srcPatched = import ./nix/src-patched.nix { inherit pkgs; version = cfg.version; };
 
-          # Layer 2: node tree build using mkYarnPackage
-          # Use mkYarnPackage with the existing offline cache for reliable, reproducible builds
-          # mkYarnPackage includes devDependencies by default when they're in yarn.lock
-          offlineCache = import ./nix/offline-cache.nix { inherit (pkgs) fetchurl fetchgit linkFarm runCommand gnutar; };
-          
-          nodeTree = pkgs.mkYarnPackage {
+          # Layer 2: node tree build using Bun
+          # Bun provides fast, reproducible builds with native workspace support
+          nodeTree = pkgs.stdenv.mkDerivation {
             name = "percy-cli-node-tree";
             src = srcPatched;
-            yarnLock = "${srcPatched}/yarn.lock";
-            packageJson = "${srcPatched}/package.json";
-            yarnOfflineCache = offlineCache;
             
-            # Build phase - run lerna and babel
-            # Note: mkYarnPackage installs all dependencies including devDependencies
+            nativeBuildInputs = with pkgs; [
+              bun
+              nodejs
+            ];
+            
+            # Build phase - use Bun for install and build
             buildPhase = ''
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
 
+              # Install dependencies with Bun
+              # Bun uses bun.lockb for lockfile (binary format)
+              # If lockfile doesn't exist, Bun will generate it
+              bun install --frozen-lockfile --no-save || bun install --no-save
+
               # Add node_modules/.bin to PATH for build tools
               export PATH="$PWD/node_modules/.bin:$PATH"
 
-              # Run lerna build
-              lerna run build --stream
+              # Build all packages using Bun's workspace support
+              bun run build
 
-              # Run babel build_cjs directly
-              BABEL_ENV=dev babel packages -d build || true
+              # Build CJS versions if needed (Bun handles transpilation)
+              bun run build_cjs || true
               if [ -d build ]; then
                 cp -R build/* packages/
               fi
+            '';
+            
+            installPhase = ''
+              mkdir -p $out
+              cp -R . $out
             '';
           };
 

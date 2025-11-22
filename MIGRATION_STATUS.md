@@ -19,7 +19,7 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
   - Browser-style tests: Vitest Browser Mode (Playwright)
 - Linting: ESLint 9 with flat config
 - Nix: bun2nix-backed offline, reproducible builds
-- Lockfiles: `bun.lockb` + `bun.nix` (both committed)
+- Lockfiles: `bun.lock` + `bun.nix` (both committed, Bun 1.2+ uses text format)
 
 ---
 
@@ -49,7 +49,7 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
 - Nix:
   - `bun2nix.fetchBunDeps` + `bun2nix.hook`
   - Nix-wrapped Node CLI (script that runs Node on the ESM entrypoint)
-- Lockfiles: `bun.lockb` + generated `bun.nix`
+- Lockfiles: `bun.lock` + generated `bun.nix` (Bun 1.2+ text format)
 
 ---
 
@@ -63,7 +63,7 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
 - Updated CI (GitHub Actions) to:
   - Install Bun (`oven-sh/setup-bun@v1`)
   - Use `bun install`, `bun run build`, and `bun run --filter` instead of Yarn/Lerna.
-  - Cache keys now use `bun.lockb` instead of `yarn.lock`.
+  - Cache keys now use `bun.lock` instead of `yarn.lock`.
   - All workflows updated: `test.yml`, `lint.yml`, `windows.yml`, `typecheck.yml`, `release.yml`.
   - Release workflow uses `npm publish` directly (replaced `lerna publish`).
 
@@ -83,7 +83,7 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
 ### 3. Nix Integration (bun2nix)
 
 - Integrated `bun2nix` (nix-community):
-  - `bun.nix` generated from `bun.lockb` and committed.
+  - `bun.nix` generated from `bun.lock` and committed.
   - `bun2nix.fetchBunDeps` for offline dependency fetch.
   - `bun2nix.hook` to make `bun install` offline inside Nix builds.
 - Layered Nix packages:
@@ -91,8 +91,8 @@ The Percy CLI has been migrated from the legacy stack (Yarn + Lerna + Babel + Ro
   2. `node-tree`: runs `bun install --frozen-lockfile` and `bun run build`.
   3. `percy-cli`: Nix-wrapped Node CLI pointing at the built ESM entrypoint.
 - Nix apps for lockfile maintenance:
-  - `nix run .#bun-install` – ensure `bun.lockb` exists/updated.
-  - `nix run .#bun2nix-generate` – regenerate `bun.nix` from `bun.lockb`.
+  - `nix run .#bun-install` – ensure `bun.lock` exists/updated.
+  - `nix run .#bun2nix-generate` – regenerate `bun.nix` from `bun.lock`.
   - `nix run .#update-lockfiles` – run both.
 
 ### 4. Test Migration (Jasmine/Karma → Bun + Vitest Browser Mode)
@@ -253,14 +253,14 @@ nix flake check
 Nix helper apps (if defined in flake.nix):
 
 ```bash
-nix run .#bun-install        # Ensure bun.lockb exists / is up to date
-nix run .#bun2nix-generate   # Regenerate bun.nix from bun.lockb
+nix run .#bun-install        # Ensure bun.lock exists / is up to date
+nix run .#bun2nix-generate   # Regenerate bun.nix from bun.lock
 nix run .#update-lockfiles   # Run both in one shot
 ```
 
 **Lockfile rules:**
 
-- `bun.lockb` and `bun.nix` must both be present and committed.
+- `bun.lock` and `bun.nix` must both be present and committed.
 - When dependencies change:
   - Either run `nix run .#update-lockfiles`
   - Or:
@@ -268,7 +268,7 @@ nix run .#update-lockfiles   # Run both in one shot
 ```bash
 bun install
 bunx bun2nix -o bun.nix
-git add bun.lockb bun.nix
+git add bun.lock bun.nix
 ```
 
 ---
@@ -308,6 +308,53 @@ This provides:
 - **Offline builds**: No network access required during Nix builds
 - **Reproducibility**: All dependencies are pinned with hashes
 - **Speed**: Bun's fast installs combined with Nix's binary cache
+
+### bun2nix Offline Cache Diagnostics
+
+**Issue**: Bun may attempt to download package manifests from the registry during `bunNodeModulesInstallPhase` instead of using the offline cache produced by `bunDeps`, even when using `mkBunDerivation`.
+
+**Diagnostic Tools Implemented**:
+
+1. **bunDeps Verification**:
+   - `nix build .#bun-deps` - Builds the offline cache derivation
+   - `nix build .#bun-deps-verify` - Shows verification info about bunDeps
+   - `nix-store -qR $(nix-build --no-out-link .#bun-deps)` - Inspects cache dependencies
+
+2. **Build-Time Diagnostics**:
+   - Pre-install diagnostics check `BUN_INSTALL_CACHE_DIR` and cache structure
+   - Post-install diagnostics verify `node_modules` creation and package presence
+   - All diagnostics output to stderr during build for visibility
+
+3. **Test Derivation**:
+   - `nix build .#node-tree-manual-cache` - Tests Bun's offline behavior directly
+   - Manually sets `BUN_INSTALL_CACHE_DIR` and runs `bun install --prefer-offline`
+   - Helps isolate whether issue is in bun2nix hook or Bun's offline behavior
+
+**Fallback Strategies**:
+
+1. **Manual Cache Setup** (Option A - Implemented):
+   - Set `bunInstallStrategy = "manual-cache"` in `nix/percy-config.nix`
+   - Bypasses `mkBunDerivation` hook and manually sets up cache
+   - Uses `bun install --prefer-offline --frozen-lockfile`
+   - Build with: `nix build .#node-tree-manual`
+
+2. **Best-Effort Offline** (Option B - Current Default):
+   - Accepts that Bun may make manifest requests
+   - Ensures reproducibility of installed packages (not strict no-network)
+   - Uses `mkBunDerivation` with diagnostics enabled
+
+3. **Vendored node_modules** (Option C - Not Implemented):
+   - Generate `node_modules` outside Nix and package as tarball
+   - Skip `bun install` entirely in Nix build
+   - Only needed if strict no-network is required
+
+**Current Status**:
+- ✅ Lockfile updated to use `bun.lock` (Bun 1.2+ text format)
+- ✅ Diagnostic phases added to `mkBunDerivation` build
+- ✅ Manual cache fallback implementation available
+- ✅ Test derivation for isolating Bun vs bun2nix issues
+- ⚠️ Upstream issue: Bun's offline behavior may still require manifest requests
+- 📝 Next steps: Run diagnostics to determine if issue is in bun2nix hook or Bun limitation
 
 ### Building
 
@@ -542,7 +589,7 @@ The migration is functionally complete. The following items are optional or pend
    - Ensure GitHub Actions workflows use Vitest instead of Karma
    - Remove any Karma-specific setup steps
    - Ensure Vitest and Playwright browsers are available in CI environment
-   - Install Playwright browsers: `npx playwright install` or add to CI setup
+   - Install Playwright browsers: `bunx playwright install` or add to CI setup
 
 ---
 
@@ -632,7 +679,7 @@ The following require actual test runs in an environment with Bun installed:
 
 3. **Commit both files**:
    ```bash
-   git add bun.lockb bun.nix
+   git add bun.lock bun.nix
    git commit -m "Add bun.lockb and update bun.nix for Nix builds"
    ```
 

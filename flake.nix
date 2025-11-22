@@ -48,6 +48,25 @@
             # from devDependencies are available and behave correctly during build
             NODE_ENV = "development";
 
+            # Override configurePhase to ensure devDependencies are installed
+            # mkYarnPackage's default configurePhase might install with --production
+            # We need to ensure devDependencies are included
+            configurePhase = ''
+              runHook preConfigure
+              
+              # mkYarnPackage's default configurePhase sets up the offline cache via yarnConfigHook
+              # and runs yarn install. We need to ensure it installs devDependencies.
+              # The source is in deps/percy-cli/, so we install there with --production=false
+              if [ -d deps/percy-cli ] && [ -f deps/percy-cli/package.json ]; then
+                echo "Installing all dependencies including devDependencies..." >&2
+                yarn install --offline --frozen-lockfile --production=false --ignore-scripts --cwd deps/percy-cli
+              else
+                echo "ERROR: deps/percy-cli not found" >&2
+                exit 1
+              fi
+              
+              runHook postConfigure
+            '';
 
             buildPhase = ''
               export HOME="$TMPDIR/home"
@@ -58,43 +77,9 @@
               # Suppress npm deprecation warnings
               export npm_config_loglevel=error
 
-              # mkYarnPackage structures things: source is in deps/percy-cli/, cache is at root
-              # Check if lerna is already available
-              LERNA_PATH=""
-              if [ -f node_modules/.bin/lerna ]; then
-                LERNA_PATH="node_modules/.bin/lerna"
-              elif [ -f deps/percy-cli/node_modules/.bin/lerna ]; then
-                LERNA_PATH="deps/percy-cli/node_modules/.bin/lerna"
-              fi
-              
-              if [ -n "$LERNA_PATH" ]; then
-                echo "✓ lerna found at: $LERNA_PATH" >&2
-              else
-                echo "✗ lerna NOT found, installing devDependencies..." >&2
-                
-                # mkYarnPackage's yarnConfigHook sets up the offline cache at root level
-                # Install from root using --cwd to keep the cache configuration
-                if [ -d deps/percy-cli ] && [ -f deps/percy-cli/package.json ]; then
-                  echo "Installing devDependencies using root cache (--cwd deps/percy-cli)..." >&2
-                  
-                  # Install from root directory where yarnConfigHook configured the cache
-                  # Use --cwd to target deps/percy-cli while keeping root's cache config
-                  yarn install --offline --frozen-lockfile --production=false --ignore-scripts --cwd deps/percy-cli 2>&1 || {
-                    echo "ERROR: Failed to install devDependencies with --cwd" >&2
-                    echo "This suggests the offline cache might not be properly configured." >&2
-                    echo "Checking yarn configuration..." >&2
-                    yarn config list 2>&1 | head -20 || true
-                    exit 1
-                  }
-                else
-                  echo "ERROR: deps/percy-cli directory or package.json not found" >&2
-                  exit 1
-                fi
-              fi
-              echo "" >&2
-
               # Add node_modules/.bin to PATH for babel, lerna, and other build tools
-              export PATH="$PWD/node_modules/.bin:$PATH"
+              # mkYarnPackage structures things: source is in deps/percy-cli/
+              export PATH="$PWD/deps/percy-cli/node_modules/.bin:$PWD/node_modules/.bin:$PATH"
 
               # Enhanced diagnostic: Comprehensive check for devDependency binaries and Nx native modules
               echo "=== Diagnostic: Checking devDependency binaries and Nx native modules ===" >&2

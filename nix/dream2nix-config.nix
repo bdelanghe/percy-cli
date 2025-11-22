@@ -17,15 +17,8 @@
   
   # Project root (valid top-level option)
   # dream2nix will auto-detect package.json and yarn.lock from here
+  # The nodejs-package-json-v3 module automatically finds these files
   paths.projectRoot = srcPatched;
-  
-  # Configure the nodejs-package-json-v3 translator
-  # This tells dream2nix to use yarn.lock for dependency resolution
-  # See https://dream2nix.dev/reference/nodejs-package-json-v3/ for available options
-  nodejs-package-json-v3 = {
-    packageJson = "${srcPatched}/package.json";
-    yarnLock = "${srcPatched}/yarn.lock";
-  };
   
   # mkDerivation configuration
   mkDerivation = {

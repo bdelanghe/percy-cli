@@ -5,10 +5,10 @@
 
 {
   # Import required dream2nix modules
-  # nodejs-package-json provides the translator for yarn.lock
+  # nodejs-package-json-v3 is the stable translator for yarn.lock (see https://dream2nix.dev/reference/nodejs-package-json-v3/)
   # mkDerivation provides the build derivation (includes library functions)
   imports = [
-    dream2nix.modules.dream2nix.nodejs-package-json
+    dream2nix.modules.dream2nix.nodejs-package-json-v3
     dream2nix.modules.dream2nix.mkDerivation
   ];
 
@@ -19,11 +19,12 @@
   # dream2nix will auto-detect package.json and yarn.lock from here
   paths.projectRoot = srcPatched;
   
-  # Configure the nodejs-package-json translator
+  # Configure the nodejs-package-json-v3 translator
   # This tells dream2nix to use yarn.lock for dependency resolution
-  nodejs-package-json = {
+  # See https://dream2nix.dev/reference/nodejs-package-json-v3/ for available options
+  nodejs-package-json-v3 = {
     packageJson = "${srcPatched}/package.json";
-    lockFile = "${srcPatched}/yarn.lock";
+    yarnLock = "${srcPatched}/yarn.lock";
   };
   
   # mkDerivation configuration

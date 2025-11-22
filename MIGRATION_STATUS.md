@@ -349,15 +349,26 @@ This provides:
 
 **Current Status**:
 - ✅ Lockfile updated to use `bun.lock` (Bun 1.2+ text format)
-- ✅ Diagnostic phases added to `mkBunDerivation` build
+- ✅ Diagnostic phases added to `mkDerivation` build
 - ✅ Manual cache fallback implementation available
-- ✅ Test derivation for isolating Bun vs bun2nix issues
-- ⚠️ Upstream issue: Bun's offline behavior may still require manifest requests
-- 📝 Next steps: Run diagnostics to determine if issue is in bun2nix hook or Bun limitation
+- ✅ `mkDerivation` API updated to bun2nix v2 (using `fetchBunDeps` + `mkDerivation`)
+- ✅ **Network access required**: Bun downloads package manifests during install
+  - `bunSetInstallCacheDir` phase runs correctly (hook is working)
+  - Package tarballs are fetched offline via `fetchBunDeps` (reproducible, hashed)
+  - Bun downloads manifest metadata from registry (small, fast downloads)
+  - This is **best-effort offline**: reproducible packages, manifest metadata from registry
+  - **Note**: Nix builds require network access to be enabled (sandbox allows network, or use `--option sandbox false` if needed)
+- 📝 **Approach**: Best-effort offline (Option B from plan)
+  - Package tarballs: Offline via `fetchBunDeps` (fully reproducible)
+  - Manifest metadata: Online from registry (required by Bun)
+  - Result: Reproducible package installation with minimal network usage
+- 🔍 **Rationale**: Bun's cache is designed for speed, not strict offline operation. Allowing manifest downloads provides the best balance of reproducibility (packages are hashed) and compatibility (Bun works as designed)
 
 ### Building
 
-**Prerequisites**: `bun.lock` and `bun.nix` must exist. If missing, run `nix run .#update-lockfiles` first (requires clean git state).
+**Prerequisites**: 
+- `bun.lock` and `bun.nix` must exist. If missing, run `nix run .#update-lockfiles` first (requires clean git state).
+- **Network access required**: Bun needs network access to download package manifests. Package tarballs are fetched offline (reproducible), but manifest metadata requires network.
 
 ```bash
 # Build the binary for your system

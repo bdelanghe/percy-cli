@@ -8,10 +8,12 @@ let
 
   # bun2nix installation strategy
   # Options:
-  #   "mkBunDerivation" - Use bun2nix.mkBunDerivation with automatic hook (default)
-  #   "manual-cache" - Manually set up cache and run bun install (fallback if hook fails)
-  # Set to "manual-cache" if mkBunDerivation hook is not working correctly
-  bunInstallStrategy = "mkBunDerivation";
+  #   "mkDerivation" - Use bun2nix.mkDerivation with automatic hook (default, bun2nix v2)
+  #   "manual-cache" - Manually set up cache and run bun install (fallback)
+  # Note: Bun may still attempt to download package manifests even with offline cache
+  # This is a known Bun limitation - it requires manifest metadata from the registry
+  # Set to "manual-cache" if you need to bypass the hook or if mkDerivation fails
+  bunInstallStrategy = "mkDerivation";
 
 in {
   inherit version bunInstallStrategy;

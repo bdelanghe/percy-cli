@@ -68,6 +68,8 @@ let
   # Layer 2: node tree build using bun2nix v2
   # Choose installation strategy based on config
   # Default uses mkDerivation (bun2nix v2 API), but can fall back to manual cache setup
+  # Note: Bun downloads manifest metadata from registry (network access allowed)
+  # Package tarballs are fetched offline via fetchBunDeps (reproducible)
   nodeTreeBase = if cfg.bunInstallStrategy == "manual-cache" then
     nodeTreeManual
   else
@@ -84,6 +86,11 @@ let
 
     # mkDerivation uses bunDeps to set up offline cache automatically
     inherit bunDeps;
+    
+    # Note: Bun requires network access to download package manifests
+    # Package tarballs are fetched offline via fetchBunDeps (reproducible, hashed)
+    # Only manifest metadata requires network access (small, fast downloads)
+    # This is best-effort offline: reproducible packages, manifest metadata from registry
     
     # Add diagnostic output before install phase
     # This helps verify what's happening during bunNodeModulesInstallPhase

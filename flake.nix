@@ -41,6 +41,7 @@
             nativeBuildInputs = with pkgs; [
               bun
               nodejs
+              python3
             ];
             
             # Make offline cache available as build input
@@ -51,21 +52,65 @@
               export HOME="$TMPDIR/home"
               mkdir -p "$HOME"
 
-              # Populate Bun's install cache with offline packages
-              BUN_CACHE="$HOME/.bun/install/cache"
-              mkdir -p "$BUN_CACHE"
+              # Start minimal registry server
+              REGISTRY_PORT=4873
+              REGISTRY_URL="http://localhost:$REGISTRY_PORT"
               
-              # Copy offline cache to Bun's cache directory
-              # Bun will use these files if they match what it needs
-              echo "Setting up offline cache for Bun..."
-              cp -r ${offlineCacheFiles.offline_cache}/* "$BUN_CACHE/" 2>/dev/null || true
-              
-              # Configure Bun for offline installation
-              export BUN_INSTALL_OFFLINE=1
+              python3 -c "
+import http.server
+import socketserver
+import os
+import re
+import sys
+
+CACHE_DIR = '${offlineCacheFiles.offline_cache}'
+PORT = $REGISTRY_PORT
+
+class Handler(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=CACHE_DIR, **kwargs)
+    
+    def do_GET(self):
+        # Handle tarball requests: convert npm URL to yarnpkg filename
+        if self.path.endswith('.tgz'):
+            match = re.match(r'/(@[^/]+/)?([^/]+)/-/\2-([^/]+)\.tgz$', self.path)
+            if match:
+                scope = match.group(1)
+                name = match.group(2)
+                version = match.group(3)
+                if scope:
+                    filename = '_' + scope.replace('@', '').replace('/', '_') + '_' + name + '___' + name + '-' + version + '.tgz'
+                else:
+                    filename = name + '___' + name + '-' + version + '.tgz'
+                self.path = '/' + filename
+        # For metadata requests, return 404 (Bun should use lockfile)
+        elif not self.path.endswith('.tgz'):
+            self.send_response(404)
+            self.end_headers()
+            return
+        return super().do_GET()
+    
+    def log_message(self, *args):
+        pass
+
+with socketserver.TCPServer(('', PORT), Handler) as httpd:
+    httpd.serve_forever()
+" > /dev/null 2>&1 &
+              REGISTRY_PID=$!
+              trap "kill $REGISTRY_PID 2>/dev/null || true" EXIT
+              sleep 1
+
+              # Configure Bun to use local registry
+              export BUN_INSTALL_REGISTRY="$REGISTRY_URL"
+              export npm_config_registry="$REGISTRY_URL"
+              echo "registry=$REGISTRY_URL" > .npmrc
 
               # Install dependencies with Bun using offline cache
               echo "Installing dependencies from offline cache..."
               bun install --frozen-lockfile --no-save || bun install --no-save
+
+              kill $REGISTRY_PID 2>/dev/null || true
+              trap - EXIT
 
               # Add node_modules/.bin to PATH for build tools
               export PATH="$PWD/node_modules/.bin:$PATH"

@@ -62,19 +62,23 @@ This document outlines the migration from Karma + Rollup + Jasmine to a modern b
 
 **Pros:**
 - Jest-compatible API (familiar if using Jest)
-- Built-in browser mode support
+- Built-in browser mode support (uses Vite internally)
 - Fast and modern
 - Great TypeScript support
 - Can use same test files for Node and browser
 - Built-in coverage
 - Good Bun integration potential
+- **Vite replaces Rollup**: Vite is the engine, providing Rollup capabilities without direct Rollup dependency
 
 **Cons:**
-- Browser mode is relatively new
+- Browser mode is relatively new (less mature than Playwright)
 - May have compatibility issues with some browser APIs
 - Less mature than Playwright for browser testing
+- Browser mode is still experimental in some respects
 
 **Migration Complexity:** Medium (test rewrite needed, but similar to Jest)
+
+**Note:** If choosing Vitest, Vite becomes the bundler/transformer layer, eliminating the need for Rollup entirely.
 
 ### Option 3: Web Test Runner (@web/test-runner)
 
@@ -179,13 +183,15 @@ This document outlines the migration from Karma + Rollup + Jasmine to a modern b
 
 ### Phase 4: Build System Updates
 
-1. **Remove Rollup dependency (if not needed elsewhere)**
-   - Playwright can use native ES modules
-   - Or use Bun's bundler if needed
-   - Remove karma-rollup-preprocessor
+1. **Remove Rollup dependency completely**
+   - **Vite replaces Rollup**: Vite uses Rollup internally for production builds and provides a fast dev server
+   - **No more karma-rollup-preprocessor**: Playwright understands ES modules natively
+   - **Simpler architecture**: Playwright can run pure ESM test pages, or Vite can serve as test server if transforms are needed
+   - **Complete cleanup**: Remove `rollup.config.js` and all Rollup dependencies after migration
 
 2. **Update build scripts**
    - Remove Karma-specific build steps
+   - Remove Rollup from test infrastructure
    - Update test scripts in package.json
    - Update CI/CD workflows
 
@@ -205,6 +211,34 @@ This document outlines the migration from Karma + Rollup + Jasmine to a modern b
    - Update GitHub Actions to use Playwright
    - Install Playwright browsers in CI
    - Update test commands
+
+## Vite Replaces Rollup for Browser Tests
+
+**Key Insight**: Vite can replace Rollup for almost everything Rollup is used for in Karma today.
+
+### How Vite Replaces Rollup
+
+1. **Vite uses Rollup internally**: Vite's production build pipeline is Rollup with a configuration layer
+2. **For browser tests, Vite simplifies everything**:
+   - Modern test runners (Playwright, Vitest) understand ES modules natively
+   - No more pre-bundling step required
+   - No more `karma-rollup-preprocessor`
+   - Vite becomes the dev server + transformer if needed
+
+3. **With Playwright**:
+   - Playwright can run pure ESM test pages (no bundler needed)
+   - If transforms are needed (TS → JS, JSX, module aliases, PostCSS, ENV vars), Vite slots in naturally as the test server
+
+4. **With Vitest Browser Mode**:
+   - Vite is the engine (Vitest is built on Vite like Jest is built on its transformer)
+   - Full Vite capabilities available
+
+### What This Means
+
+- ✅ **Complete Rollup removal possible**: After Karma migration, Rollup can be fully removed
+- ✅ **Simpler architecture**: No more separate bundling step for tests
+- ✅ **Better performance**: Native ESM support means faster test execution
+- ✅ **Modern tooling**: Vite provides Rollup's capabilities with better DX
 
 ## Implementation Details
 
@@ -354,12 +388,15 @@ If issues arise:
 5. **Reduced Dependencies**: Remove Karma, Rollup (for tests), and related packages
 6. **Better CI/CD**: Simpler GitHub Actions setup
 7. **Future-Proof**: Playwright is actively maintained and modern
+8. **Complete Rollup Removal**: Vite replaces Rollup for browser tests, allowing full removal of Rollup dependencies
+9. **Native ESM Support**: No more pre-bundling step needed for browser tests
 
 ## Questions to Answer
 
 1. **Do we need to keep Rollup for anything else?**
-   - If Rollup is only used for Karma tests, we can remove it
-   - Check if Rollup is used in build process
+   - ✅ **Answer**: Rollup is only used for Karma tests (build system uses Bun)
+   - ✅ **After migration**: Rollup can be completely removed
+   - ✅ **Vite replaces Rollup**: Vite uses Rollup internally, so we get Rollup's capabilities via Vite if needed
 
 2. **Can we use Bun's test runner for browser tests?**
    - Bun's test runner doesn't support browser testing yet

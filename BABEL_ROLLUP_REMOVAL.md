@@ -43,6 +43,21 @@
 
 **Decision:** Keep Rollup only for Karma browser tests. Rollup and karma-rollup-preprocessor remain as dependencies for browser testing.
 
+### Future: Complete Rollup Removal via Karma Migration
+
+Once Karma is migrated to Playwright Test (see `KARMA_MIGRATION_PLAN.md`), Rollup can be **completely removed**:
+
+- **Vite replaces Rollup**: Vite uses Rollup internally for production builds and provides a fast dev server for browser tests
+- **No more karma-rollup-preprocessor**: Modern test runners (Playwright, Vitest browser mode) understand ES modules natively
+- **Simpler architecture**: Playwright can run pure ESM test pages, or Vite can serve as the test server if transforms are needed
+- **Complete cleanup**: After migration, `rollup.config.js` and all Rollup dependencies can be removed
+
+**Migration Path:**
+1. ✅ Remove Babel (completed)
+2. ✅ Replace Rollup in build system with Bun (completed)
+3. ⏳ Migrate Karma → Playwright Test (see `KARMA_MIGRATION_PLAN.md`)
+4. ⏳ Remove Rollup entirely (after Karma migration)
+
 ## Testing Required
 
 1. **Node.js builds**: Test that `bun run build` works for all packages

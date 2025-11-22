@@ -23,6 +23,7 @@
           let
             pkgs = import nixpkgs { inherit system; };
             # Access bun2nix package - the package has passthru attributes hook and fetchBunDeps
+            # Note: This may trigger module evaluation, but it's the documented way to access bun2nix
             bun2nixPkg = bun2nix.packages.${system}.bun2nix;
           in
           f pkgs bun2nixPkg system);

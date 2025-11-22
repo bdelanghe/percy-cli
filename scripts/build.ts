@@ -89,7 +89,7 @@ async function main({ node, bundle }: ParsedArgs = argv): Promise<void> {
   const buildBundle = bundle != null ? bundle : (!node && pkg.browser);
 
   if (buildNode) {
-    console.log(colors.magenta('Building node modules with Bun...'));
+    console.log(colors.magenta('Building node modules with TypeScript...'));
     
     const srcDir = path.join(cwd, 'src');
     const distDir = path.join(cwd, 'dist');
@@ -97,55 +97,36 @@ async function main({ node, bundle }: ParsedArgs = argv): Promise<void> {
     if (!fs.existsSync(srcDir)) {
       console.log(colors.yellow('No src directory found, skipping...'));
     } else {
-      // Use Bun's transpiler to convert src to dist
-      // Bun handles TypeScript natively and can output CommonJS
-      const srcFiles = getAllFiles(srcDir).filter(f => f.endsWith('.ts') || f.endsWith('.js'));
+      // Use TypeScript compiler to transpile src to dist
+      // tsc handles TypeScript compilation and outputs both JS and .d.ts files
+      const tsconfigPath = path.join(cwd, 'tsconfig.json');
       
-      if (srcFiles.length === 0) {
-        console.log(colors.yellow('No .ts or .js files found in src, skipping...'));
+      if (!fs.existsSync(tsconfigPath)) {
+        console.log(colors.yellow('No tsconfig.json found, skipping build...'));
       } else {
         // Ensure dist directory exists
         if (!fs.existsSync(distDir)) {
           fs.mkdirSync(distDir, { recursive: true });
         }
         
-        // Use Bun to transpile all TypeScript/JavaScript files to CommonJS
-        // Build all source files at once using --outdir
+        // Use tsc to compile TypeScript to JavaScript and generate type definitions
         try {
-          // Build all .ts and .js files from src to dist using outdir
-          const entryPoints = srcFiles.filter(f => f.endsWith('.ts') || f.endsWith('.js'));
-          
-          if (entryPoints.length > 0) {
-            await bunSpawn([
-              'build',
-              ...entryPoints,
-              '--outdir', distDir,
-              '--target', 'node',
-              '--format', 'cjs',
-              '--minify', 'false'
-            ], { cwd });
-          }
+          await new Promise<void>((resolve, reject) => {
+            const proc = spawn('tsc', ['--project', tsconfigPath], {
+              stdio: 'inherit',
+              cwd
+            });
+            proc.on('exit', (code) => (code ? reject(new Error(`tsc exited with code ${code}`)) : resolve()));
+            proc.on('error', reject);
+          });
+          console.log(colors.green('✓ TypeScript compilation complete'));
         } catch (err) {
-          // Fallback: use tsc for transpilation if Bun build fails
-          console.log(colors.yellow('Warning: Bun build failed, falling back to tsc for transpilation'));
-          const tsconfigPath = path.join(cwd, 'tsconfig.json');
-          if (fs.existsSync(tsconfigPath)) {
-            try {
-              await new Promise<void>((resolve, reject) => {
-                const proc = spawn('tsc', ['--project', tsconfigPath, '--outDir', distDir], {
-                  stdio: 'inherit',
-                  cwd
-                });
-                proc.on('exit', (code) => (code ? reject(new Error(`tsc exited with code ${code}`)) : resolve()));
-                proc.on('error', reject);
-              });
-            } catch (tscErr) {
-              console.log(colors.yellow('Warning: tsc also failed, some files may not be transpiled'));
-            }
-          }
+          const error = err as Error;
+          console.log(colors.yellow(`Warning: TypeScript compilation failed: ${error.message}`));
+          // Continue anyway - some packages might not have TypeScript
         }
         
-        // Copy non-code files (yml, json, etc.)
+        // Copy non-code files (yml, json, etc.) that tsc doesn't handle
         const allFiles = getAllFiles(srcDir);
         for (const file of allFiles) {
           if (!file.endsWith('.js') && !file.endsWith('.ts')) {
@@ -156,25 +137,6 @@ async function main({ node, bundle }: ParsedArgs = argv): Promise<void> {
               fs.mkdirSync(distDirPath, { recursive: true });
             }
             fs.copyFileSync(file, distFile);
-          }
-        }
-        
-        // Generate TypeScript declaration files using tsc
-        const tsconfigPath = path.join(cwd, 'tsconfig.json');
-        if (fs.existsSync(tsconfigPath)) {
-          try {
-            await new Promise<void>((resolve, reject) => {
-              const proc = spawn('tsc', ['--project', tsconfigPath, '--emitDeclarationOnly'], {
-                stdio: 'inherit',
-                cwd
-              });
-              proc.on('exit', (code) => (code ? reject(new Error(`tsc exited with code ${code}`)) : resolve()));
-              proc.on('error', reject);
-            });
-            console.log(colors.green('✓ Type definitions generated'));
-          } catch (err) {
-            const error = err as Error;
-            console.log(colors.yellow(`Warning: Could not generate type definitions: ${error.message}`));
           }
         }
         

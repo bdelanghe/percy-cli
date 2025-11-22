@@ -43,6 +43,9 @@
         let
           cliPackages = pkgsFor.${system}.callPackage ./default.nix {
             bunNix = ./bun.nix;
+            # Pass bun2nix v2 functions directly (Pattern B)
+            mkBunDerivation = inputs.bun2nix.lib.${system}.mkDerivation;
+            fetchBunDeps = inputs.bun2nix.lib.${system}.fetchBunDeps;
           };
         in
         {

@@ -4,7 +4,7 @@
 # - Option A: Nix-wrapped Node (percy-cli-node) - simpler, uses Node to run ESM
 # - Option B: Bun-compiled binary (percy-cli) - true native binary with embedded Bun runtime
 
-{ pkgs, bunNix }:
+{ pkgs, bunNix, mkBunDerivation ? null, fetchBunDeps ? null }:
 
 let
   # Extract system from pkgs
@@ -65,25 +65,31 @@ let
       ls -la ${toString diagnostics.bunDeps}
   '';
 
-  # Layer 2: node tree build using bun2nix
+  # Layer 2: node tree build using bun2nix v2
   # Choose installation strategy based on config
-  # Default uses mkBunDerivation (via bun2nix overlay), but can fall back to manual cache setup
+  # Default uses mkDerivation (bun2nix v2 API), but can fall back to manual cache setup
   nodeTreeBase = if cfg.bunInstallStrategy == "manual-cache" then
     nodeTreeManual
   else
-    # Use bun2nix.mkBunDerivation (available via overlay in flake.nix)
-    # This automatically fetches dependencies from bun.nix and sets up offline cache
+    # Use bun2nix v2 API: fetchBunDeps + mkDerivation
     let
-      bunDeps = pkgs.bun2nix.fetchBunDeps { bunNix = bunNix; };
+      # Fetch dependencies offline from bun.nix
+      bunDeps = if fetchBunDeps != null then
+        fetchBunDeps { bunNix = bunNix; }
+      else
+        pkgs.bun2nix.fetchBunDeps { bunNix = bunNix; };
+      
+      # Use mkDerivation (v2 API, not mkBunDerivation)
+      # mkBunDerivation parameter name is kept for compatibility with flake.nix
+      mkBun = if mkBunDerivation != null then mkBunDerivation else pkgs.bun2nix.mkDerivation;
     in
-    pkgs.bun2nix.mkBunDerivation {
+    mkBun {
     pname   = "percy-cli-node-tree";
     version = cfg.version;
     src     = srcPatched;
 
-    # mkBunDerivation uses bunDeps to set up offline cache automatically
-    bunDeps = bunDeps;
-    bunNix = bunNix;
+    # mkDerivation uses bunDeps to set up offline cache automatically
+    inherit bunDeps;
     
     # Add diagnostic output before install phase
     # This helps verify what's happening during bunNodeModulesInstallPhase

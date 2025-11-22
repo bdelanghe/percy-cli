@@ -21,7 +21,8 @@
       forAllSystems = f:
         nixpkgs.lib.genAttrs systems (system:
           let
-            pkgs       = import nixpkgs { inherit system; };
+            pkgs = import nixpkgs { inherit system; };
+            # Access bun2nix package - the package has passthru attributes hook and fetchBunDeps
             bun2nixPkg = bun2nix.packages.${system}.bun2nix;
           in
           f pkgs bun2nixPkg system);
@@ -59,7 +60,8 @@
             null;
 
           # Offline Bun dependency cache from bun.nix (via bun2nix flake package)
-          bunDeps = bun2nixPkg.fetchBunDeps {
+          # Access fetchBunDeps directly from the package to avoid module evaluation issues
+          bunDeps = (bun2nix.packages.${system}.bun2nix).fetchBunDeps {
             bunNix = "${srcPatched}/bun.nix";
           };
 
@@ -75,7 +77,7 @@
             nativeBuildInputs = with pkgs; [
               bun
               nodejs
-              bun2nixPkg.hook  # setup hook for offline installs
+              (bun2nix.packages.${system}.bun2nix).hook  # setup hook for offline installs
             ];
 
             # bun2nix.hook uses this to find the offline cache

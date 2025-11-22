@@ -85,18 +85,15 @@ let
     bunDeps = bunDeps;
     bunNix = bunNix;
     
-    # Set up writable directories for Bun
-    # Bun needs HOME and TMPDIR to be writable
-    preBuild = ''
-      export HOME="$TMPDIR/home"
-      mkdir -p "$HOME"
-      export TMPDIR="$TMPDIR"
-      mkdir -p "$TMPDIR"
-    '';
-
     # Add diagnostic output before install phase
     # This helps verify what's happening during bunNodeModulesInstallPhase
     preInstall = ''
+      # Set up writable directories for Bun (must be before bun install)
+      export HOME="$TMPDIR/home"
+      mkdir -p "$HOME"
+      # TMPDIR is already set by Nix, but ensure it's writable
+      mkdir -p "$TMPDIR"
+      
       echo "" >&2
       echo "=== Pre-Install Diagnostics ===" >&2
       

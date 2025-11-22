@@ -10,25 +10,25 @@ let
   # Configuration
   cfg = import ./nix/percy-config.nix { inherit pkgs; };
 
-  # Check for bun.lock and bun.nix in source before building
+  # Check for bun.lockb and bun.nix in source before building
   # These should be generated outside Nix and committed to version control
-  hasBunLock = builtins.pathExists ./bun.lock;
+  hasBunLockb = builtins.pathExists ./bun.lockb;
   hasBunNix  = builtins.pathExists bunNix;
 
-  _ = if !hasBunLock || !hasBunNix then
+  _ = if !hasBunLockb || !hasBunNix then
     throw ''
 
       Missing Bun lock artifacts in source:
 
-        bun.lock present: ${toString hasBunLock}
+        bun.lockb present: ${toString hasBunLockb}
         bun.nix present:  ${toString hasBunNix}
 
       To fix:
-        bun install                    # Generates bun.lock
-        bunx bun2nix -o bun.nix       # Generates bun.nix from bun.lock
+        bun install                    # Generates bun.lockb
+        bunx bun2nix -o bun.nix       # Generates bun.nix from bun.lockb
         # Or use Nix app:
         nix run .#update-lockfiles
-        git add bun.lock bun.nix
+        git add bun.lockb bun.nix
 
     ''
   else
@@ -41,9 +41,10 @@ let
   };
 
   # Offline Bun dependency cache from bun.nix
-  # Use pkgs.bun2nix from overlay (tag 2.0.1 should have passthru attributes)
-  # Use the bunNix parameter passed from flake.nix
+  # bun2nix.fetchBunDeps pre-fetches all dependencies offline
   bunDeps = pkgs.bun2nix.fetchBunDeps {
+    src = srcPatched;
+    bunLock = ./bun.lockb;
     bunNix = bunNix;
   };
 

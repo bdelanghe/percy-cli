@@ -1,0 +1,84 @@
+name: Test Build Linux Executable
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat-arm64-release-support-simple
+
+jobs:
+  test-build:
+    name: Test Linux Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Node.js and dependencies
+        run: |
+          # Install Node.js 14 using nvm (works in act environment)
+          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          nvm install 14
+          nvm use 14
+          node --version
+          npm --version
+          sudo apt-get update
+          sudo apt-get install -y gsed zip
+          npm install -g pkg
+      - name: Build Linux executable
+        run: |
+          yarn install
+          yarn build
+          
+          # Remove type from package.json files
+          gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' ./package.json
+          
+          # Create array of package.json files
+          array=($(ls -d ./packages/*/package.json))
+          delete=(./packages/dom/package.json ./packages/sdk-utils/package.json)
+          for del in ${delete[@]}; do
+             array=("${array[@]/$del}")
+          done
+          
+          # Remove type module from package.json where present
+          for package in "${array[@]}"; do
+            if [ ! -z "$package" ]; then
+              gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' $package
+            fi
+          done
+          
+          # Patch the CLI entry file
+          echo "import { cli } from '@percy/cli';\
+          $(cat ./packages/cli/dist/percy.js)" > ./packages/cli/dist/percy.js
+          
+          gsed -i '/Update NODE_ENV for executable/{s//\nprocess.env.NODE_ENV = "executable";/;h};${x;/./{x;q0};x;q1}' ./packages/cli/bin/run.cjs
+          
+          # Convert ES6 code to cjs
+          npm run build_cjs
+          cp -R ./build/* packages/
+          
+          # Create executable (Linux ARM64 only)
+          pkg ./packages/cli/bin/run.js \
+            --targets node18-linux-arm64 \
+            -d
+          
+          # Rename executable
+          mv run-linux-arm64 percy && chmod +x percy
+          
+      - name: Verify executable architecture
+        run: |
+          echo "Verifying Linux binary is ARM64..."
+          file percy
+          file percy | grep -q "aarch64\|ARM" && echo "✓ percy (Linux) is ARM64" || (echo "✗ percy (Linux) is NOT ARM64" && exit 1)
+          
+      - name: Test executable
+        run: ./percy --version
+        
+      - name: Create zip
+        run: zip percy-linux.zip percy
+        
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: percy-linux-arm64
+          path: percy-linux.zip
+

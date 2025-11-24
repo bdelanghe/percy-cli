@@ -21,6 +21,11 @@ jobs:
           APPLE_TEAM_ID: ${{secrets.APPLE_TEAM_ID}}
       - name: Verify executable
         run: ./percy --version
+      - name: Verify Linux binary architecture
+        run: |
+          echo "Verifying Linux binary is ARM64..."
+          file percy
+          file percy | grep -q "aarch64\|ARM" && echo "✓ percy (Linux) is ARM64" || (echo "✗ percy (Linux) is NOT ARM64" && exit 1)
       - name: Upload win artifact
         uses: actions/upload-artifact@v4
         with:

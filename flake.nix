@@ -41,9 +41,27 @@
           runtimeInputs = buildInputs;
           text = ''
             # Find the project root (where flake.nix is located)
-            SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-            PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "$(cd "$SCRIPT_DIR/../.." && pwd)")"
-            cd "$PROJECT_ROOT" || { echo "Error: Could not find project root"; exit 1; }
+            # Try git first, then fall back to finding flake.nix in parent directories
+            PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+            if [ -z "$PROJECT_ROOT" ]; then
+              # Walk up the directory tree to find flake.nix
+              DIR="$PWD"
+              while [ "$DIR" != "/" ]; do
+                if [ -f "$DIR/flake.nix" ]; then
+                  PROJECT_ROOT="$DIR"
+                  break
+                fi
+                DIR="$(dirname "$DIR")"
+              done
+            fi
+            
+            if [ -z "$PROJECT_ROOT" ] || [ ! -f "$PROJECT_ROOT/scripts/executable-local-linux.sh" ]; then
+              echo "Error: Could not find project root or executable script"
+              echo "Please run 'nix run' from the project root directory"
+              exit 1
+            fi
+            
+            cd "$PROJECT_ROOT" || exit 1
             
             # Set up npm prefix to user-writable location (Nix store is read-only)
             export NPM_CONFIG_PREFIX="$HOME/.local/npm-packages"

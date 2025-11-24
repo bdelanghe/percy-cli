@@ -13,8 +13,8 @@
           inherit system;
         };
 
-        # Node.js 14 for compatibility with pkg
-        nodejs = pkgs.nodejs-14_x;
+        # Use latest Node.js - pkg will use Node 18 from the --targets flag anyway
+        nodejs = pkgs.nodejs;
 
       in
       {

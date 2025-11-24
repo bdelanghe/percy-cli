@@ -40,77 +40,37 @@
           name = "build-executable";
           runtimeInputs = buildInputs;
           text = ''
-            # Find the project root (where flake.nix is located)
-            # Try git first, then fall back to finding flake.nix in parent directories
+            # Find project root
             PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
-            if [ -z "$PROJECT_ROOT" ]; then
-              # Walk up the directory tree to find flake.nix
+            [ -z "$PROJECT_ROOT" ] && {
               DIR="$PWD"
               while [ "$DIR" != "/" ]; do
-                if [ -f "$DIR/flake.nix" ]; then
-                  PROJECT_ROOT="$DIR"
-                  break
-                fi
+                [ -f "$DIR/flake.nix" ] && PROJECT_ROOT="$DIR" && break
                 DIR="$(dirname "$DIR")"
               done
-            fi
+            }
             
-            if [ -z "$PROJECT_ROOT" ] || [ ! -f "$PROJECT_ROOT/scripts/executable-local-linux.sh" ]; then
+            [ -z "$PROJECT_ROOT" ] || [ ! -f "$PROJECT_ROOT/scripts/executable-local-linux.sh" ] && {
               echo "Error: Could not find project root or executable script"
               echo "Please run 'nix run' from the project root directory"
               exit 1
-            fi
+            }
             
             cd "$PROJECT_ROOT" || exit 1
             
-            # Set up npm prefix to user-writable location (Nix store is read-only)
+            # Environment setup: npm prefix for user-writable location
             export NPM_CONFIG_PREFIX="$HOME/.local/npm-packages"
-            # Preserve original PATH (with runtimeInputs) and prepend npm prefix
             export PATH="$NPM_CONFIG_PREFIX/bin:''${PATH}"
+            # Note: runtimeInputs (gsed, yarn, node, zip, file) are automatically in PATH
             
-            # Note: runtimeInputs (gsed, gnused, etc.) are automatically added to PATH by writeShellApplication
-            
-            # Preflight: Ensure pkg is installed
+            # Tool setup: ensure pkg is installed
             command -v pkg >/dev/null 2>&1 || {
               echo "Installing pkg to $NPM_CONFIG_PREFIX..."
               mkdir -p "$NPM_CONFIG_PREFIX"
               npm install -g pkg
             }
             
-            # Guard: Verify required tools are available (from runtimeInputs)
-            command -v gsed >/dev/null 2>&1 || {
-              echo "Error: gsed not found in PATH"
-              echo "PATH: ''${PATH}"
-              exit 1
-            }
-            
-            command -v yarn >/dev/null 2>&1 || {
-              echo "Error: yarn not found in PATH"
-              exit 1
-            }
-            
-            command -v node >/dev/null 2>&1 || {
-              echo "Error: node not found in PATH"
-              exit 1
-            }
-            
-            command -v zip >/dev/null 2>&1 || {
-              echo "Error: zip not found in PATH"
-              exit 1
-            }
-            
-            command -v file >/dev/null 2>&1 || {
-              echo "Error: file not found in PATH"
-              exit 1
-            }
-            
-            command -v pkg >/dev/null 2>&1 || {
-              echo "Error: pkg not found in PATH after installation attempt"
-              exit 1
-            }
-            
-            # Run the executable build script
-            # PATH is already exported and includes runtimeInputs from writeShellApplication
+            # Run build script (all tools guaranteed by Nix runtimeInputs)
             bash ./scripts/executable-local-linux.sh
             exit $?
           '';

@@ -102,6 +102,20 @@ cp -R ./build/* packages/
   exit 1
 }
 
+# Remove type: module from package.json files after copy (build files are CommonJS)
+echo "Removing 'type: module' from package.json files (after build copy)..."
+gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' ./package.json
+
+# Remove type module from all package package.json files
+for package in ./packages/*/package.json
+do
+  [ ! -f "$package" ] && continue
+  # Skip packages that don't have type: module
+  [ "$package" = "./packages/dom/package.json" ] && continue
+  [ "$package" = "./packages/sdk-utils/package.json" ] && continue
+  gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' "$package"
+done
+
 # Create executable (Linux ARM64 only)
 echo "Building Linux ARM64 executable with pkg..."
 # Guard: Verify run.js exists before building

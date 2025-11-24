@@ -4,6 +4,16 @@ set -e -o pipefail
 # Local build script for Linux ARM64 only
 # Skips macOS/Windows signing steps that require credentials
 
+# Cleanup function to restore git changes and remove temporary files
+cleanup() {
+  echo "Cleaning up..."
+  git restore . 2>/dev/null || true
+  rm -f packages/dom/src/serialize-blob-urls.js packages/dom/test/serialize-blob-urls.test.js 2>/dev/null || true
+}
+
+# Set trap to run cleanup on exit (success or error)
+trap cleanup EXIT
+
 echo "Building Linux ARM64 executable locally..."
 
 # Check for required dependencies - use gsed if available, otherwise use sed (GNU sed in Nix)
@@ -19,7 +29,7 @@ else
   exit 1
 fi
 
-if ! command -v pkg &> /dev/null; then
+if ! command -v pkg > /dev/null 2>&1; then
   echo "Installing pkg..."
   npm install -g pkg
 fi
@@ -118,10 +128,9 @@ fi
 echo "Creating zip file..."
 zip percy-linux.zip percy
 
-# Cleanup: restore git changes and remove temporary files
-echo "Cleaning up..."
-git restore .
-rm -f packages/dom/src/serialize-blob-urls.js packages/dom/test/serialize-blob-urls.test.js
+# Disable trap for successful completion (cleanup will still run via trap on exit)
+trap - EXIT
+cleanup
 
 echo ""
 echo "✓ Build complete!"

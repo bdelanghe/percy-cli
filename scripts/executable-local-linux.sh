@@ -6,10 +6,12 @@ set -e -o pipefail
 
 echo "Building Linux ARM64 executable locally..."
 
-# Install dependencies if not already installed
+# Check for required dependencies
 if ! command -v gsed &> /dev/null; then
-  echo "Installing gnu-sed..."
-  brew install gnu-sed
+  echo "Error: gsed (gnu-sed) is required but not found."
+  echo "If using Nix, run: nix develop"
+  echo "Otherwise, install gsed: brew install gnu-sed (macOS) or apt-get install gsed (Linux)"
+  exit 1
 fi
 
 if ! command -v pkg &> /dev/null; then

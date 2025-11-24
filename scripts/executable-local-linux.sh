@@ -56,7 +56,12 @@ for package in "${array[@]}"
 do
   [ -z "$package" ] && continue
   # Skip packages that are in delete list
-  [[ " ${delete[@]} " =~ " ${package} " ]] && continue
+  skip=false
+  for del in "${delete[@]}"
+  do
+    [ "$package" = "$del" ] && skip=true && break
+  done
+  [ "$skip" = "true" ] && continue
   gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' "$package"
 done
 
@@ -110,7 +115,12 @@ for package in "${array2[@]}"
 do
   [ -z "$package" ] && continue
   # Skip packages that are in delete2 list
-  [[ " ${delete2[@]} " =~ " ${package} " ]] && continue
+  skip=false
+  for del in "${delete2[@]}"
+  do
+    [ "$package" = "$del" ] && skip=true && break
+  done
+  [ "$skip" = "true" ] && continue
   gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' "$package"
 done
 

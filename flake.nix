@@ -69,12 +69,43 @@
             
             # Note: runtimeInputs (gsed, gnused, etc.) are automatically added to PATH by writeShellApplication
             
-            # Install pkg to user-writable location if not already installed
-            if ! command -v pkg &>/dev/null || ! pkg --version &>/dev/null; then
+            # Preflight: Ensure pkg is installed
+            command -v pkg >/dev/null 2>&1 || {
               echo "Installing pkg to $NPM_CONFIG_PREFIX..."
               mkdir -p "$NPM_CONFIG_PREFIX"
               npm install -g pkg
-            fi
+            }
+            
+            # Guard: Verify required tools are available (from runtimeInputs)
+            command -v gsed >/dev/null 2>&1 || {
+              echo "Error: gsed not found in PATH"
+              exit 1
+            }
+            
+            command -v yarn >/dev/null 2>&1 || {
+              echo "Error: yarn not found in PATH"
+              exit 1
+            }
+            
+            command -v node >/dev/null 2>&1 || {
+              echo "Error: node not found in PATH"
+              exit 1
+            }
+            
+            command -v zip >/dev/null 2>&1 || {
+              echo "Error: zip not found in PATH"
+              exit 1
+            }
+            
+            command -v file >/dev/null 2>&1 || {
+              echo "Error: file not found in PATH"
+              exit 1
+            }
+            
+            command -v pkg >/dev/null 2>&1 || {
+              echo "Error: pkg not found in PATH after installation attempt"
+              exit 1
+            }
             
             # Run the executable build script
             exec bash ./scripts/executable-local-linux.sh

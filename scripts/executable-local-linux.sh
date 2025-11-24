@@ -20,32 +20,13 @@ trap cleanup EXIT
 
 echo "Building Linux ARM64 executable locally..."
 
-# Check for required dependencies - use gsed if available, otherwise use sed (GNU sed in Nix)
-# In Nix environment, gsed should be available via runtimeInputs
-SED_CMD=""
-if command -v gsed >/dev/null 2>&1; then
-  SED_CMD=gsed
-elif command -v sed >/dev/null 2>&1; then
-  # Test if it's GNU sed by checking for --version support
-  if sed --version >/dev/null 2>&1; then
-    SED_CMD=sed
-  fi
-fi
+# Note: Environment setup (gsed, pkg, PATH, yarn, node) is handled by Nix flake
+# This script assumes all tools are available via runtimeInputs
 
-if [ -z "$SED_CMD" ]; then
-  echo "Error: gsed or GNU sed is required but not found."
-  echo "Current PATH: $PATH"
-  echo "If using Nix, ensure gsed is in PATH"
-  echo "Otherwise, install gsed: brew install gnu-sed (macOS) or apt-get install gsed (Linux)"
-  exit 1
-fi
-
-echo "Using sed command: $SED_CMD"
-
-if ! command -v pkg > /dev/null 2>&1; then
-  echo "Installing pkg..."
-  npm install -g pkg
-fi
+# Cleanup: Remove old build artifacts
+echo "Cleaning up old build artifacts..."
+rm -f percy run run-linux-arm64 run-macos-arm64 run-win-arm64.exe percy.exe percy-osx
+rm -f percy-linux.zip percy-osx.zip
 
 # Build source
 echo "Installing dependencies..."
@@ -54,9 +35,15 @@ yarn install
 echo "Building source..."
 yarn build
 
+# Guard: Verify build artifacts exist
+[ ! -d ./packages/cli/dist ] && {
+  echo "Error: Build failed - ./packages/cli/dist not found"
+  exit 1
+}
+
 # Remove type from package.json files
 echo "Removing 'type: module' from package.json files..."
-$SED_CMD -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' ./package.json
+gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' ./package.json
 
 # Create array of package.json files
 array=($(ls -d ./packages/*/package.json))
@@ -71,27 +58,50 @@ done
 # Remove type module from package.json where present
 for package in "${array[@]}"
 do
-  if [ ! -z "$package" ]
-  then
-    $SED_CMD -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' $package
-  fi
+  [ -z "$package" ] && continue
+  gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' $package
 done
 
 # Patch the CLI entry file
 echo "Patching CLI entry file..."
+# Guard: Verify source file exists before patching
+[ ! -f ./packages/cli/dist/percy.js ] && {
+  echo "Error: ./packages/cli/dist/percy.js not found"
+  exit 1
+}
+
 echo "import { cli } from '@percy/cli';\
 $(cat ./packages/cli/dist/percy.js)" > ./packages/cli/dist/percy.js
 
-$SED_CMD -i '/Update NODE_ENV for executable/{s//\nprocess.env.NODE_ENV = "executable";/;h};${x;/./{x;q0};x;q1}' ./packages/cli/bin/run.cjs
+# Guard: Verify run.cjs exists before patching
+[ ! -f ./packages/cli/bin/run.cjs ] && {
+  echo "Error: ./packages/cli/bin/run.cjs not found"
+  exit 1
+}
+
+gsed -i '/Update NODE_ENV for executable/{s//\nprocess.env.NODE_ENV = "executable";/;h};${x;/./{x;q0};x;q1}' ./packages/cli/bin/run.cjs
 
 # Convert ES6 code to cjs
 echo "Converting to CommonJS..."
 npm run build_cjs
+
+# Guard: Verify build_cjs artifacts exist
+[ ! -d ./build ] && {
+  echo "Error: Build failed - ./build directory not found"
+  exit 1
+}
+
 cp -R ./build/* packages/
+
+# Guard: Verify files were copied
+[ ! -f ./packages/cli/bin/run.js ] && {
+  echo "Error: ./packages/cli/bin/run.js not found after copy"
+  exit 1
+}
 
 # Remove type from package.json files again (after copy, to ensure they're all updated)
 echo "Removing 'type: module' from package.json files (after build)..."
-$SED_CMD -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' ./package.json
+gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' ./package.json
 
 # Recreate array of package.json files for second pass
 array2=($(ls -d ./packages/*/package.json))
@@ -104,42 +114,54 @@ done
 # Remove type module from package.json where present
 for package in "${array2[@]}"
 do
-  if [ ! -z "$package" ]
-  then
-    $SED_CMD -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' $package
-  fi
+  [ -z "$package" ] && continue
+  gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' $package
 done
 
 # Create executable (Linux ARM64 only)
 echo "Building Linux ARM64 executable with pkg..."
+# Guard: Verify run.js exists before building
+[ ! -f ./packages/cli/bin/run.js ] && {
+  echo "Error: ./packages/cli/bin/run.js not found"
+  exit 1
+}
+
 pkg ./packages/cli/bin/run.js \
   --targets node18-linux-arm64
 
 # Rename executable
 echo "Renaming executable..."
-if [ -f run-linux-arm64 ]; then
-  mv run-linux-arm64 percy && chmod +x percy
-elif [ -f run ]; then
-  mv run percy && chmod +x percy
-else
+# Preflight: Check for expected executable files
+[ -f run-linux-arm64 ] && mv run-linux-arm64 percy && chmod +x percy
+[ -f run ] && [ ! -f percy ] && mv run percy && chmod +x percy
+
+# Guard: Exit if executable not found (right after pkg completes)
+[ ! -f percy ] && {
   echo "Error: Expected executable file 'run-linux-arm64' or 'run' not found"
   exit 1
-fi
+}
 
 # Verify architecture
 echo "Verifying binary architecture..."
-if file percy | grep -q "aarch64\|ARM"; then
-  echo "✓ percy (Linux) is ARM64"
-  file percy
-else
+# Guard: Verify binary is ARM64
+file percy | grep -q "aarch64\|ARM" || {
   echo "✗ percy (Linux) is NOT ARM64"
   file percy
   exit 1
-fi
+}
+
+echo "✓ percy (Linux) is ARM64"
+file percy
 
 # Create zip file
 echo "Creating zip file..."
 zip percy-linux.zip percy
+
+# Guard: Verify zip file was created
+[ ! -f percy-linux.zip ] && {
+  echo "Error: Failed to create percy-linux.zip"
+  exit 1
+}
 
 # Disable trap before explicit cleanup to avoid running twice
 trap - EXIT

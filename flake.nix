@@ -65,6 +65,7 @@
             
             # Set up npm prefix to user-writable location (Nix store is read-only)
             export NPM_CONFIG_PREFIX="$HOME/.local/npm-packages"
+            # Preserve original PATH (with runtimeInputs) and prepend npm prefix
             export PATH="$NPM_CONFIG_PREFIX/bin:''${PATH}"
             
             # Note: runtimeInputs (gsed, gnused, etc.) are automatically added to PATH by writeShellApplication
@@ -79,6 +80,7 @@
             # Guard: Verify required tools are available (from runtimeInputs)
             command -v gsed >/dev/null 2>&1 || {
               echo "Error: gsed not found in PATH"
+              echo "PATH: ''${PATH}"
               exit 1
             }
             
@@ -108,7 +110,9 @@
             }
             
             # Run the executable build script
-            exec bash ./scripts/executable-local-linux.sh
+            # PATH is already exported and includes runtimeInputs from writeShellApplication
+            bash ./scripts/executable-local-linux.sh
+            exit $?
           '';
         };
 

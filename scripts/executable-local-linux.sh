@@ -50,16 +50,14 @@ array=($(ls -d ./packages/*/package.json))
 
 # Delete package.json filepath where type module is not defined
 delete=(./packages/dom/package.json ./packages/sdk-utils/package.json)
-for del in ${delete[@]}
-do
-   array=("${array[@]/$del}")
-done
 
 # Remove type module from package.json where present
 for package in "${array[@]}"
 do
   [ -z "$package" ] && continue
-  gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' $package
+  # Skip packages that are in delete list
+  [[ " ${delete[@]} " =~ " ${package} " ]] && continue
+  gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' "$package"
 done
 
 # Patch the CLI entry file
@@ -106,16 +104,14 @@ gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' ./package.json
 # Recreate array of package.json files for second pass
 array2=($(ls -d ./packages/*/package.json))
 delete2=(./packages/dom/package.json ./packages/sdk-utils/package.json)
-for del in ${delete2[@]}
-do
-   array2=("${array2[@]/$del}")
-done
 
 # Remove type module from package.json where present
 for package in "${array2[@]}"
 do
   [ -z "$package" ] && continue
-  gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' $package
+  # Skip packages that are in delete2 list
+  [[ " ${delete2[@]} " =~ " ${package} " ]] && continue
+  gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' "$package"
 done
 
 # Create executable (Linux ARM64 only)

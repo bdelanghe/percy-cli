@@ -73,7 +73,14 @@ pkg ./packages/cli/bin/run.js \
 
 # Rename executable
 echo "Renaming executable..."
-mv run-linux-arm64 percy && chmod +x percy
+if [ -f run-linux-arm64 ]; then
+  mv run-linux-arm64 percy && chmod +x percy
+elif [ -f run ]; then
+  mv run percy && chmod +x percy
+else
+  echo "Error: Expected executable file 'run-linux-arm64' or 'run' not found"
+  exit 1
+fi
 
 # Verify architecture
 echo "Verifying binary architecture..."
@@ -89,6 +96,11 @@ fi
 # Create zip file
 echo "Creating zip file..."
 zip percy-linux.zip percy
+
+# Cleanup: restore git changes and remove temporary files
+echo "Cleaning up..."
+git restore .
+rm -f packages/dom/src/serialize-blob-urls.js packages/dom/test/serialize-blob-urls.test.js
 
 echo ""
 echo "✓ Build complete!"

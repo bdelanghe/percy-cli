@@ -69,7 +69,17 @@ cp -R ./build/* packages/
 # Remove type from package.json files again (after copy, to ensure they're all updated)
 echo "Removing 'type: module' from package.json files (after build)..."
 $SED_CMD -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' ./package.json
-for package in "${array[@]}"
+
+# Recreate array of package.json files for second pass
+array2=($(ls -d ./packages/*/package.json))
+delete2=(./packages/dom/package.json ./packages/sdk-utils/package.json)
+for del in ${delete2[@]}
+do
+   array2=("${array2[@]/$del}")
+done
+
+# Remove type module from package.json where present
+for package in "${array2[@]}"
 do
   if [ ! -z "$package" ]
   then

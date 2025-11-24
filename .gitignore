@@ -14,3 +14,7 @@ build/
 packages/cli/bin/run.js
 run
 run-linux-arm64
+percy
+percy-linux.zip
+percy-osx
+percy.exe

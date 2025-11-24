@@ -69,8 +69,7 @@ cp -R ./build/* packages/
 # Create executable (Linux ARM64 only)
 echo "Building Linux ARM64 executable with pkg..."
 pkg ./packages/cli/bin/run.js \
-  --targets node18-linux-arm64 \
-  -d
+  --targets node18-linux-arm64
 
 # Rename executable
 echo "Renaming executable..."

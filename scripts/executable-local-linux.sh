@@ -21,17 +21,26 @@ trap cleanup EXIT
 echo "Building Linux ARM64 executable locally..."
 
 # Check for required dependencies - use gsed if available, otherwise use sed (GNU sed in Nix)
-if command -v gsed &> /dev/null; then
+# In Nix environment, gsed should be available via runtimeInputs
+SED_CMD=""
+if command -v gsed >/dev/null 2>&1; then
   SED_CMD=gsed
-elif command -v sed &> /dev/null && sed --version &> /dev/null; then
-  # Check if sed is GNU sed (has --version flag)
-  SED_CMD=sed
-else
+elif command -v sed >/dev/null 2>&1; then
+  # Test if it's GNU sed by checking for --version support
+  if sed --version >/dev/null 2>&1; then
+    SED_CMD=sed
+  fi
+fi
+
+if [ -z "$SED_CMD" ]; then
   echo "Error: gsed or GNU sed is required but not found."
-  echo "If using Nix, run: nix develop"
+  echo "Current PATH: $PATH"
+  echo "If using Nix, ensure gsed is in PATH"
   echo "Otherwise, install gsed: brew install gnu-sed (macOS) or apt-get install gsed (Linux)"
   exit 1
 fi
+
+echo "Using sed command: $SED_CMD"
 
 if ! command -v pkg > /dev/null 2>&1; then
   echo "Installing pkg..."

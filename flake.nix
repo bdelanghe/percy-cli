@@ -65,7 +65,9 @@
             
             # Set up npm prefix to user-writable location (Nix store is read-only)
             export NPM_CONFIG_PREFIX="$HOME/.local/npm-packages"
-            export PATH="$NPM_CONFIG_PREFIX/bin:$PATH"
+            export PATH="$NPM_CONFIG_PREFIX/bin:''${PATH}"
+            
+            # Note: runtimeInputs (gsed, gnused, etc.) are automatically added to PATH by writeShellApplication
             
             # Install pkg to user-writable location if not already installed
             if ! command -v pkg &>/dev/null || ! pkg --version &>/dev/null; then

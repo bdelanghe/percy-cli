@@ -44,13 +44,20 @@ gsed -i '/Update NODE_ENV for executable/{s//\nprocess.env.NODE_ENV = "executabl
 npm run build_cjs
 cp -R ./build/* packages/
 
-# Create executables
-pkg ./packages/cli/bin/run.js -d
+# Create executables (ARM64 for all OSes)
+pkg ./packages/cli/bin/run.js \
+  --targets node18-linux-arm64,node18-macos-arm64,node18-win-arm64 \
+  -d
 
-# Rename executables
-mv run-linux percy && chmod +x percy
-mv run-macos percy-osx && chmod +x percy-osx
-mv run-win.exe percy.exe && chmod +x percy.exe
+# Rename executables (ARM64)
+mv run-linux-arm64 percy && chmod +x percy
+mv run-macos-arm64 percy-osx && chmod +x percy-osx
+mv run-win-arm64.exe percy.exe && chmod +x percy.exe
+
+# Verify architectures
+echo "Verifying binary architectures..."
+file percy-osx | grep -q "arm64" && echo "✓ percy-osx is ARM64" || echo "✗ percy-osx is NOT ARM64"
+file percy | grep -q "aarch64\|ARM" && echo "✓ percy (Linux) is ARM64" || echo "✗ percy (Linux) is NOT ARM64"
 
 # Sign & Notrize mac app
 echo "$APPLE_DEV_CERT" | base64 -d > AppleDevIDApp.p12

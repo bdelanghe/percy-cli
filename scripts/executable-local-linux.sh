@@ -102,28 +102,6 @@ cp -R ./build/* packages/
   exit 1
 }
 
-# Remove type from package.json files again (after copy, to ensure they're all updated)
-echo "Removing 'type: module' from package.json files (after build)..."
-gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' ./package.json
-
-# Recreate array of package.json files for second pass
-array2=($(ls -d ./packages/*/package.json))
-delete2=(./packages/dom/package.json ./packages/sdk-utils/package.json)
-
-# Remove type module from package.json where present
-for package in "${array2[@]}"
-do
-  [ -z "$package" ] && continue
-  # Skip packages that are in delete2 list
-  skip=false
-  for del in "${delete2[@]}"
-  do
-    [ "$package" = "$del" ] && skip=true && break
-  done
-  [ "$skip" = "true" ] && continue
-  gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' "$package"
-done
-
 # Create executable (Linux ARM64 only)
 echo "Building Linux ARM64 executable with pkg..."
 # Guard: Verify run.js exists before building

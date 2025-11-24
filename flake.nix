@@ -22,7 +22,7 @@
           buildInputs = with pkgs; [
             # Build tools
             gnumake
-            gsed
+            gnused  # provides gsed
             zip
             file
             

@@ -66,6 +66,17 @@ echo "Converting to CommonJS..."
 npm run build_cjs
 cp -R ./build/* packages/
 
+# Remove type from package.json files again (after copy, to ensure they're all updated)
+echo "Removing 'type: module' from package.json files (after build)..."
+$SED_CMD -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' ./package.json
+for package in "${array[@]}"
+do
+  if [ ! -z "$package" ]
+  then
+    $SED_CMD -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' $package
+  fi
+done
+
 # Create executable (Linux ARM64 only)
 echo "Building Linux ARM64 executable with pkg..."
 pkg ./packages/cli/bin/run.js \

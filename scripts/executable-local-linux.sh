@@ -6,9 +6,13 @@ set -e -o pipefail
 
 # Cleanup function to restore git changes and remove temporary files
 cleanup() {
+  local exit_code=$?
   echo "Cleaning up..."
+  set +e  # Disable exit on error for cleanup
   git restore . 2>/dev/null || true
   rm -f packages/dom/src/serialize-blob-urls.js packages/dom/test/serialize-blob-urls.test.js 2>/dev/null || true
+  set -e  # Re-enable exit on error
+  return $exit_code  # Return the original exit code
 }
 
 # Set trap to run cleanup on exit (success or error)
@@ -128,7 +132,7 @@ fi
 echo "Creating zip file..."
 zip percy-linux.zip percy
 
-# Disable trap for successful completion (cleanup will still run via trap on exit)
+# Disable trap before explicit cleanup to avoid running twice
 trap - EXIT
 cleanup
 

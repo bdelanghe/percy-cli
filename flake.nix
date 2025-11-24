@@ -16,13 +16,19 @@
         # Use latest Node.js - pkg will use Node 18 from the --targets flag anyway
         nodejs = pkgs.nodejs;
 
+        # Create gsed command from gnused
+        gsed = pkgs.writeShellScriptBin "gsed" ''
+          exec ${pkgs.gnused}/bin/sed "$@"
+        '';
+
       in
       {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             # Build tools
             gnumake
-            gnused  # provides gsed
+            gnused
+            gsed  # gsed command wrapper
             zip
             file
             
@@ -39,20 +45,11 @@
             export NPM_CONFIG_PREFIX="$HOME/.local/npm-packages"
             export PATH="$NPM_CONFIG_PREFIX/bin:$PATH"
             
-            # Create alias for gsed if gnused doesn't provide it directly
-            if ! command -v gsed &>/dev/null && command -v sed &>/dev/null; then
-              alias gsed=sed
-            fi
-            
             echo "Available tools:"
             echo "  - node: $(node --version)"
             echo "  - npm: $(npm --version)"
             echo "  - yarn: $(yarn --version)"
-            if command -v gsed &>/dev/null; then
-              echo "  - gsed: $(gsed --version | head -1)"
-            else
-              echo "  - sed: $(sed --version 2>/dev/null | head -1 || echo 'GNU sed (via gnused)')"
-            fi
+            echo "  - gsed: $(gsed --version | head -1)"
             echo ""
             echo "To build Linux ARM64 executable:"
             echo "  ./scripts/executable-local-linux.sh"

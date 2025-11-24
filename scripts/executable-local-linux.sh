@@ -6,9 +6,14 @@ set -e -o pipefail
 
 echo "Building Linux ARM64 executable locally..."
 
-# Check for required dependencies
-if ! command -v gsed &> /dev/null; then
-  echo "Error: gsed (gnu-sed) is required but not found."
+# Check for required dependencies - use gsed if available, otherwise use sed (GNU sed in Nix)
+if command -v gsed &> /dev/null; then
+  SED_CMD=gsed
+elif command -v sed &> /dev/null && sed --version &> /dev/null; then
+  # Check if sed is GNU sed (has --version flag)
+  SED_CMD=sed
+else
+  echo "Error: gsed or GNU sed is required but not found."
   echo "If using Nix, run: nix develop"
   echo "Otherwise, install gsed: brew install gnu-sed (macOS) or apt-get install gsed (Linux)"
   exit 1
@@ -28,7 +33,7 @@ yarn build
 
 # Remove type from package.json files
 echo "Removing 'type: module' from package.json files..."
-gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' ./package.json
+$SED_CMD -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' ./package.json
 
 # Create array of package.json files
 array=($(ls -d ./packages/*/package.json))
@@ -45,7 +50,7 @@ for package in "${array[@]}"
 do
   if [ ! -z "$package" ]
   then
-    gsed -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' $package
+    $SED_CMD -i '/"type": "module",/{s///;h};${x;/./{x;q0};x;q1}' $package
   fi
 done
 
@@ -54,7 +59,7 @@ echo "Patching CLI entry file..."
 echo "import { cli } from '@percy/cli';\
 $(cat ./packages/cli/dist/percy.js)" > ./packages/cli/dist/percy.js
 
-gsed -i '/Update NODE_ENV for executable/{s//\nprocess.env.NODE_ENV = "executable";/;h};${x;/./{x;q0};x;q1}' ./packages/cli/bin/run.cjs
+$SED_CMD -i '/Update NODE_ENV for executable/{s//\nprocess.env.NODE_ENV = "executable";/;h};${x;/./{x;q0};x;q1}' ./packages/cli/bin/run.cjs
 
 # Convert ES6 code to cjs
 echo "Converting to CommonJS..."
